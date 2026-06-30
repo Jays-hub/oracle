@@ -5,6 +5,39 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-06-30 — Added a full-stack-flavored reviewer: `web-reviewer` + `/review-web` `[change]`
+
+At Jay's request, split the adversarial reviewer in two rather than overload the ML-flavored one.
+`phase-reviewer`/`/review-phase` stays the engine reviewer (DS/MLE leakage, splits, dollar-metric
+verdict — P0–P8). New peer pair for the on-ramp web stack:
+
+- `.claude/agents/web-reviewer.md` (new) — read-only, Opus, frames itself as a senior full-stack
+  engineer. Hunt list is the web-stack equivalent of the ML one: seam firewall (same law, `onramp/`
+  side), `05` architecture layering (pure compute vs. API vs. presentation, durable-chrome-vs-
+  provisional-product), `06` UI trust (false precision, cost/margin reconciling on the *displayed*
+  number, tenant isolation, firewall leakage to the browser), `07` API/backend correctness (schema
+  validation gate, idempotent seam writes, typed/friendly error handling, authN/Z). Same report
+  format, severity tiers, and COMPREHENSION HANDOFF sign-off as `phase-reviewer`; verdict still
+  doesn't self-close the phase.
+- `.claude/commands/review-web.md` (new) — `/review-web Wn`, scoped to
+  `onramp/plate_cost/docs/website_vision.md` §8 acceptance criteria instead of
+  `forecasting/docs/construction_roadmap.md`. Same diff-base + decision-log gathering, same
+  comprehension-exit-gate section as `/review-phase`, copied verbatim where the gate logic doesn't
+  differ by domain.
+
+Why split rather than extend: the ML reviewer's hunt list (leakage, splits, dollar baselines) doesn't
+transfer to web code, and folding both into one prompt would dilute either checklist. Naming makes the
+split legible — `phase-reviewer` keeps the original name since `P0`-`P8` is where it has always
+applied; `web-reviewer` and `/review-web` are the new, on-ramp-scoped names. `build-phase` was left
+untouched — it already branches by phase id (`Pn` vs `Wn`) reading the matching spec, so it didn't need
+a `build-web` counterpart.
+
+Not done: `web-reviewer` has not yet been run against a real `Wn` phase (none built yet — `onramp/`
+is still Phase-0-only per `CLAUDE.md` Current status). The efficiency-backlog item "record reviewer
+output" (below) applies to this new reviewer too once a web phase exists to review.
+
+---
+
 ## 2026-06-30 — Comprehension gate inverted: build is ungated, the review's *exit* is the gate `[change]`
 
 At Jay's direction, removed the pre-code blocking gate and replaced it with a **review-exit
@@ -33,8 +66,8 @@ Files changed in this pass:
   review closes)" with the four-part explanation.
 
 Not done: no built phase has yet exercised the new exit gate; `docs/phase_decisions/` still holds only
-the template. The audit's other gaps (no CI, the red lag-7 test, stale memory) are untouched by this
-change and remain open in `efficiency_backlog.md`.
+the template. The audit's other gaps (no CI, stale memory) are untouched by this change and remain
+open in `efficiency_backlog.md`.
 
 ---
 
@@ -42,7 +75,9 @@ change and remain open in `efficiency_backlog.md`.
 
 First full audit of the agentic workflow. Read every governance doc, both memory files, ran the
 suite, checked the firewall and git history. Snapshot below is the verified state, not the narrated
-one.
+one. (Project-state facts this audit turned up — test counts, the firewall check, the dollar
+baseline figure, a red test found in `forecasting/` — are logged in `docs/progress_log.md`, not
+here; this file stays scoped to the workflow machinery itself.)
 
 ### What the workflow consists of (the machinery)
 - **The gate.** Comprehension Contract (`.claude/rules/00-process.md`, `alwaysApply:true`) — Gates
@@ -57,37 +92,27 @@ one.
 - **Memory.** `~/.claude/.../memory/` — `MEMORY.md` index + `project_status.md` + `user_profile.md`.
 
 ### Verified WORKING (ran/grepped, not trusted)
-- **The seam firewall holds in code.** No `_truth` reference under
-  `forecasting/src/{data,features,models,decision,report}`; no real `forecasting` import in
-  `onramp/` (only doc/comment mentions). `tests/test_module_boundaries.py` exists and passes. This
-  is the platform's highest-priority law and it is enforced in fact.
 - **Anti-Drift honored in practice.** The 2026-06-29 forward-notes entry *declined* to build engine
   ingestion ahead of phase. The on-ramp is genuinely thin; no premature web build.
-- **Dollar-metric discipline is real.** Reproducible raw-only baseline floor ($144,789 clean /
-  $148,882 dirty) via `python -m forecasting.src.evaluate.baseline_floor`.
 - **Path-scoping works.** Engine rules don't load during on-ramp work and vice-versa.
-- **Suite:** 164 tests, **163 pass / 1 FAIL** (see below) in the `restaurant-dev` conda env.
 
 ### Verified BROKEN / GAPS (the backlog addresses each)
 1. **"Runs in CI" is false.** Rules 01 and 02 assert the leakage canary + boundary test "run in CI."
    There is **no `.github/workflows/`, no `.pre-commit-config.yaml`, no git hook.** The most-repeated
    structural guarantee is aspirational prose, not enforcement.
-2. **A red test is in the working tree.** `forecasting/tests/test_features.py::`
-   `test_lag_7_equals_same_weekday_last_week` fails — a leakage-adjacent lag test, the exact defect
-   class the workflow exists to catch — yet P2 was recorded as progressing. (Test comment is itself
-   internally inconsistent: "day 8 / index 7 / day 1" — fix the test or the pipeline lag selection.)
-3. **Stale memory.** `project_status.md` claims "149 tests pass"; reality is 164 w/ 1 failing. No
-   mechanism reconciles memory against file/git state.
-4. **No gate artifacts produced.** `docs/phase_decisions/` holds only `_template.md` — no P0/P1/P2
+2. **Stale memory.** `project_status.md` drifted from the file/git reality (wrong test count) with no
+   mechanism to reconcile memory against actual state.
+3. **No gate artifacts produced.** `docs/phase_decisions/` holds only `_template.md` — no P0/P1/P2
    decision logs. No notebooks exist at all. Gate 4 is recorded only as prose in `progress_log.md`;
    the mandated per-phase artifact was never produced, so the gate is effectively self-certified.
-5. **Governance redundancy ~40%.** The firewall law is restated ~11×, dollars-not-accuracy ~6×,
+4. **Governance redundancy ~40%.** The firewall law is restated ~11×, dollars-not-accuracy ~6×,
    anti-drift ~6×, the four gates re-listed verbatim in `build-phase.md` despite its own "don't
    restate" instruction. ~9.6k governance tokens on a typical engine-build turn, ~40% avoidable.
-6. **Aspirational load paid now.** Rules `05+07` (~2.4k tok) load on any `onramp/*.py` edit despite
+5. **Aspirational load paid now.** Rules `05+07` (~2.4k tok) load on any `onramp/*.py` edit despite
    zero web-stack code; rule `04`'s registry/drift machinery targets empty `report/`+`decision/` dirs.
 
 ### Git reality vs. narrated process
-3 commits, all 2026-06-30; P0+P1 squashed into "Initial commit." The many discrete gated steps +
-audit passes (#1–#11) the log narrates have no corresponding granular git trail. The adversarial
-`phase-reviewer` has no committed output for any phase — cannot confirm it was run vs. self-reviewed.
+3 commits, all 2026-06-30; multiple build phases squashed into single commits. The many discrete
+gated steps + audit passes (#1–#11) the log narrates have no corresponding granular git trail. The
+adversarial `phase-reviewer` has no committed output for any phase — cannot confirm it was run vs.
+self-reviewed.

@@ -99,6 +99,13 @@ verified against `_truth/`.
 > **Candy warning:** resist deep sequence models (TFT/N-BEATS/DeepAR) here. For one restaurant and a
 > few dozen items, a well-featured GBM wins and is faster to value. Park them for Phase 6 scale.
 
+> **Open bug (found 2026-06-30, unfixed):** `forecasting/tests/test_features.py::`
+> `test_lag_7_equals_same_weekday_last_week` is red — a leakage-adjacent lag test, the exact defect
+> class Phase 2 exists to guard against. Decide whether the lag-7 selection in
+> `forecasting/src/features/pipeline.py` is wrong or the test's day-index arithmetic is (its comment
+> is internally inconsistent: "day 8 / index 7 / day 1"). Do not record further Phase 2 progress over
+> this red test. Logged in `docs/progress_log.md` (2026-06-30 audit entry).
+
 ---
 
 ## Phase 3 — Censored-demand unconstraining

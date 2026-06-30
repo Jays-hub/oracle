@@ -74,8 +74,10 @@ import the other; the only thing they share is the seam.
 The **on-ramp** (`onramp/plate_cost/`) has its **Phase-0 tool built and running**: BOM + plate-cost
 compute, the popularity×margin grid, and a schema-validated export of the sales + BOM legs into the
 seam (`data/raw/`). Shared seam schemas (`schemas/`) and a test suite — including the cross-module
-boundary test — are in place. The **forecasting engine** (`forecasting/`) is still package skeleton
-only (empty); nothing built. The common store exists with its contract.
+boundary test — are in place. The **forecasting engine** (`forecasting/`) has **P0–P2 built**: the
+decision frame, the simulated-data generator + baselines + backtest harness, and the data-cleaning +
+feature pipeline + point model. See `forecasting/CLAUDE.md` Current status for detail, including one
+known open test failure. The common store exists with its contract.
 
 **Storage decided (2026-06-25): DuckDB-over-Parquet** is the shared store
 (`docs/common_base_reconciliation.md`) — the `data/raw/**` files stay the firewall, DuckDB is the

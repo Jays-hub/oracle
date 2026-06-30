@@ -16,11 +16,6 @@ Priority key: **P0** = correctness/false-guarantee (do first) · **P1** = real t
       enforcement that isn't there.
       *Effect: turns the most-repeated structural guarantee from prose into fact; catches firewall
       and leakage regressions automatically.*
-- [ ] **Fix the red test.** `forecasting/tests/test_features.py::`
-      `test_lag_7_equals_same_weekday_last_week` is failing. Decide whether the lag-7 selection in
-      `forecasting/src/features/pipeline.py` is wrong or the test's day-index arithmetic is (its
-      comment is self-inconsistent). Do not record P2 progress over a red leakage-class test.
-      *Effect: removes a live failure in the exact defect class the workflow exists to prevent.*
 
 ## P1 — reclaim avoidable tokens & tighten process
 
@@ -35,7 +30,8 @@ Priority key: **P0** = correctness/false-guarantee (do first) · **P1** = real t
 - [ ] **Demote stale memory to a pointer.** Replace the body of memory `project_status.md` with ~3
       lines pointing at `docs/progress_log.md` as the authoritative, versioned source. Keep
       `user_profile.md` (it earns its keep). *Effect: removes ~1.4k tok/session of recalled content
-      that is already wrong (claims 149 tests) and kills the stale-memory failure mode.*
+      that drifts from reality (it has already gone stale once) and kills the stale-memory failure
+      mode for good.*
 - [ ] **Produce the gate artifact the contract mandates.** For each built phase write
       `docs/phase_decisions/Pn.md` from `_template.md` with Gate 4 verbatim. Backfill P0/P1/P2 or
       decide the progress-log quote suffices and amend `build-phase.md` to stop requiring a separate

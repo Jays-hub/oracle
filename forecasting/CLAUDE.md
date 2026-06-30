@@ -104,11 +104,25 @@ contract) · `strategic_context` (why this wedge, the closed lanes, the 5-part t
 (the shared-store / common-DB decision log).
 
 ## Current status
-**P0 complete + config-gated (2026-06-29).** `config/items.yaml` (Co/Cu/prep_type/lead_time for all
-11 items) + `forecasting/src/evaluate/objective.py` (`dollar_loss`, `critical_ratio`,
-`total_realized_cost`) + `forecasting/src/config.py` (the validated `load_items()` head-chef gate:
-`PrepType` enum + `ItemEconomics` model — positive costs, known prep_type, no stray keys, no
-duplicate ids/names, fails loud and named). 32 engine tests. The dollar measuring stick exists,
-"done" is defined, and the economics can no longer drift silently.
-**P1 is next:** simulated data generator + baselines + rolling-origin backtest harness.
+**P0–P2 built** (P0 2026-06-29; P1+P2 committed 2026-06-30 but not logged at the time — backfilled
+here and in `docs/progress_log.md`).
+- **P0 — config-gated.** `config/items.yaml` (Co/Cu/prep_type/lead_time for all 11 items) +
+  `forecasting/src/evaluate/objective.py` (`dollar_loss`, `critical_ratio`, `total_realized_cost`) +
+  `forecasting/src/config.py` (validated `load_items()` head-chef gate). The dollar measuring stick
+  exists, "done" is defined, and the economics can no longer drift silently.
+- **P1 — simulated data + baselines + backtest.** `forecasting/src/simulate/generator.py` (the
+  synthetic restaurant → `data/raw/` + `data/_truth/`); `forecasting/src/models/baselines.py`
+  (seasonal-naive / same-weekday rolling mean / Croston); `forecasting/src/evaluate/backtest.py`
+  (rolling-origin CV) + `baseline_floor.py`; `forecasting/src/data/loader.py`. Reproducible raw-only
+  baseline floor: $144,789 (clean) / $148,882 (dirty) via
+  `python -m forecasting.src.evaluate.baseline_floor`.
+- **P2 — cleaning + point model.** `forecasting/src/data/cleaner.py` (pollution stripping, menu-era
+  tagging); `forecasting/src/features/pipeline.py` (calendar, lags, rolling stats, walk-forward CV,
+  leakage canary); `forecasting/src/models/point.py` (point forecast baselines: lag-7, rolling-28,
+  gut-proxy).
+- **Known open issue:** `forecasting/tests/test_features.py::test_lag_7_equals_same_weekday_last_week`
+  is red (see `forecasting/docs/construction_roadmap.md` Phase 2 callout) — unresolved, do not treat
+  P2 as fully clean until fixed.
+- **Suite: 164 tests, 163 pass / 1 fail** (the lag-7 test above).
+**P3 is next:** censored-demand unconstraining — but only once the lag-7 test is fixed.
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.

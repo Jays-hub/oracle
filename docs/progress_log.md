@@ -9,6 +9,58 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-06-30 — Project-state snapshot from a workflow audit `[audit]`
+
+A full audit of the agentic workflow (recorded in `docs/agentic_workflow/current_state.md`) also
+exercised the actual codebase along the way. Project-state facts it surfaced, captured here since
+they're product status, not workflow status:
+
+- **Suite: 164 tests, 163 pass / 1 FAIL** in the `restaurant-dev` conda env.
+- **Known failing test:** `forecasting/tests/test_features.py::test_lag_7_equals_same_weekday_last_week`
+  — a leakage-adjacent lag-7 test, currently red. Flagged as an open issue in
+  `forecasting/docs/construction_roadmap.md` (Phase 2). Not yet fixed.
+- **Seam firewall verified holding in code:** no `_truth` reference under
+  `forecasting/src/{data,features,models,decision,report}`; no real `forecasting` import in
+  `onramp/` (doc/comment mentions only). `tests/test_module_boundaries.py` passes.
+- **Dollar-metric discipline verified reproducible:** raw-only baseline floor of $144,789 (clean) /
+  $148,882 (dirty) via `python -m forecasting.src.evaluate.baseline_floor`.
+
+---
+
+## 2026-06-30 — Backfill: P1 + P2 were built but never logged `[built]` `[backfilled]`
+
+Git/file-state inspection (prompted by the workflow audit above) found `forecasting/` is **not**
+"package skeleton, nothing built" as `CLAUDE.md`/`forecasting/CLAUDE.md` claimed — P1 and P2 are
+both substantially built and committed. They were built across the squashed `a66f85a` ("Initial
+commit") and `2698401` ("Add P2 feature pipeline...") commits without a progress-log entry at the
+time. Backfilling now; `CLAUDE.md` and `forecasting/CLAUDE.md` Current status updated to match.
+
+- **P1 — simulated data + honest baselines + backtest harness** (in `a66f85a`, mislabeled in its own
+  commit message as "P0 (decision frame)" only):
+  - `forecasting/src/simulate/generator.py` — the synthetic-restaurant generator writing
+    `data/raw/` (messy export) + `data/_truth/` (ground truth) per `forecasting/docs/simulated_data.md`.
+  - `forecasting/src/models/baselines.py` — seasonal-naive, same-weekday rolling mean, Croston
+    (intermittent demand).
+  - `forecasting/src/evaluate/backtest.py` — rolling-origin CV harness.
+  - `forecasting/src/evaluate/baseline_floor.py` + `forecasting/src/data/loader.py`.
+  - Reproducible raw-only baseline floor: **$144,789 clean / $148,882 dirty**.
+  - Tests: `test_simulator.py`, `test_baselines.py`, `test_backtest.py`, `test_loader.py`,
+    `test_cleaner.py` (an earlier cleaner version also landed in this commit).
+- **P2 — clean the polluted signal + per-item point model** (in `2698401`):
+  - `forecasting/src/data/cleaner.py` (extended) — pollution stripping, menu-era tagging.
+  - `forecasting/src/features/pipeline.py` — calendar/lag/rolling-stat features, walk-forward CV,
+    a leakage canary.
+  - `forecasting/src/models/point.py` — point-forecast baselines (lag-7, rolling-28, gut-proxy).
+  - Tests: `test_features.py` (288 lines) — **one test is currently red**,
+    `test_lag_7_equals_same_weekday_last_week` (see the audit entry above and
+    `forecasting/docs/construction_roadmap.md` Phase 2). P2 is not clean until this is resolved.
+- **No Comprehension Contract exit was exercised for either phase** — both were built and committed
+  under the old pre-code gate model (before the 2026-06-30 gate inversion, also same day) without a
+  `docs/phase_decisions/Pn.md` artifact. This is the same gap `efficiency_backlog.md` already tracks
+  ("no gate artifacts produced"); noted here so the backfill doesn't imply the gate was cleared.
+
+---
+
 ## 2026-06-29 — Forward notes: Co provenance (#3) + cross-seam join key (#4) `[decided]`
 
 The two conceptual items from the post-P0 review are about the engine↔seam boundary, which the
