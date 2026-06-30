@@ -1,5 +1,7 @@
 ---
-globs: "forecasting/src/report/**/*.py", "forecasting/src/decision/**/*.py"
+paths:
+  - "forecasting/src/report/**/*.py"
+  - "forecasting/src/decision/**/*.py"
 ---
 # Deployment & Serving Rules
 

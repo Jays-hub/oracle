@@ -1,5 +1,7 @@
 ---
-globs: "forecasting/src/features/**/*.py", "forecasting/notebooks/*.ipynb"
+paths:
+  - "forecasting/src/features/**/*.py"
+  - "forecasting/notebooks/*.ipynb"
 ---
 # Feature Engineering Rules
 

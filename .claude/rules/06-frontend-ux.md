@@ -1,5 +1,14 @@
 ---
-globs: "onramp/**/*.tsx", "onramp/**/*.jsx", "onramp/**/*.ts", "onramp/**/*.js", "onramp/**/*.css", "onramp/**/*.scss", "onramp/**/*.html", "onramp/**/*.svelte", "onramp/**/*.vue"
+paths:
+  - "onramp/**/*.tsx"
+  - "onramp/**/*.jsx"
+  - "onramp/**/*.ts"
+  - "onramp/**/*.js"
+  - "onramp/**/*.css"
+  - "onramp/**/*.scss"
+  - "onramp/**/*.html"
+  - "onramp/**/*.svelte"
+  - "onramp/**/*.vue"
 ---
 # Front-End & Client-UX Rules (the on-ramp website)
 

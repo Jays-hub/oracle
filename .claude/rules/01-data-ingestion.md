@@ -1,5 +1,8 @@
 ---
-globs: "forecasting/src/data/**/*.py", "forecasting/src/simulate/**/*.py", "forecasting/notebooks/*.ipynb"
+paths:
+  - "forecasting/src/data/**/*.py"
+  - "forecasting/src/simulate/**/*.py"
+  - "forecasting/notebooks/*.ipynb"
 ---
 # Data Ingestion & Integrity Rules
 

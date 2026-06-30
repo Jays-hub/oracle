@@ -60,12 +60,12 @@ items:
     lead_time_days: 1
 
   - id: ribeye_steak_12oz
-    name: Ribeye Steak 12oz
+    name: Ribeye Steak
     prep_type: batch
     co: 22.00   # expensive cut ~38% of $58; high overage cost → prep lean (q*≈0.62)
     cu: 36.00   # but high margin too
     lead_time_days: 1
-    notes: "portioned and tempered day-before; high co makes over-prepping costly"
+    notes: "12oz cut; portioned and tempered day-before; high co makes over-prepping costly"
 
   - id: duck_confit
     name: Duck Confit

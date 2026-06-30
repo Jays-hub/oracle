@@ -1,5 +1,11 @@
 ---
-globs: "onramp/**/*.py", "onramp/**/*.ts", "onramp/**/*.tsx", "onramp/**/*.js", "onramp/**/*.jsx", "onramp/**/*.sql"
+paths:
+  - "onramp/**/*.py"
+  - "onramp/**/*.ts"
+  - "onramp/**/*.tsx"
+  - "onramp/**/*.js"
+  - "onramp/**/*.jsx"
+  - "onramp/**/*.sql"
 ---
 # Full-Stack Architecture Rules (the on-ramp web stack)
 

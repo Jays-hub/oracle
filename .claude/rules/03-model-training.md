@@ -1,5 +1,7 @@
 ---
-globs: "forecasting/src/models/**/*.py", "forecasting/src/evaluate/**/*.py"
+paths:
+  - "forecasting/src/models/**/*.py"
+  - "forecasting/src/evaluate/**/*.py"
 ---
 # Model Training Rules
 

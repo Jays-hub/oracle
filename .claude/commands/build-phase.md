@@ -32,6 +32,28 @@ You are in the repo. Read what you need directly; never request pasted docs, dif
 
 ## Step 0 — Gate the step BEFORE writing any code (this is the law, not a nicety)
 
+**Branch pre-check (first).** Run `git branch --show-current`. The working branch for phase `Pn`
+must be `phase/Pn` (e.g. `phase/P2` for P2). If it isn't, emit **exactly**:
+
+> You're on `<current-branch>`. Switch first:
+> ```
+> git switch -c phase/Pn
+> ```
+> Reply when done and I'll continue.
+
+Then **stop and wait**. Do not present gates on the wrong branch.
+
+**Exploration pass (before drafting gates).** Once the branch is confirmed, spawn a subagent
+(`subagent_type: Explore`) with `search breadth: thorough` and these instructions:
+
+> Scan the phase `$ARGUMENTS` spec in `forecasting/docs/construction_roadmap.md` (or the on-ramp
+> equivalent for W-phases). List: (1) every file the build will create or touch with its current
+> state (exists / empty / populated), (2) the immediate upstream and downstream dependencies by
+> file path, (3) any naming, dtype, or schema facts the spec assumes that a reader could miss.
+> Report findings; do not write code.
+
+Fold those findings into Gates 1–3 before presenting them. The agent does not start from cold.
+
 This project's hard gate is the **Comprehension Contract** (`.claude/rules/00-process.md`,
 `docs/overview_and_method.md`). **No code for a new step until Gates 1-3 are explicit and Jay clears
 Gate 4 in his own words. You never self-certify Gate 4.** Treat this as plan-mode: present the gates,
@@ -48,10 +70,15 @@ Present, in your own words (not copied from the roadmap):
   (b) data-science/statistical concept, (c) restaurant/consulting standard. A step describable in only
   one domain is half-understood — surface all three.
 
-Then **STOP** and elicit **Gate 4** from Jay: ask him to (1) restate the step in his own words,
-including the failure mode it guards against, and (2) give the **"say it to a chef"** one-liner. Do
-not proceed, do not write code, do not "get a head start," until Jay has cleared Gate 4. When he does,
-record both his restatement and the chef-sentence in the phase's notebook and add a
+Then **STOP** and elicit **Gate 4** from Jay. His response must contain **both**:
+
+1. A restatement of the step in his own words, including the failure mode it guards against — and
+   that restatement must include the sentence **"The failure mode this guards against is \_\_\_."**
+   (filled in, not blank). If it is absent, the gate is not cleared; ask again.
+2. The **"say it to a chef"** one-liner.
+
+Do not proceed, do not write code, do not "get a head start," until both are present. When Jay clears
+Gate 4, record his exact restatement and chef-sentence in the phase's notebook and add a
 `docs/progress_log.md` entry when the phase closes.
 
 **Name the drift.** Per the Anti-Drift Standing Order: if this phase (or your plan for it) reaches for
@@ -114,11 +141,18 @@ green. Don't hand Jay code you haven't run.
 
 ---
 
-## Step 3 — Self-review, then hand off
+## Step 3 — Write the decision log, self-review, then hand off
 
 Run your own code mentally and on the machine against: **leakage / split integrity / dollar
 baseline+metric / reproducibility / shapes+dtypes / meaningful tests / seam firewall.** Confirm *how*
 each is handled or flag it as a known gap — never claim "handled" when you only intended to.
+
+**Write `docs/phase_decisions/$ARGUMENTS.md` before handing off.** Copy `_template.md` and fill it
+in completely — Gate 4 verbatim, every load-bearing assumption, every non-obvious design decision
+(chose X over Y because Z), constraints discovered mid-build, deferred items, and the two spots
+you're least confident about. This file is the reviewer's briefing; an incomplete log means the
+reviewer audits code without context and will find false positives where your decisions were
+deliberate. Do not summarize — quote Jay's Gate 4 words exactly.
 
 Hand back, clearly separated:
 
@@ -128,12 +162,14 @@ Hand back, clearly separated:
 4. **What you deliberately did NOT do** — scope boundaries and anything deferred to a later phase.
 5. **Self-review note** + the **1-2 spots you're least confident about**, so the reviewer looks there
    first.
-6. **Gate-4 capture:** Jay's restatement + chef-sentence written into the phase notebook, and a dated
-   `docs/progress_log.md` entry (tagged `[built]`/`[gated]`) naming the artifacts and the verified test
-   count.
+6. **Gate-4 capture:** Jay's restatement + chef-sentence written into `docs/phase_decisions/$ARGUMENTS.md`
+   (already done above), and a dated `docs/progress_log.md` entry (tagged `[built]`/`[gated]`)
+   naming the artifacts, the verified test count, and a pointer to the decision log.
 7. **Plain-English explanation** of the key decisions, for a learner.
 
-Then tell Jay the phase is ready for `/review-phase $ARGUMENTS`.
+Then tell Jay:
+
+> **This phase is ready for `/review-phase $ARGUMENTS`. Do not self-review.**
 
 > **Model note:** the build half of this loop is designed for Sonnet. If you're on another model, that's
 > fine — but `/model sonnet` before a build keeps the division of labor (Sonnet builds, Opus reviews).

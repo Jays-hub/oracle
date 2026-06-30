@@ -56,8 +56,8 @@ import the other; the only thing they share is the seam.
 ├── CLAUDE.md                 # this file — platform charter
 ├── README.md                 # platform overview + docs index
 ├── .claude/rules/            # 00 process (platform gate) · 01 ingestion (the raw/truth seam law)
-│                             #   · 02 features · 03 training · 04 deployment (engine rules; globs → forecasting/src/**)
-│                             #   · 05 fullstack-arch · 06 frontend-ux · 07 backend-api (on-ramp web rules; globs → onramp/**)
+│                             #   · 02 features · 03 training · 04 deployment (engine rules; paths → forecasting/src/**)
+│                             #   · 05 fullstack-arch · 06 frontend-ux · 07 backend-api (on-ramp web rules; paths → onramp/**)
 ├── docs/                     # platform encyclopedia: method, strategy, discovery + common-base record
 ├── data/                     # ⟵ THE COMMON STORE (platform-owned): raw/ interim/ processed/ _truth/ + CONTRACT.md
 ├── config/                   # shared generative + model config (YAML)
@@ -81,7 +81,7 @@ query layer over them. Standing up the query layer is a gated build step (Compre
 
 **On-ramp website (next surface):** a clean, simple client-facing website is the on-ramp's planned
 face. North-star vision: `onramp/plate_cost/docs/website_vision.md`; governance: the new full-stack
-rules `.claude/rules/05–07` (globs → `onramp/**`). The build stays thin and phased (W0 = a read-only
+rules `.claude/rules/05–07` (paths → `onramp/**`). The build stays thin and phased (W0 = a read-only
 reveal over existing `data/raw/`); the durable parts are the capture funnel, storage, and transparency
 story, while the plate-cost-specific views are provisional. This is on-ramp *function*, not drift —
 but elevating its polish still does not move the moat (Anti-Drift), which lives in `forecasting/`.

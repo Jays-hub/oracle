@@ -1,5 +1,9 @@
 ---
-globs: "onramp/**/*.py", "onramp/**/api/**", "onramp/**/server/**", "onramp/**/routes/**"
+paths:
+  - "onramp/**/*.py"
+  - "onramp/**/api/**"
+  - "onramp/**/server/**"
+  - "onramp/**/routes/**"
 ---
 # Backend & API Rules (the on-ramp service layer)
 

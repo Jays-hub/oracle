@@ -29,6 +29,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from forecasting.src.config import load_items
 from forecasting.src.data.loader import (
     _LUNCH_DINNER_CUTOFF_HOUR,
     build_name_to_id_map,
@@ -44,6 +45,32 @@ def _assert_raw_only(path: Path) -> None:
     if Path(path).name != "raw":
         raise ValueError(
             f"cleaner reads the data/raw/ store only; refused non-raw path: {path}"
+        )
+
+
+def _norm(name: str) -> str:
+    """Local trim+casefold — reimplemented, not imported from on-ramp (peer boundary)."""
+    return name.strip().casefold()
+
+
+def _assert_config_names_in_seam(name_to_id: dict[str, str]) -> None:
+    """Assert every config/items.yaml item name resolves to a seam alias.
+
+    The alias map is the only cross-artifact join key shared by the engine config and
+    data/raw/ (forward note #4 from P0 review). A config name with no matching alias
+    means that item can never be joined to POS sales — fail loud with the specific
+    items that drifted rather than silently mis-routing them.
+    """
+    normalized_aliases = {_norm(alias) for alias in name_to_id}
+    drifted = [
+        f"{item.id}={item.name!r}"
+        for item in load_items().values()
+        if _norm(item.name) not in normalized_aliases
+    ]
+    if drifted:
+        raise ValueError(
+            "config/items.yaml names not found in seam alias map — no join key: "
+            + ", ".join(drifted)
         )
 
 
@@ -90,6 +117,10 @@ def clean_demand(
     cfg = _load_cfg(cfg_path)
     staff_ids = set(cfg["pollution"]["staff_server_ids"])
     name_to_id = build_name_to_id_map(cfg_path)
+
+    # Cross-seam name reconciliation (forward note #4): every item in config/items.yaml
+    # must resolve to at least one alias in the seam's name→id map so the join key holds.
+    _assert_config_names_in_seam(name_to_id)
 
     df = load_pos_sales(raw_dir)
     n_raw = len(df)

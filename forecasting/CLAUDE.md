@@ -22,20 +22,12 @@ forecasting is actually unsaturated and wanted is an empirical question only rea
 answers. Build the skill here; let operators decide the company.
 
 ## PRIME DIRECTIVE — comprehension is paired with construction (NON-NEGOTIABLE)
-This is a **platform-wide** standing order (`../CLAUDE.md`, enforced by `../.claude/rules/00-process.md`);
-it binds engine work hardest because that is where most code is written. Before writing code for ANY
-new step, make all four explicit and confirm Jay understands them. Do not proceed until he can
-explain the step back in his own words.
-
-1. **WHY** — what problem this step solves and why it comes *now* in the sequence.
-2. **CODEBASE IMPACT** — which files/modules it touches and what it unlocks downstream.
-3. **PRACTICES INVOKED** — name them in all three domains:
-   - (a) software/coding craft, (b) data-science/statistical concept, (c) restaurant-domain or
-     consulting standard.
-4. **COMPREHENSION CHECK** — Jay restates it in his own words AND has the one-line
-   "say it to a chef" translation. Only then does code get written and the step close.
-
-Detail and rationale: `docs/overview_and_method.md` (The Comprehension Contract).
+The four-gate Comprehension Contract is the platform gate. It is defined once — verbatim and
+always-on — in `../.claude/rules/00-process.md` (full reasoning in `docs/overview_and_method.md`),
+so it is **not re-listed here**. What's engine-specific: it **binds engine work hardest** (this is
+where most code is written), so no `forecasting/src/**` step starts until Gates 1–3 are explicit and
+Jay clears Gate 4 (restate it in his own words + the "say it to a chef" line) himself — the agent
+never self-certifies it.
 
 ## What "done" means at every step
 **Beat the prior baseline in DOLLARS, not accuracy.** The objective is realized cost
@@ -87,7 +79,7 @@ forecasting/
 └── tests/
 ```
 Engine rules (data ingestion, feature-eng, model-training, deployment) live in `../.claude/rules/`
-and their `globs:` already target `forecasting/src/**`.
+and their `paths:` already target `forecasting/src/**`.
 
 ## Shared store & the on-ramp
 - **Reads** model inputs only from `data/raw/`; **scores** only via `forecasting/src/evaluate/`
