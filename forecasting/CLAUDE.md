@@ -22,12 +22,12 @@ forecasting is actually unsaturated and wanted is an empirical question only rea
 answers. Build the skill here; let operators decide the company.
 
 ## PRIME DIRECTIVE — comprehension is paired with construction (NON-NEGOTIABLE)
-The four-gate Comprehension Contract is the platform gate. It is defined once — verbatim and
-always-on — in `../.claude/rules/00-process.md` (full reasoning in `docs/overview_and_method.md`),
-so it is **not re-listed here**. What's engine-specific: it **binds engine work hardest** (this is
-where most code is written), so no `forecasting/src/**` step starts until Gates 1–3 are explicit and
-Jay clears Gate 4 (restate it in his own words + the "say it to a chef" line) himself — the agent
-never self-certifies it.
+The Comprehension Contract is the platform gate, and it sits on the **review's exit, not the build's
+start**. It is defined once — verbatim and always-on — in `../.claude/rules/00-process.md` (full
+reasoning in `docs/overview_and_method.md`), so it is **not re-listed here**. What's engine-specific:
+it **binds engine work hardest** (this is where most code is written), so `forecasting/src/**` is built
+freely, but no engine phase is *done* until Jay can fully explain the finished, reviewed work in his own
+words (restate it + the "say it to a chef" line) — the agent never self-certifies it.
 
 ## What "done" means at every step
 **Beat the prior baseline in DOLLARS, not accuracy.** The objective is realized cost

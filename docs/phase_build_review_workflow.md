@@ -9,9 +9,9 @@ that couldn't see this repo; everything they asked you to *paste*, the CLI agent
 ## The three pieces
 
 - **`/build-phase <P>`** — `.claude/commands/build-phase.md`. The builder. Run it in the main thread
-  (ideally on Sonnet). It reads the phase spec from `forecasting/docs/construction_roadmap.md`, runs
-  the Comprehension-Contract gate, builds only that phase, writes real tests, and runs `pytest`/`ruff`
-  before handoff.
+  (ideally on Sonnet). It reads the phase spec from `forecasting/docs/construction_roadmap.md`, builds
+  only that phase (no pre-code gate), writes real tests, and runs `pytest`/`ruff` before handoff. The
+  Comprehension Contract is enforced later, at the review's exit, not here.
 - **`/review-phase <P>`** — `.claude/commands/review-phase.md`. The reviewer's launcher. It gathers a
   git diff base and dispatches the `phase-reviewer` subagent, then relays the findings verbatim.
 - **`phase-reviewer`** — `.claude/agents/phase-reviewer.md`. A **read-only, Opus** subagent (tools:
@@ -22,18 +22,22 @@ that couldn't see this repo; everything they asked you to *paste*, the CLI agent
 ## The per-phase loop
 
 1. `git switch -c phase/P1` (a branch per phase gives the reviewer a clean diff base and you a rollback).
-2. `/model sonnet`, then `/build-phase P1`. The agent presents **Gates 1–3** and **stops**.
-3. You clear **Gate 4** in your own words: restate the step + the failure mode it guards, and give the
-   "say it to a chef" one-liner. Only then does code get written. (This is the one rule the original
-   builder prompt got wrong — see below.)
-4. The build finishes green and logs a `docs/progress_log.md` entry. `git commit`.
-5. `/review-phase P1`. The Opus subagent runs the suite, hunts the leakage/seam/dollar list, and hands
+2. `/model sonnet`, then `/build-phase P1`. The agent orients, then **builds** — no pre-code gate, no
+   stop-and-wait for your sign-off. (This is the inversion — see below.)
+3. The build finishes green, writes the decision log, and logs a `docs/progress_log.md` `[built]` entry.
+   `git commit`.
+4. `/review-phase P1`. The Opus subagent runs the suite, hunts the leakage/seam/dollar list, and hands
    back findings + an honest verdict.
-6. You decide what to fix. Mechanical fixes go straight back to a Sonnet build pass; a fix that changes
-   decision logic re-enters the gate. Re-run, re-commit, then merge the branch.
+5. You decide what to fix. Fixes go back to a Sonnet build pass and re-run — fixing is ordinary build
+   work, not gated.
+6. **The comprehension exit gate.** The review does **not** close until you can explain, in your own
+   words, the finished, reviewed work: why-this-why-now, codebase impact, the three-domain practices,
+   and the review delta + the failure mode it guards + the "say it to a chef" one-liner. Only when that
+   lands does the agent record it in the decision log, write the closing log entry, and merge the branch.
 
-One phase, one branch, one review. The old "keep each phase in its own chat" becomes "keep each phase
-on its own branch" — same isolation, but with a real diff and rollback instead of copy-paste.
+One phase, one branch, one review that closes on *your* understanding. The old "keep each phase in its
+own chat" becomes "keep each phase on its own branch" — same isolation, with a real diff and rollback
+instead of copy-paste.
 
 ## Why a reviewer *subagent* (not a second chat, not this thread)
 
@@ -64,11 +68,13 @@ leakage canary); `random_state=42`; and the **seam firewall** (`_truth/` read on
 `onramp/` never imports `forecasting/`, the boundary test). Anti-drift is now a review finding:
 over-engineering ahead of the dollar-beating step gets flagged, not rewarded.
 
-**Reconciled the Gate-4 conflict (the important one).** The original builder prompt had the agent
-self-plan and proceed after asking about assumptions. This project's `00-process.md` says the opposite:
-the agent presents Gates 1–3 and **never self-certifies Gate 4** — *Jay* clears it in his own words
-first. `/build-phase` now hard-stops for that, so the build loop can't silently bypass the contract
-that makes the project yours.
+**Inverted the comprehension gate (the important one).** This used to be a *pre-code* gate: the agent
+presented Gates 1–3 and hard-stopped until Jay cleared Gate 4 before a line was written. That stalled
+delivery and let understanding be certified against code that didn't exist yet. `00-process.md` now puts
+the gate at the **review's exit** instead: the agent builds freely, and the **review** is what can't
+close until Jay can fully explain the finished work in his own words. The agent never self-certifies it.
+Same contract — the project stays *yours* — but the explanation is now tested against real, reviewed
+code instead of a plan.
 
 ## Notes
 

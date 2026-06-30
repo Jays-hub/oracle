@@ -32,30 +32,41 @@ pay, or would adopt. Hold that line. The simulation is the gym; discovery is the
 
 ## THE COMPREHENSION CONTRACT (the operating rule of this project)
 This is the rule that makes this project *yours* rather than a thing an agent built while you
-watched. It is encoded in `CLAUDE.md` as a hard gate; here is the full reasoning and what each gate
+watched. It is encoded in `CLAUDE.md` as a hard gate; here is the full reasoning and what it
 actually requires.
 
 **The principle:** every increment advances on two tracks at once — the **construction** (working
-code) and the **comprehension** (the why). The comprehension track is not optional documentation
-written after the fact; it is a *precondition* for the code. You do not get to the next step until
-the current step's why is solid in your own head.
+code) and the **comprehension** (the why). The contract does **not** block the construction: the agent
+builds freely, and you do not have to pre-certify understanding against code that doesn't exist yet.
+What the contract gates is the **close of the phase's review** — you do not get to mark a phase done,
+merge it, or move on until that phase's *finished, reviewed* code is solid in your own head. The
+comprehension is tested against the real thing that was built and the real findings the adversarial
+review produced.
 
-### The four gates (cleared before any code for a new step)
+### Why the exit, not the entrance
+A pre-code gate certifies a plan; an exit gate certifies the product. Building first and explaining
+after means your explanation is forced to account for what the code *actually does* and what the review
+*actually caught* — including the parts that only became clear once the thing existed. It also stops the
+gate from being theatre performed against a roadmap paragraph. The construction is never the bottleneck;
+your understanding of the finished increment is.
 
-**Gate 1 — WHY THIS, WHY NOW.**
-What problem does this step solve, and why is it the right next step rather than something later?
+### What you must be able to explain before a phase's review closes
+The review stays open until you can say, in your own words, all four:
+
+**1 — WHY THIS, WHY NOW.**
+What problem did this phase solve, and why was it the right step rather than something later?
 Sequencing is itself a skill: you build the baseline before the model because you need something to
 beat; you unconstrain censored demand before you trust the distribution because otherwise the
 distribution is fit to a lie. If you can't say why *now*, you don't understand the dependency
 structure yet.
 
-**Gate 2 — CODEBASE IMPACT.**
-Which files/modules does this touch, what does it produce, and what does it unlock downstream? This
-forces you to hold the architecture in your head, not just the local task. "This adds
+**2 — CODEBASE IMPACT.**
+Which files/modules did this touch, what does it produce, and what does it unlock downstream? This
+forces you to hold the architecture in your head, not just the local task. "This added
 `forecasting/src/decision/newsvendor.py`, which consumes the quantile model's output and produces the prep
 quantity the report layer renders" — that sentence means you see how the piece fits.
 
-**Gate 3 — PRACTICES INVOKED, in all three domains.**
+**3 — PRACTICES INVOKED, in all three domains.**
 The discipline that makes you credible is that every step draws on three knowledge bases, and you
 name them explicitly:
 - **(a) Coding craft** — the software practice (e.g., a reproducible backtest harness; no data
@@ -65,13 +76,14 @@ name them explicitly:
 - **(c) Restaurant / consulting standard** — the domain truth (e.g., sold-out ≠ low demand; the
   prep decision is committed in the morning; food cost vs. contribution margin; one-time setup or
   it dies on adoption).
-A step you can only describe in one of these three domains is a step you half-understand.
+Work you can only describe in one of these three domains is work you half-understand.
 
-**Gate 4 — COMPREHENSION CHECK.**
-Two outputs prove it landed: (1) you restate the step in your own words, including the failure mode
-it guards against; (2) you produce the **"say it to a chef"** one-liner. If you can explain a
-technique to a line cook in one sentence, you understand it; if you can't, you've imported a library,
-not a concept. Capture both in the phase's notebook before the code closes.
+**4 — THE REVIEW DELTA + COMPREHENSION CHECK.**
+What did the adversarial review find, and what did it change (or why did it change nothing)? Then two
+outputs prove the understanding landed: (1) you restate the increment in your own words, including the
+failure mode it guards against; (2) you produce the **"say it to a chef"** one-liner. If you can explain
+a technique to a line cook in one sentence, you understand it; if you can't, you've imported a library,
+not a concept. Captured verbatim in the phase's decision log when the review closes.
 
 ### Why "say it to a chef" is a technical test, not a soft skill
 Your edge is culinary domain knowledge, and your buyers are operators, not ML engineers. Every

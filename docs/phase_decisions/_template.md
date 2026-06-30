@@ -1,8 +1,10 @@
 # Phase __ Decision Log
 
 > **What this file is:** The build agent's reasoning trace for this phase — why things were built the
-> way they were, not what was built (that's `progress_log.md`). Written by the builder, read by the
-> adversarial reviewer before it looks at a single line of code.
+> way they were, not what was built (that's `progress_log.md`). The design sections are written by the
+> builder and read by the adversarial reviewer. The **Comprehension Capture** section is left blank by
+> the builder and filled at the **review's exit**, when Jay explains the finished work and the review
+> closes (`.claude/rules/00-process.md`).
 
 **Built:** YYYY-MM-DD  
 **Phase:** Pn  
@@ -10,9 +12,18 @@
 
 ---
 
-## Gate 4 Capture
+## Comprehension Capture (filled when the review closes — the phase's exit gate)
 
-**Jay's restatement (verbatim):**
+Jay's own-words explanation of the **finished, reviewed** work. The review does not close until all of
+this is present.
+
+**Why this, why now (verbatim):**
+> "..."
+
+**Codebase impact + practices in all three domains (verbatim):**
+> "..."
+
+**What the review found & changed (verbatim):**
 > "..."
 
 **Failure mode guarded against (verbatim):**

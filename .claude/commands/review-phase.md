@@ -38,8 +38,34 @@ Prompt to give the subagent:
 When the subagent returns, relay its report to Jay **verbatim in structure** (the findings block, the
 verdict, the test/lint result, the top-3 fixes, the single biggest risk). Do not soften or re-grade it.
 
-Then, **do not auto-fix.** Present the findings and ask Jay how he wants to proceed. Fixing a BLOCKER or
-MAJOR that changes decision logic is itself a new step and re-enters the Comprehension Contract gate
-(`00-process.md`); mechanical fixes already specified do not. When Jay greenlights fixes, hand them back
-to a build pass (`/model sonnet`, then apply the reviewer's concrete fixes), re-run the suite, and
-record the outcome in `docs/progress_log.md` — the same hardening pattern the log already uses.
+Then, **do not auto-fix.** Present the findings and ask Jay how he wants to proceed. When Jay greenlights
+fixes, hand them back to a build pass (`/model sonnet`, then apply the reviewer's concrete fixes), re-run
+the suite, and record the outcome in `docs/progress_log.md` — the same hardening pattern the log already
+uses. Fixing is ordinary build work; it is **not** gated by anything before the keystrokes.
+
+## The comprehension exit gate — the review does not close until Jay can explain the work
+
+This is the project's one hard gate (`.claude/rules/00-process.md`), and it lives **here, at the review's
+exit** — not before the build. After the findings are relayed and any greenlit fixes have landed and
+re-passed, the review is **still open**. Do **not** declare the phase done, do **not** merge, and do
+**not** write the closing `docs/progress_log.md` entry until Jay demonstrates comprehension of the
+**finished, reviewed** code.
+
+Ask Jay to explain, **in his own words**, all four:
+
+1. **What & why** — what this phase built and why it was the right step now (the dependency that placed it
+   here).
+2. **Codebase impact** — the files/modules it created or touched, what they produce, what they unlock.
+3. **Practices invoked, in all three domains** — (a) software/coding craft, (b) data-science/statistical
+   concept, (c) restaurant/consulting standard.
+4. **The review delta + the failure mode** — what the review found and changed (or why it changed
+   nothing), the **"say it to a chef"** one-liner, and the sentence **"The failure mode this guards
+   against is ___."** (filled in, not blank).
+
+**You never self-certify this — Jay clears it.** If his explanation is missing any of the four (including
+the filled-in failure-mode sentence and the chef one-liner), the gate is **not** cleared: say which part
+is missing and ask again. Keep the review open until it lands.
+
+When it lands: record Jay's explanation **verbatim** in the comprehension-capture section of
+`docs/phase_decisions/$ARGUMENTS.md`, then write the closing `docs/progress_log.md` entry (tagged
+`[reviewed]`/`[done]`) and only then is the phase done and mergeable.

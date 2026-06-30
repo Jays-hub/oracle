@@ -40,8 +40,10 @@ import the other; the only thing they share is the seam.
 
 ## Standing orders that span BOTH parts
 
-1. **The Comprehension Contract (the gate).** No code for a new step until Gates 1–3 are explicit and
-   Jay clears Gate 4 in his own words. Applies to engine and on-ramp alike. Enforced by
+1. **The Comprehension Contract (the gate — on the review's exit, not the build's start).** Building is
+   never blocked by a comprehension gate; code may be written freely. But a phase's **review may not
+   close** — no sign-off, no merge, no "done" — until Jay can **fully explain, in his own words, the
+   changes made during both the build and the review.** Applies to engine and on-ramp alike. Enforced by
    `.claude/rules/00-process.md`; full reasoning in `docs/overview_and_method.md`.
 2. **Anti-Drift Standing Order.** The highest-value work is barely ML (the newsvendor reframe + the
    data-access grind). Name the drift if a session reaches for sophistication before the simpler,
@@ -59,6 +61,7 @@ import the other; the only thing they share is the seam.
 │                             #   · 02 features · 03 training · 04 deployment (engine rules; paths → forecasting/src/**)
 │                             #   · 05 fullstack-arch · 06 frontend-ux · 07 backend-api (on-ramp web rules; paths → onramp/**)
 ├── docs/                     # platform encyclopedia: method, strategy, discovery + common-base record
+│                             #   · agentic_workflow/ = the agent workflow's own record (read ONLY when changing .claude/** or workflow efficiency)
 ├── data/                     # ⟵ THE COMMON STORE (platform-owned): raw/ interim/ processed/ _truth/ + CONTRACT.md
 ├── config/                   # shared generative + model config (YAML)
 ├── schemas/                  # shared schemas both peers import (pydantic/pandera)
@@ -76,8 +79,8 @@ only (empty); nothing built. The common store exists with its contract.
 
 **Storage decided (2026-06-25): DuckDB-over-Parquet** is the shared store
 (`docs/common_base_reconciliation.md`) — the `data/raw/**` files stay the firewall, DuckDB is the
-query layer over them. Standing up the query layer is a gated build step (Comprehension Contract):
-**decided, not yet built.**
+query layer over them. Standing up the query layer is a gated phase — its review must clear the
+Comprehension Contract before it closes: **decided, not yet built.**
 
 **On-ramp website (next surface):** a clean, simple client-facing website is the on-ramp's planned
 face. North-star vision: `onramp/plate_cost/docs/website_vision.md`; governance: the new full-stack

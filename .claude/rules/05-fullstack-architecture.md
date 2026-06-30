@@ -69,7 +69,8 @@ its backend. They are the full-stack peers of the engine rules (`02`–`04`, sco
 - **Deterministic where it matters.** Seed any stochastic component (`random_state=42` convention);
   pin dependency versions. Reproducibility is part of the trust story.
 
-## The Gate Still Applies
+## The Gate Still Applies (at the review's exit)
 - A new view that introduces a **data transform or decision logic** (a new derived metric, a new
-  capture leg, a re-cost rule) is a new *step* and clears Gates 1–4 (`00-process.md`). Pure
-  presentation wiring of an already-gated computation is mechanical and does not re-trigger the gate.
+  capture leg, a re-cost rule) is a new *phase*: build it freely, but its **review can't close** until
+  Jay can explain the finished work in his own words (`00-process.md`). Pure presentation wiring of an
+  already-built computation is mechanical and does not trigger the review gate.

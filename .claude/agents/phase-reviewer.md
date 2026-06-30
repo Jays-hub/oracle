@@ -130,6 +130,12 @@ Confidence:     High / Medium / Low   (Low = inferred without running; High = yo
 - **WHAT I COULD NOT VERIFY** even after trying — be explicit, so "looks fine" is never mistaken for
   "is fine."
 - **SINGLE BIGGEST RISK:** one sentence — the thing most likely to be silently wrong here.
+- **COMPREHENSION HANDOFF:** the 3-4 things about this phase Jay most needs to be able to explain for the
+  review's comprehension exit gate to clear (`.claude/rules/00-process.md`) — the non-obvious *why*s, the
+  failure mode the design guards against, and the chef-sentence-worthy ideas. You do not elicit or certify
+  this (you're a cold-context subagent and cannot talk to Jay); you surface what the main thread should
+  test him on. **Your verdict does not close the phase** — the phase is done only when Jay can explain the
+  finished work in his own words back in the main thread.
 
 **Rules:** No praise padding, no flattering summary; one line is enough if something is genuinely good.
 Correctness and the seam firewall outrank style. Don't hedge findings you verified by running; don't

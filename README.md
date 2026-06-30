@@ -22,7 +22,7 @@ platform-level method/strategy in `docs/`, engine-specific theory in `forecastin
 
 | File | What it covers | When you need it |
 |---|---|---|
-| `docs/overview_and_method.md` | Project identity, strategic context, and **The Comprehension Contract** (the operating rule that gates every step) | First. Sets how the whole project is run. |
+| `docs/overview_and_method.md` | Project identity, strategic context, and **The Comprehension Contract** (the operating rule — building is free; a phase's *review* can't close until Jay can explain the finished work) | First. Sets how the whole project is run. |
 | `docs/strategic_context.md` | Why this wedge: the accuracy trap + the 5-part test, the closed lanes (A–E), founder constraints, and the open gates | When questioning direction or scope — the strategic "why." |
 | `docs/discovery_and_validation.md` | Where the "Marco" data assumptions come from (the onboarding transcript), the cold-discovery question set, and the A1–A13 assumption decoder | Phase 1 data realism; and before any real customer interview. |
 | `docs/common_base_reconciliation.md` | The decision log for the shared data store: files vs. a real DB, DuckDB-over-Parquet, and how the raw/truth firewall survives the move | Before any session that builds out the common database. |

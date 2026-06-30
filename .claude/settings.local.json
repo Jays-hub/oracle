@@ -8,7 +8,8 @@
       "Bash(python *)",
       "Bash(python3 *)",
       "Bash(git *)",
-      "Bash(sort -k5 -rh)"
+      "Bash(sort -k5 -rh)",
+      "WebFetch(domain:axi.md)"
     ]
   }
 }
