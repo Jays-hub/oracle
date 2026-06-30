@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Temporarily unavailable{% endblock %}
+
+{% block content %}
+<section class="error-panel" role="alert">
+  <h1>We couldn't load the grid just now</h1>
+  <p>Something went wrong while preparing your plate-cost numbers. Nothing is lost — please refresh
+  in a moment.</p>
+  <p>If it keeps happening, share this reference with us so we can find it in the logs:</p>
+  <p class="error-ref">Reference: {{ correlation_id }}</p>
+</section>
+{% endblock %}

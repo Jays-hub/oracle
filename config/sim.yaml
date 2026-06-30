@@ -1,0 +1,398 @@
+seed: 42
+date_range:
+  start: "2022-01-01"
+  end: "2024-06-30"
+
+goforward_days: 90  # eightysix_log populated only for the last N days (go-forward window)
+
+service_periods:
+  - name: lunch
+    hour_start: 11
+    hour_end: 15
+  - name: dinner
+    hour_start: 17
+    hour_end: 22
+
+# NegBin demand: rng.negative_binomial(n=dispersion, p=dispersion/(dispersion+mu))
+# zero_prob: probability of structural zero (zero-inflation for intermittent items)
+item_demand:
+  braised_short_rib:
+    lunch_mu: 5.0
+    dinner_mu: 11.0
+    dispersion: 7.0
+    zero_prob: 0.0
+  pan_seared_salmon:
+    lunch_mu: 6.0
+    dinner_mu: 10.0
+    dispersion: 8.0
+    zero_prob: 0.0
+  half_roast_chicken:
+    lunch_mu: 7.0
+    dinner_mu: 12.0
+    dispersion: 9.0
+    zero_prob: 0.0
+  house_burger:
+    lunch_mu: 14.0
+    dinner_mu: 18.0
+    dispersion: 10.0
+    zero_prob: 0.0
+  ribeye_steak_12oz:
+    lunch_mu: 3.0
+    dinner_mu: 8.0
+    dispersion: 6.0
+    zero_prob: 0.0
+  duck_confit:
+    lunch_mu: 2.5
+    dinner_mu: 7.0
+    dispersion: 5.0
+    zero_prob: 0.05
+  butter_poached_cod:
+    lunch_mu: 4.5
+    dinner_mu: 8.0
+    dispersion: 7.0
+    zero_prob: 0.0
+  wild_mushroom_risotto:
+    lunch_mu: 5.0
+    dinner_mu: 10.0
+    dispersion: 8.0
+    zero_prob: 0.0
+  classic_caesar_salad:
+    lunch_mu: 16.0
+    dinner_mu: 22.0
+    dispersion: 12.0
+    zero_prob: 0.0
+  pappardelle_bolognese:
+    lunch_mu: 7.0
+    dinner_mu: 12.0
+    dispersion: 9.0
+    zero_prob: 0.0
+  tuna_tartare:
+    lunch_mu: 2.0
+    dinner_mu: 5.0
+    dispersion: 3.0
+    zero_prob: 0.20  # genuinely intermittent — often zero at lunch
+
+# Mon=0 through Sun=6
+dow_factors: [0.65, 0.72, 0.82, 0.95, 1.20, 1.35, 1.22]
+
+# Month 1–12 seasonal multipliers
+season_factors:
+  1: 0.78
+  2: 0.80
+  3: 0.88
+  4: 0.96
+  5: 1.05
+  6: 1.12
+  7: 1.08
+  8: 1.02
+  9: 0.97
+  10: 1.06
+  11: 1.14
+  12: 1.18
+
+# ~Quarterly era transitions; item names and prices drift at each boundary
+menu_eras:
+  - {start: "2022-01-01", id: 0, name: "Winter 2022"}
+  - {start: "2022-04-01", id: 1, name: "Spring 2022"}
+  - {start: "2022-07-01", id: 2, name: "Summer 2022"}
+  - {start: "2022-10-01", id: 3, name: "Fall 2022"}
+  - {start: "2023-01-15", id: 4, name: "Winter 2023"}
+  - {start: "2023-04-15", id: 5, name: "Spring 2023"}
+  - {start: "2023-07-15", id: 6, name: "Summer 2023"}
+  - {start: "2023-10-15", id: 7, name: "Fall 2023"}
+  - {start: "2024-02-01", id: 8, name: "Winter 2024"}
+
+# POS name drift per era (9 entries, one per era above)
+item_name_aliases:
+  braised_short_rib:
+    - "Short Rib"
+    - "Braised Short Rib"
+    - "Short Rib"
+    - "Braised Short Rib"
+    - "Short Rib*"
+    - "Braised Short Rib"
+    - "Braised Short Rib"
+    - "Short Rib"
+    - "Braised Short Rib"
+  pan_seared_salmon:
+    - "Salmon"
+    - "Pan-Seared Salmon"
+    - "Salmon"
+    - "Pan Seared Salmon"
+    - "Salmon Fillet"
+    - "Pan-Seared Salmon"
+    - "Salmon"
+    - "Pan-Seared Salmon"
+    - "Pan-Seared Salmon"
+  half_roast_chicken:
+    - "Half Chicken"
+    - "Roast Chicken"
+    - "Half Roast Chicken"
+    - "Half Chicken"
+    - "Roast Chicken"
+    - "Half Roast Chicken"
+    - "Half Chicken"
+    - "Roast Chicken"
+    - "Half Roast Chicken"
+  house_burger:
+    - "Burger"
+    - "House Burger"
+    - "Burger"
+    - "House Burger"
+    - "The Burger"
+    - "House Burger"
+    - "Burger"
+    - "House Burger"
+    - "House Burger"
+  ribeye_steak_12oz:
+    - "Ribeye"
+    - "Ribeye 12oz"
+    - "Ribeye Steak"
+    - "Ribeye"
+    - "12oz Ribeye"
+    - "Ribeye Steak"
+    - "Ribeye"
+    - "Ribeye 12oz"
+    - "Ribeye Steak"
+  duck_confit:
+    - "Duck Confit"
+    - "Duck"
+    - "Duck Confit"
+    - "Duck Leg"
+    - "Duck Confit"
+    - "Duck"
+    - "Duck Confit"
+    - "Duck Confit"
+    - "Duck Confit"
+  butter_poached_cod:
+    - "Cod"
+    - "Butter Cod"
+    - "Butter Poached Cod"
+    - "Cod"
+    - "Butter Poached Cod"
+    - "Butter Cod"
+    - "Cod"
+    - "Butter Poached Cod"
+    - "Butter Poached Cod"
+  wild_mushroom_risotto:
+    - "Risotto"
+    - "Mushroom Risotto"
+    - "Wild Mushroom Risotto"
+    - "Risotto"
+    - "Mushroom Risotto"
+    - "Wild Mushroom Risotto"
+    - "Risotto"
+    - "Mushroom Risotto"
+    - "Wild Mushroom Risotto"
+  classic_caesar_salad:
+    - "Caesar"
+    - "Caesar Salad"
+    - "Classic Caesar"
+    - "Caesar"
+    - "Caesar Salad"
+    - "Classic Caesar Salad"
+    - "Caesar"
+    - "Caesar Salad"
+    - "Classic Caesar"
+  pappardelle_bolognese:
+    - "Bolognese"
+    - "Pappardelle Bolognese"
+    - "Bolognese"
+    - "Pasta Bolognese"
+    - "Bolognese"
+    - "Pappardelle Bolognese"
+    - "Bolognese"
+    - "Pappardelle Bolognese"
+    - "Bolognese"
+  tuna_tartare:
+    - "Tuna Tartare"
+    - "Tartare"
+    - "Tuna Tartare"
+    - "Tuna Tartare"
+    - "Tartare"
+    - "Tuna Tartare"
+    - "Tartare"
+    - "Tuna Tartare"
+    - "Tuna Tartare"
+
+# Menu prices per era_id (price steps simulate real menu reprints)
+menu_prices:
+  braised_short_rib:    {0: 38, 1: 38, 2: 40, 3: 40, 4: 42, 5: 42, 6: 42, 7: 44, 8: 44}
+  pan_seared_salmon:    {0: 34, 1: 34, 2: 36, 3: 36, 4: 38, 5: 38, 6: 38, 7: 38, 8: 40}
+  half_roast_chicken:   {0: 28, 1: 28, 2: 30, 3: 30, 4: 30, 5: 32, 6: 32, 7: 32, 8: 34}
+  house_burger:         {0: 18, 1: 18, 2: 20, 3: 20, 4: 20, 5: 22, 6: 22, 7: 22, 8: 24}
+  ribeye_steak_12oz:    {0: 52, 1: 52, 2: 54, 3: 54, 4: 56, 5: 56, 6: 58, 7: 58, 8: 62}
+  duck_confit:          {0: 38, 1: 38, 2: 40, 3: 40, 4: 42, 5: 44, 6: 44, 7: 44, 8: 46}
+  butter_poached_cod:   {0: 30, 1: 30, 2: 32, 3: 32, 4: 34, 5: 34, 6: 34, 7: 36, 8: 36}
+  wild_mushroom_risotto: {0: 24, 1: 24, 2: 26, 3: 26, 4: 26, 5: 28, 6: 28, 7: 28, 8: 30}
+  classic_caesar_salad: {0: 14, 1: 14, 2: 14, 3: 16, 4: 16, 5: 16, 6: 18, 7: 18, 8: 18}
+  pappardelle_bolognese: {0: 22, 1: 22, 2: 24, 3: 24, 4: 24, 5: 26, 6: 26, 7: 26, 8: 28}
+  tuna_tartare:         {0: 16, 1: 16, 2: 18, 3: 18, 4: 18, 5: 20, 6: 20, 7: 20, 8: 22}
+
+# Era demand multipliers (simulate real menu-era regime shifts)
+era_demand_factors:
+  braised_short_rib:    [1.00, 0.98, 0.95, 1.02, 1.05, 1.00, 0.98, 1.03, 1.00]
+  pan_seared_salmon:    [1.00, 1.05, 1.10, 0.98, 0.95, 1.05, 1.08, 1.00, 0.97]
+  half_roast_chicken:   [1.00, 1.00, 0.98, 1.02, 1.00, 0.98, 1.00, 1.02, 1.00]
+  house_burger:         [1.00, 1.02, 1.05, 1.05, 1.00, 0.98, 0.97, 1.00, 0.98]
+  ribeye_steak_12oz:    [1.00, 1.00, 0.95, 0.98, 1.05, 1.08, 1.05, 1.02, 1.00]
+  duck_confit:          [1.00, 0.95, 0.90, 1.05, 1.08, 0.98, 0.92, 1.05, 1.02]
+  butter_poached_cod:   [1.00, 1.05, 1.10, 1.00, 0.95, 1.00, 1.05, 1.00, 0.98]
+  wild_mushroom_risotto: [1.00, 1.00, 1.02, 1.00, 0.98, 1.00, 0.98, 1.02, 1.00]
+  classic_caesar_salad: [1.00, 1.02, 1.05, 1.02, 1.00, 1.02, 1.05, 1.00, 0.98]
+  pappardelle_bolognese: [1.00, 1.00, 0.98, 1.02, 1.00, 0.98, 1.00, 1.02, 1.00]
+  tuna_tartare:         [1.00, 1.05, 1.10, 1.05, 0.95, 1.00, 1.05, 1.00, 0.98]
+
+# Kitchen capacity caps per item per service period
+capacity_caps:
+  braised_short_rib: 18
+  pan_seared_salmon: 20
+  half_roast_chicken: 22
+  house_burger: 36
+  ribeye_steak_12oz: 14
+  duck_confit: 13
+  butter_poached_cod: 16
+  wild_mushroom_risotto: 24
+  classic_caesar_salad: 55
+  pappardelle_bolognese: 28
+  tuna_tartare: 11
+
+# Effective sellable capacity = round(capacity_cap * censoring_threshold): the kitchen 86s a
+# touch before the nominal prep cap. A day is censored iff true_demand > effective_cap, and
+# observed_demand is then pinned to effective_cap — so every truth_stockouts row is a genuine
+# censoring event (observed < true), never a near-cap non-event.
+censoring_threshold: 0.94
+
+pollution:
+  comp_rate: 0.045
+  comp_flagged_rate: 0.60
+  staff_meal_rate: 0.025
+  void_rate: 0.015
+  staff_server_ids: ["S001", "S002"]
+
+weather:
+  base_temp_high_summer: 82.0
+  base_temp_high_winter: 35.0
+  temp_daily_noise_std: 4.0
+  precip_daily_prob: 0.25
+  precip_gamma_shape: 2.0
+  precip_gamma_scale: 3.0
+  forecast_temp_noise_std: 3.0
+  forecast_precip_noise_lognormal_sigma: 0.30
+  rain_threshold_mm: 5.0
+  rain_demand_factor: 0.88
+  heat_threshold_f: 90.0
+  heat_demand_factor: 0.93
+  first_warm_day_trigger_f: 58.0
+  first_warm_day_cold_window_avg_f: 48.0
+  first_warm_day_factor: 1.12
+
+events:
+  events_per_month: 2.0
+  weekend_weight: 0.70
+  venue: "Riverside Amphitheater"
+  attendance_bands: [low, medium, high]
+  attendance_weights: [0.40, 0.40, 0.20]
+  demand_lift:
+    low: 1.08
+    medium: 1.16
+    high: 1.26
+
+reservations:
+  weeknight_coverage: 0.62
+  weekend_coverage: 0.48
+  no_show_rate: 0.12
+  cancellation_rate: 0.08
+  party_size_weights: [0.05, 0.35, 0.25, 0.18, 0.10, 0.05, 0.02]  # party sizes 1-7
+
+invoices:
+  order_dow: [0, 3]  # Mon=0, Thu=3; order placed; delivery next day
+  over_order_bias: 1.10
+  order_noise_std: 0.18
+
+spoilage:
+  weekly_spoilage_rate: 0.04
+  perishable_ingredient_ids:
+    - beef_short_rib
+    - salmon_fillet
+    - whole_chicken
+    - beef_ribeye
+    - duck_leg
+    - cod_fillet
+    - tuna_ahi
+
+# True ingredient definitions
+ingredients:
+  beef_short_rib:   {name: "Beef Short Rib",       canonical_unit: lb,  yield_factor: 0.72}
+  salmon_fillet:    {name: "Salmon Fillet",          canonical_unit: lb,  yield_factor: 0.90}
+  whole_chicken:    {name: "Whole Chicken",           canonical_unit: lb,  yield_factor: 0.65}
+  ground_beef:      {name: "Ground Beef 80/20",       canonical_unit: lb,  yield_factor: 0.85}
+  beef_ribeye:      {name: "Beef Ribeye",             canonical_unit: lb,  yield_factor: 0.88}
+  duck_leg:         {name: "Duck Leg",                canonical_unit: lb,  yield_factor: 0.70}
+  cod_fillet:       {name: "Cod Fillet",              canonical_unit: lb,  yield_factor: 0.92}
+  arborio_rice:     {name: "Arborio Rice",            canonical_unit: lb,  yield_factor: 1.00}
+  mushroom_mix:     {name: "Mixed Mushrooms",         canonical_unit: lb,  yield_factor: 0.88}
+  romaine_lettuce:  {name: "Romaine Hearts",          canonical_unit: lb,  yield_factor: 0.80}
+  pappardelle:      {name: "Pappardelle Pasta",       canonical_unit: lb,  yield_factor: 1.00}
+  beef_ragu:        {name: "Beef Bolognese Ragu",     canonical_unit: lb,  yield_factor: 1.00}
+  tuna_ahi:         {name: "Ahi Tuna Loin",           canonical_unit: lb,  yield_factor: 0.95}
+  butter:           {name: "Unsalted Butter",         canonical_unit: lb,  yield_factor: 1.00}
+  heavy_cream:      {name: "Heavy Cream",             canonical_unit: qt,  yield_factor: 1.00}
+  parmesan:         {name: "Parmesan Reggiano",       canonical_unit: lb,  yield_factor: 1.00}
+  garlic:           {name: "Garlic",                  canonical_unit: lb,  yield_factor: 0.85}
+  white_wine:       {name: "White Wine (cooking)",    canonical_unit: bottle, yield_factor: 1.00}
+
+# True BOM (recipe quantities in canonical units per portion)
+true_recipes:
+  braised_short_rib:
+    - {ingredient_id: beef_short_rib, qty: 0.50, unit: lb}
+    - {ingredient_id: garlic,         qty: 0.02, unit: lb}
+    - {ingredient_id: white_wine,     qty: 0.04, unit: bottle}
+    - {ingredient_id: butter,         qty: 0.03, unit: lb}
+  pan_seared_salmon:
+    - {ingredient_id: salmon_fillet,  qty: 0.44, unit: lb}
+    - {ingredient_id: butter,         qty: 0.04, unit: lb}
+    - {ingredient_id: heavy_cream,    qty: 0.05, unit: qt}
+  half_roast_chicken:
+    - {ingredient_id: whole_chicken,  qty: 0.90, unit: lb}
+    - {ingredient_id: garlic,         qty: 0.02, unit: lb}
+    - {ingredient_id: butter,         qty: 0.04, unit: lb}
+  house_burger:
+    - {ingredient_id: ground_beef,    qty: 0.50, unit: lb}
+    - {ingredient_id: butter,         qty: 0.02, unit: lb}
+  ribeye_steak_12oz:
+    - {ingredient_id: beef_ribeye,    qty: 0.75, unit: lb}
+    - {ingredient_id: butter,         qty: 0.03, unit: lb}
+    - {ingredient_id: garlic,         qty: 0.01, unit: lb}
+  duck_confit:
+    - {ingredient_id: duck_leg,       qty: 0.70, unit: lb}
+    - {ingredient_id: garlic,         qty: 0.02, unit: lb}
+    - {ingredient_id: white_wine,     qty: 0.03, unit: bottle}
+  butter_poached_cod:
+    - {ingredient_id: cod_fillet,     qty: 0.42, unit: lb}
+    - {ingredient_id: butter,         qty: 0.06, unit: lb}
+    - {ingredient_id: heavy_cream,    qty: 0.04, unit: qt}
+  wild_mushroom_risotto:
+    - {ingredient_id: arborio_rice,   qty: 0.20, unit: lb}
+    - {ingredient_id: mushroom_mix,   qty: 0.25, unit: lb}
+    - {ingredient_id: parmesan,       qty: 0.05, unit: lb}
+    - {ingredient_id: butter,         qty: 0.04, unit: lb}
+    - {ingredient_id: white_wine,     qty: 0.03, unit: bottle}
+    - {ingredient_id: heavy_cream,    qty: 0.04, unit: qt}
+  classic_caesar_salad:
+    - {ingredient_id: romaine_lettuce, qty: 0.25, unit: lb}
+    - {ingredient_id: parmesan,        qty: 0.04, unit: lb}
+  pappardelle_bolognese:
+    - {ingredient_id: pappardelle,    qty: 0.22, unit: lb}
+    - {ingredient_id: beef_ragu,      qty: 0.40, unit: lb}
+    - {ingredient_id: parmesan,       qty: 0.04, unit: lb}
+  tuna_tartare:
+    - {ingredient_id: tuna_ahi,       qty: 0.25, unit: lb}
+    - {ingredient_id: garlic,         qty: 0.005, unit: lb}
+
+# Noise applied when generating recipes_stated from true_recipes
+stated_recipe_noise:
+  spec_sheet_sigma: 0.10   # ±10% noise on logged-normal scale for spec_sheet items
+  by_feel_sigma: 0.25      # ±25% for by_feel items
+  drop_line_prob: 0.08     # probability of omitting a recipe line entirely
+  by_feel_prob: 0.30       # probability a line is labeled "by_feel" instead of "spec_sheet"

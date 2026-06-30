@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Plate Cost{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <span class="wordmark">Plate Cost</span>
+  </header>
+  <div class="sample-banner" role="note">
+    Sample data — illustrative only, not your restaurant's numbers
+  </div>
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="site-footer">
+    <p>Costs rounded to nearest $0.25 · Margin = Menu − ~Cost · Figures are directional estimates</p>
+  </footer>
+</body>
+</html>

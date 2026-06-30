@@ -1,0 +1,38 @@
+# requirements.txt — Restaurant Loss-Forecasting Platform
+# Shared dependencies for the monorepo, installed into the conda env `restaurant-dev`.
+# Discipline (CLAUDE.md Anti-Drift): install what the current step needs, not the whole
+# future stack. Uncomment a block when its phase actually arrives.
+# Version floors only — run `pip freeze > requirements.lock.txt` after install to pin exact versions.
+
+# ── Core: on-ramp plate-cost Phase 0–1 (the work starting now) ──
+pandas>=2.0          # the BOM↔sales join and the popularity×margin grid
+pydantic>=2.0        # schema enforcement on BOM + price records (see schemas/, data/CONTRACT.md)
+
+# ── Dev & test (baseline from day one) ──
+pytest>=8.0          # the validation harness
+ruff>=0.4            # lint + format (.gitignore already expects .ruff_cache/)
+
+# ── Storage layer: DuckDB-over-Parquet (decided 2026-06-25, docs/common_base_reconciliation.md) ──
+duckdb>=0.10         # shared query layer over data/raw/** (the on-ramp's store helper)
+pyarrow>=14.0        # pandas Parquet engine — required for to_parquet / read_parquet
+
+# ── Web layer: on-ramp website W0 (read-only plate-cost reveal, 2026-06-25) ──
+fastapi>=0.110       # ASGI framework for the on-ramp web layer (onramp/plate_cost/web/)
+jinja2>=3.1          # server-rendered HTML templates
+uvicorn[standard]>=0.28  # ASGI server (python -m web from onramp/plate_cost/)
+httpx2>=2.5          # TestClient dependency (Starlette 1.x prefers httpx2 over httpx)
+
+# ── Forecasting engine P0: the decision frame (2026-06-29) ──
+numpy>=1.26          # the dollar objective math (forecasting/src/evaluate/objective.py)
+PyYAML>=6.0          # load + validate config/items.yaml (forecasting/src/config.py)
+
+# ── Added later, when their phase arrives — NOT installed now (Anti-Drift) ──
+# pandera>=0.18       # alternative to pydantic for the seam schemas in schemas/
+#
+# --- forecasting engine (P1+) ---
+# scipy  scikit-learn
+# lightgbm            # Poisson/Tweedie + quantile objectives
+# statsmodels  sktime # classical baselines, rolling-origin CV
+# mapie               # conformal prediction (engine P4)
+# pymc  numpyro       # hierarchical / pooling models (engine P6+)
+# mlflow              # run tracking + dollar-cost logging (rules 03/04)

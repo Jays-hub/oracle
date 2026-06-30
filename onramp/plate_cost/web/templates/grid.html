@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Menu Engineering Grid{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Menu Engineering Grid</h1>
+  <p class="page-meta">{{ total_covers }} covers on record · Popularity × Margin</p>
+</section>
+
+{% if skipped %}
+<section class="skipped-notice" role="alert">
+  <strong>{{ skipped | length }} dish{{ "es" if skipped | length != 1 else "" }} could not be costed</strong>
+  and {{ "are" if skipped | length != 1 else "is" }} not shown below — check the recipe and ingredient references:
+  <ul>
+    {% for s in skipped %}<li>{{ s.name }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for quadrant in quadrants %}
+  {% set items = rows | selectattr("quadrant", "equalto", quadrant) | list %}
+  {% if items %}
+  <section class="quadrant quadrant--{{ quadrant | lower }}">
+    <div class="quadrant-header">
+      <h2>{{ quadrant }}s</h2>
+      <span class="quadrant-action">{{ quadrant_actions[quadrant] }}</span>
+    </div>
+    <div class="dish-grid">
+      {% for dish in items %}
+      <article class="dish-card">
+        <h3 class="dish-name">{{ dish.name }}</h3>
+        <div class="dish-margin">
+          <span class="margin-label">Margin</span>
+          <span class="margin-amount">${{ "%.2f" | format(dish.margin_display) }}</span>
+        </div>
+        <dl class="dish-details">
+          <div class="detail-row">
+            <dt>Menu</dt>
+            <dd>${{ "%.2f" | format(dish.menu_price) }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>~Cost</dt>
+            <dd>${{ "%.2f" | format(dish.cost_display) }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Food cost</dt>
+            <dd>{{ "%.0f" | format(dish.food_cost_pct * 100) }}% <span class="tier tier--{{ dish.food_cost_tier }}">{{ dish.food_cost_tier }}</span></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Covers</dt>
+            <dd>{{ dish.covers }}</dd>
+          </div>
+        </dl>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
+
+<div class="grid-footer">
+  <p>{{ total_covers }} covers on record · Costs rounded to nearest $0.25 · Menu − ~Cost = Margin reconciles by eye</p>
+</div>
+{% endblock %}

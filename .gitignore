@@ -1,0 +1,48 @@
+# ── Data ─────────────────────────────────────────────────────────────
+# Synthetic data is regenerable from config/sim.yaml + a fixed seed
+# (forecasting/docs/simulated_data), so it isn't committed. data/_truth/ is the
+# hidden oracle (scoring only) and must never be version-controlled. We ignore the
+# CONTENTS but keep each dir's .gitkeep so the skeleton is tracked on a fresh clone.
+/data/raw/*
+!/data/raw/.gitkeep
+/data/interim/*
+!/data/interim/.gitkeep
+/data/processed/*
+!/data/processed/.gitkeep
+/data/_truth/*
+!/data/_truth/.gitkeep
+*.duckdb
+
+# ── Models & experiment tracking ─────────────────────────────────────
+# Regenerable and potentially large; the registry itself is Phase 8+ (rule 04).
+/models/
+mlruns/
+mlartifacts/
+
+# ── Python ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ── Environments & secrets ───────────────────────────────────────────
+# Phase 5 brings weather/events API keys — keep them out of git.
+.venv/
+venv/
+env/
+.env
+
+# ── OS / editor ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,21 @@
+id,name,canonical_unit,yield_factor,notes
+00000000-0000-0000-0000-000000000001,beef short rib (bone-in),oz,0.70,Bone-in; trim to ~70%; braise reduces ~25%
+00000000-0000-0000-0000-000000000002,salmon fillet,oz,0.90,Pin-boned; skin-on; 10% trim
+00000000-0000-0000-0000-000000000003,chicken breast,oz,0.88,Boneless skinless; 12% trim/shrinkage
+00000000-0000-0000-0000-000000000004,arborio rice,oz,1.00,Dry weight
+00000000-0000-0000-0000-000000000005,mixed mushrooms,oz,0.85,Cremini/shiitake blend; stems trimmed
+00000000-0000-0000-0000-000000000006,romaine lettuce,oz,0.80,Outer leaves removed; 20% waste
+00000000-0000-0000-0000-000000000007,ground beef 80/20,oz,0.88,Shrinkage on grill ~12%
+00000000-0000-0000-0000-000000000008,ribeye steak,oz,0.85,Bone-in trim ~15%
+00000000-0000-0000-0000-000000000009,pappardelle pasta (dry),oz,1.00,Dry weight; yields ~2.5x cooked
+00000000-0000-0000-0000-000000000010,duck leg confit,oz,0.72,Bone-in; 28% bone/skin loss
+00000000-0000-0000-0000-000000000011,parmesan cheese,oz,1.00,Pre-grated; 100% usable
+00000000-0000-0000-0000-000000000012,heavy cream,fl oz,1.00,
+00000000-0000-0000-0000-000000000013,chicken broth,fl oz,1.00,House-made or low-sodium store
+00000000-0000-0000-0000-000000000014,brioche bun,each,1.00,
+00000000-0000-0000-0000-000000000015,sushi-grade tuna,oz,0.92,Bloodline removed; 8% loss
+00000000-0000-0000-0000-000000000016,cod fillet,oz,0.88,Skin-on; 12% trim
+00000000-0000-0000-0000-000000000017,seasonal vegetables,oz,0.85,Market mix; approx 15% trim
+00000000-0000-0000-0000-000000000018,butter,oz,1.00,
+00000000-0000-0000-0000-000000000019,garlic clove,each,0.90,Papery skin removed
+00000000-0000-0000-0000-000000000020,olive oil,fl oz,1.00,

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(conda run *)",
+      "Bash(python -m pytest forecasting/tests/ -v --tb=short)",
+      "Bash(python -m pytest forecasting/tests/test_simulator.py -v --tb=short)",
+      "Bash(python *)",
+      "Bash(python3 *)"
+    ]
+  }
+}

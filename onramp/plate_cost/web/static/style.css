@@ -1,0 +1,228 @@
+/* ── reset & design tokens ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:               #f9f7f4;
+  --surface:          #ffffff;
+  --text:             #1a1a1a;
+  --text-muted:       #6b6558;
+  --border:           #e4ddd6;
+  --money:            #8c6214;   /* warm amber — reserved for dollar figures */
+  --radius:           6px;
+  --shadow:           0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+
+  --star:             #2e6b38;
+  --plowhorse:        #7a5c1a;
+  --puzzle:           #1a4a7a;
+  --dog:              #5a5a5a;
+}
+
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── header ── */
+.site-header {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.wordmark {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--money);
+}
+
+/* ── sample data banner ── */
+.sample-banner {
+  background: #fff8e6;
+  border-bottom: 1px solid #f0d88a;
+  color: #5c4a00;
+  font-size: .85rem;
+  font-weight: 500;
+  padding: .5rem 1.5rem;
+  text-align: center;
+}
+
+/* ── main layout ── */
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+/* ── page intro ── */
+.page-intro { margin-bottom: 2.5rem; }
+.page-intro h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+.page-meta {
+  margin-top: .3rem;
+  color: var(--text-muted);
+  font-size: .9rem;
+}
+
+/* ── skipped-dishes notice (a dish that could not be costed is named, never dropped silently) ── */
+.skipped-notice {
+  background: #fde8e8;
+  border: 1px solid #f0b8b8;
+  border-radius: var(--radius);
+  color: #7a1a1a;
+  font-size: .9rem;
+  padding: .9rem 1.1rem;
+  margin-bottom: 2rem;
+}
+.skipped-notice ul {
+  margin: .4rem 0 0 1.2rem;
+}
+
+/* ── quadrant sections ── */
+.quadrant { margin-bottom: 2.5rem; }
+
+.quadrant-header {
+  display: flex;
+  align-items: baseline;
+  gap: .75rem;
+  margin-bottom: 1rem;
+  padding-bottom: .5rem;
+  border-bottom: 2px solid var(--border);
+}
+.quadrant-header h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.quadrant-action {
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+
+.quadrant--star      .quadrant-header h2 { color: var(--star); }
+.quadrant--plowhorse .quadrant-header h2 { color: var(--plowhorse); }
+.quadrant--puzzle    .quadrant-header h2 { color: var(--puzzle); }
+.quadrant--dog       .quadrant-header h2 { color: var(--dog); }
+
+/* ── dish card grid ── */
+.dish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dish-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.quadrant--star      .dish-card { border-left-color: var(--star); }
+.quadrant--plowhorse .dish-card { border-left-color: var(--plowhorse); }
+.quadrant--puzzle    .dish-card { border-left-color: var(--puzzle); }
+.quadrant--dog       .dish-card { border-left-color: var(--dog); }
+
+/* ── dish name ── */
+.dish-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: .875rem;
+  line-height: 1.3;
+}
+
+/* ── margin (the primary dollar figure — above the fold) ── */
+.dish-margin {
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  margin-bottom: .875rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--border);
+}
+.margin-label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--text-muted);
+}
+.margin-amount {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--money);   /* the "this is money" accent — rule 06 */
+}
+
+/* ── dish detail list ── */
+.dish-details { font-size: .875rem; }
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: .2rem 0;
+}
+.detail-row dt { color: var(--text-muted); }
+.detail-row dd { font-weight: 500; }
+
+/* ── food cost tier badges ── */
+.tier {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: .1rem .35rem;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.tier--strong { background: #e6f4ea; color: #1f5c2a; }
+.tier--ok     { background: #fff3e0; color: #7a5c1a; }
+.tier--thin   { background: #fde8e8; color: #7a1a1a; }
+
+/* ── footer rows ── */
+.grid-footer {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.site-footer {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 1rem 1.5rem;
+  color: var(--text-muted);
+  font-size: .8rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ── legible error fallback (rules 06/07: calm page, never a stack trace) ── */
+.error-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  max-width: 540px;
+}
+.error-panel h1 {
+  font-size: 1.3rem;
+  margin-bottom: .75rem;
+}
+.error-panel p { margin-bottom: .6rem; }
+.error-ref {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+
+/* ── responsive ── */
+@media (max-width: 480px) {
+  .dish-grid { grid-template-columns: 1fr; }
+  .page-intro h1 { font-size: 1.25rem; }
+  .margin-amount { font-size: 1.35rem; }
+}

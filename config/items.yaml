@@ -1,0 +1,119 @@
+# Per-item economic parameters for the newsvendor decision frame.
+#
+# These values are the foundation of every evaluation in the forecasting engine.
+# "Done" is defined here — a model ships only if it reduces Σ(Co·overage + Cu·underage)
+# below the prior baseline. (forecasting/CLAUDE.md, .claude/rules/03-model-training.md)
+#
+# PLACEHOLDER — these are "Marco" estimates for the simulation phase.
+# Real values come from a chef sitdown: food cost invoices + contribution margin math.
+#
+# Fields:
+#   id:               machine-stable slug (never rename after training data is written)
+#   name:             display name (matches sample_dishes.csv in onramp/plate_cost/data/)
+#   prep_type:        "batch" | "made_to_order"
+#                       batch       → dish-count newsvendor; appears on the prep sheet
+#                       made_to_order → ingredient par-level only; NOT on the prep sheet
+#                       (.claude/rules/04-deployment.md — never flatten this fork)
+#   co:               overage cost per unsold portion, in dollars
+#                       = food cost of the portion (what was purchased, now wasted)
+#   cu:               underage cost per stockout, in dollars
+#                       = menu_price − food_cost (contribution margin lost) + any goodwill cost
+#   lead_time_days:   how many days ahead the prep decision must be made (almost always 1:
+#                       the prior evening, before next-day service)
+#
+# Derived at decision time (not stored here):
+#   q* = cu / (co + cu)   — the critical ratio; the quantile to prep at
+#   prep_qty = F^{-1}(q*) — computed in forecasting/src/decision/, not here
+
+items:
+
+  # --- BATCH ITEMS (on the prep sheet) ---
+
+  - id: braised_short_rib
+    name: Braised Short Rib
+    prep_type: batch
+    co: 14.00   # food cost ~33% of $42
+    cu: 28.00   # lost margin: $42 − $14; revenue driver, guests notice when it's gone
+    lead_time_days: 1
+    notes: "braise starts the prior afternoon; the canonical batch item"
+
+  - id: pan_seared_salmon
+    name: Pan-Seared Salmon
+    prep_type: batch
+    co: 11.00   # portioned fillets ~29% of $38
+    cu: 27.00
+    lead_time_days: 1
+    notes: "portioned and refrigerated day-before; seared to order from the batch"
+
+  - id: half_roast_chicken
+    name: Half Roast Chicken
+    prep_type: batch
+    co: 9.00    # food cost ~28% of $32
+    cu: 23.00
+    lead_time_days: 1
+
+  - id: house_burger
+    name: House Burger
+    prep_type: batch
+    co: 7.00    # patty cost ~32% of $22; formed and refrigerated ahead
+    cu: 15.00
+    lead_time_days: 1
+
+  - id: ribeye_steak_12oz
+    name: Ribeye Steak 12oz
+    prep_type: batch
+    co: 22.00   # expensive cut ~38% of $58; high overage cost → prep lean (q*≈0.62)
+    cu: 36.00   # but high margin too
+    lead_time_days: 1
+    notes: "portioned and tempered day-before; high co makes over-prepping costly"
+
+  - id: duck_confit
+    name: Duck Confit
+    prep_type: batch
+    co: 13.00   # ~30% of $44; long confit cook means 1-day lead is mandatory
+    cu: 31.00
+    lead_time_days: 1
+    notes: "8-hour confit — the most unforgiving lead-time item on the menu"
+
+  - id: butter_poached_cod
+    name: Butter Poached Cod
+    prep_type: batch
+    co: 10.00   # portioned ~29% of $34
+    cu: 24.00
+    lead_time_days: 1
+
+  # --- MADE-TO-ORDER ITEMS (ingredient par-level only; NOT on the dish-count prep sheet) ---
+  # These appear in the config so q* can be computed for their component ingredient pars.
+  # They are excluded from the prep sheet — a "make N Caesars" line is never printed.
+  # (.claude/rules/04-deployment.md Hard Truth #8)
+
+  - id: wild_mushroom_risotto
+    name: Wild Mushroom Risotto
+    prep_type: made_to_order
+    co: 6.00    # ingredient pars: arborio, mushroom sauté ~21% of $28
+    cu: 22.00
+    lead_time_days: 1
+    notes: "cooked à-la-minute; q* applies to mise-en-place pars, not a dish count"
+
+  - id: classic_caesar_salad
+    name: Classic Caesar Salad
+    prep_type: made_to_order
+    co: 3.00    # ~19% of $16
+    cu: 13.00
+    lead_time_days: 1
+
+  - id: pappardelle_bolognese
+    name: Pappardelle Bolognese
+    prep_type: made_to_order
+    co: 7.00    # pasta + ragu ~27% of $26; ragu is batch but the dish is assembled to order
+    cu: 19.00
+    lead_time_days: 1
+    notes: "ragu is batch-prepped (and has its own par); the dish count is made_to_order"
+
+  - id: tuna_tartare
+    name: Tuna Tartare
+    prep_type: made_to_order
+    co: 6.00    # raw fish ~32% of $19; high spoilage risk, prep lean
+    cu: 13.00
+    lead_time_days: 1
+    notes: "knife work per order; par = protein weight, not a dish count"
