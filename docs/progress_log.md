@@ -1,8 +1,9 @@
 # Progress Log — platform milestones & decisions
 
 A dated, append-only record of what has been built and what has been *decided* (with the reasoning,
-or a pointer to the decision record). Distinct from `ARCHITECTURE_REVIEW.md` (a point-in-time audit)
-and `CLAUDE.md` "Current status" (a thin live snapshot): this is the running history. Newest first.
+or a pointer to the decision record). Distinct from `../docs_archive/ARCHITECTURE_REVIEW.md` (a
+point-in-time audit, superseded and archived) and `CLAUDE.md` "Current status" (a thin live
+snapshot): this is the running history. Newest first.
 
 Convention: each entry is dated, tagged `[built]` / `[decided]` / `[gated]` / `[docs]`, and names the
 artifacts touched. Decisions link their record rather than restating it.
@@ -173,5 +174,5 @@ Gate 4 cleared (Jay): "P0 builds metrics that are more important and interpretab
 ---
 
 > **Older history archived.** Entries dated 2026-06-25 and earlier live in
-> [`progress_log_archive.md`](progress_log_archive.md) so this active log stays small for
-> per-build reads. Move an entry there once it is no longer current-era context.
+> [`../docs_archive/progress_log_archive.md`](../docs_archive/progress_log_archive.md) so this active
+> log stays small for per-build reads. Move an entry there once it is no longer current-era context.
