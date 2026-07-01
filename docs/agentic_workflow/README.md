@@ -1,16 +1,18 @@
 # Agentic Workflow — efficiency record (scoped, do-not-auto-load)
 
 This folder documents the **agentic workflow itself** — the `.claude/` governance machinery
-(`rules/`, `commands/`, `agents/`), the memory system, the Comprehension-Contract gate, and the
-token economics of running this project with an agent. It is the workflow's own progress log +
-backlog, the same pattern `docs/progress_log.md` and the memory system use for *product* work.
+(`rules/`, `commands/`, `agents/`), the memory system, the comprehension track (`/learn` +
+`docs/mastery.md`), and the token economics of running this project with an agent. It is the
+workflow's own progress log + backlog, the same pattern `docs/progress_log.md` and the memory system
+use for *product* work.
 
 ## Access rule (read this first)
 
 > **An agent should open this folder ONLY when the task concerns the agentic workflow of this
 > project** — i.e. editing `.claude/rules/**`, `.claude/commands/**`, `.claude/agents/**`, the
-> memory system, the Comprehension-Contract gate, or the token/process efficiency of how the agent
-> works. **Do not read it during ordinary product builds** (engine `Pn` phases, on-ramp `Wn` phases,
+> memory system, the comprehension track (`/learn` + `docs/mastery.md`), or the token/process
+> efficiency of how the agent works. **Do not read it during ordinary product builds** (engine `Pn`
+> phases, on-ramp `Wn` phases,
 > bug fixes). Those tasks are governed by `CLAUDE.md` + `.claude/rules/` + `docs/progress_log.md` and
 > never need this folder.
 
@@ -26,8 +28,8 @@ it on every turn would re-create the overhead it documents.
   workflow. Each item names the file to change and the expected payoff (token saving or risk
   reduction). Tick items off here when done and record the change in `current_state.md`.
 - [`reviewer_report_format.md`](reviewer_report_format.md) — the one genuinely byte-identical piece
-  shared by `phase-reviewer`/`web-reviewer` (finding format + comprehension-handoff wording), factored
-  out so a wording fix reaches both reviewers at once (#10).
+  shared by `phase-reviewer`/`web-reviewer` (the finding format), factored out so a wording fix reaches
+  both reviewers at once (#10).
 - [`subagent_workflow_deliverables.md`](subagent_workflow_deliverables.md) — deliverables + concrete
   solutions for the subagent/multi-agent-mechanics gaps logged in `current_state.md`'s 2026-06-30
   "Third pass" entry (build/review loop, cold-context handoffs). Same strike-and-record convention.

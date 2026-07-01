@@ -21,13 +21,15 @@ synthetic data engineered to look like a real restaurant's first data dump. Whet
 forecasting is actually unsaturated and wanted is an empirical question only real customer discovery
 answers. Build the skill here; let operators decide the company.
 
-## PRIME DIRECTIVE — comprehension is paired with construction (NON-NEGOTIABLE)
-The Comprehension Contract is the platform gate, and it sits on the **review's exit, not the build's
-start**. It is defined once — verbatim and always-on — in `../.claude/rules/00-process.md` (full
-reasoning in `docs/overview_and_method.md`), so it is **not re-listed here**. What's engine-specific:
-it **binds engine work hardest** (this is where most code is written), so `forecasting/src/**` is built
-freely, but no engine phase is *done* until Jay can fully explain the finished, reviewed work in his own
-words (restate it + the "say it to a chef" line) — the agent never self-certifies it.
+## Comprehension is paired with construction — but on a parallel track, not a gate
+Understanding is grown alongside the code, but it **does not gate engine work**: `forecasting/src/**` is
+built freely and a phase's review closes on the **code** (findings, fixes, log entry). Comprehension
+runs on its own spaced-repetition track — the `/learn` command + `comprehension-tutor` maintaining
+`docs/mastery.md` — defined once in `../.claude/rules/00-process.md` (reasoning in
+`docs/overview_and_method.md`), so it is **not re-listed here**. What's engine-specific: this is where
+most code is written, so most `docs/mastery.md` topics originate here — running `/learn` after an engine
+phase is the natural way to lock in the newsvendor / feature-hygiene techniques, but it is a practice
+cadence, never a precondition for "done." (The old review-exit gate was retired 2026-07-01.)
 
 ## What "done" means at every step
 Dollars, not accuracy — the platform standing order (`../CLAUDE.md`) and its full metric definition
@@ -119,9 +121,10 @@ here and in `docs/progress_log.md`).
   tagging); `forecasting/src/features/pipeline.py` (calendar, lags, rolling stats, walk-forward CV,
   leakage canary); `forecasting/src/models/point.py` (point forecast baselines: lag-7, rolling-28,
   gut-proxy).
-- **Suite: 181 tests, 181 pass** (full repo via `make test`; 164 engine+seam tests as of the P2
-  backfill, +17 from the 2026-07-01 workflow-efficiency pass — CI/import-linter/hook/gate-artifact
-  tests under `tests/`, none of them engine-specific). The former red test
+- **Suite: 175 tests, 175 pass** (full repo via `make test`; 164 engine+seam tests as of the P2
+  backfill, +11 from the 2026-07-01 workflow-efficiency pass — CI/import-linter/hook tests under
+  `tests/`, none of them engine-specific. The 6 gate-artifact tests from that pass were removed
+  2026-07-01 when the comprehension gate was retired). The former red test
   (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not an
   implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
   callout. P2 is now clean.

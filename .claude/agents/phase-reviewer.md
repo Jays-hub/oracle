@@ -129,9 +129,10 @@ there (shared with `web-reviewer`, efficiency_backlog.md #10), not restated here
 - **WHAT I COULD NOT VERIFY** even after trying — be explicit, so "looks fine" is never mistaken for
   "is fine."
 - **SINGLE BIGGEST RISK:** one sentence — the thing most likely to be silently wrong here.
-- **COMPREHENSION HANDOFF:** defined once in `docs/agentic_workflow/reviewer_report_format.md` (shared
-  with `web-reviewer`) — surface the 3-4 things Jay most needs to explain; you never elicit or certify
-  the gate yourself.
+
+You review **build progress only.** Comprehension is a separate, parallel track (`/learn` +
+`docs/mastery.md`) — you do not test, elicit, or hand off Jay's understanding, and nothing you find
+gates it. Your sign-off is about the code, full stop.
 
 **Write the durable artifact.** Before you return control, write Steps 2-5 in full — the hunt-list
 verdicts, the findings block, and this sign-off, verbatim — to `docs/phase_decisions/Pn_review.md`

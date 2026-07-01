@@ -60,8 +60,8 @@ word-for-word against a file Jay can open himself.
 
 **Problem:** A greenlit BLOCKER fix goes back to "a build pass" — the same builder/context that wrote
 the original bug — which re-runs the suite itself and calls it resolved. No independent check that the
-fix addresses the finding rather than just the symptom. Compounds `efficiency_backlog.md` #8 (the gate
-having no teeth).
+fix addresses the finding rather than just the symptom. (Related: `efficiency_backlog.md` #8, now
+retired — the comprehension gate it concerned was removed 2026-07-01.)
 
 **Deliverable:** A mandatory fresh reviewer pass scoped to the fix diff before a BLOCKER can be marked
 resolved.
@@ -105,11 +105,11 @@ propagate into the next phase's checklist — only a human hand-editing the rule
 
 **Deliverable:** A "graduate the finding" step appended to the review-close protocol.
 
-**Solution:** When a review's comprehension gate closes (`/review-phase`'s closing step), add one
-explicit question before the phase is marked done: "does this finding's failure mode generalize beyond
-this phase?" If yes, require a one-line addition to the relevant `.claude/rules/0N-*.md` hunt list (or
-the reviewer agent's own hunt list) in the same commit that closes the phase, so the check is
-structural rather than a hoped-for memory.
+**Solution:** When a review closes (`/review-phase`'s closing step, on code merit), add one explicit
+question before the phase is marked done: "does this finding's failure mode generalize beyond this
+phase?" If yes, require a one-line addition to the relevant `.claude/rules/0N-*.md` hunt list (or the
+reviewer agent's own hunt list) in the same commit that closes the phase, so the check is structural
+rather than a hoped-for memory.
 
 **Done when:** At least one real review finding has demonstrably graduated into a rule file, traceable
 via `git blame` back to the phase that produced it.

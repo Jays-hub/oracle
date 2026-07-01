@@ -1,9 +1,11 @@
 # Mastery Curriculum & Customer Language
 
 Two things in one place: the concepts you actually need to *own* (with where to learn them), and the
-plain-language translations that make you credible to operators. The Comprehension Contract (`docs/overview_and_method`)
-requires both for every step — the concept *and* the chef-sentence — so this doc is the reference you
-pull from to satisfy Gates 3 and 4.
+plain-language translations that make you credible to operators. Both feed the comprehension track
+(`/learn` + `docs/mastery.md`, `docs/overview_and_method`): the concept is what the `comprehension-tutor`
+quizzes across the code/ds/seq domains, and the plain-language translation is what makes you credible in
+front of an operator. (The old gate's required "chef-sentence" is gone; the plain-language framing here
+stays because talking to operators is a real skill, just no longer a comprehension-test artifact.)
 
 ## Concepts to master, sequenced by when the phases need them
 Free/primary sources favored. You don't need all of this before starting — learn each rung as its phase
@@ -46,13 +48,15 @@ arrives.
 **A realistic learning order:** *Forecasting: Principles & Practice* → the newsvendor chapter →
 quantile + conformal → unconstraining (as you hit the censoring wall) → *Statistical Rethinking* (for
 pooling). This matches the phase order, so learning and building stay in lockstep — which is the whole
-point of the contract.
+point of the comprehension track.
 
 ## What "mastery" means here (so you can self-check)
 You own a concept when you can: (1) say what failure it prevents, (2) name the practice in each of the
-three domains (code / stats / kitchen), and (3) give the chef-sentence. If you can import the library
-but can't do (1)–(3), you've borrowed the tool, not the understanding — and against an incumbent who
-has more data, borrowed tools lose. The understanding is the edge.
+three domains the `comprehension-tutor` tests — the data-science technique (`ds`), the coding craft
+(`code`), and the sequencing/why-now (`seq`) — and (3) explain it in plain language an operator would
+follow. If you can import the library but can't do (1)–(3), you've borrowed the tool, not the
+understanding — and against an incumbent who has more data, borrowed tools lose. The understanding is
+the edge. (The formal ledger of where you stand on each concept is `docs/mastery.md`.)
 
 ---
 

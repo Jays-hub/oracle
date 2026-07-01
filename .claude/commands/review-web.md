@@ -55,36 +55,14 @@ fixes, hand them back to a build pass (`/model sonnet`, then apply the reviewer'
 the suite, and record the outcome in `docs/progress_log.md` — the same hardening pattern the log already
 uses. Fixing is ordinary build work; it is **not** gated by anything before the keystrokes.
 
-## The comprehension exit gate — the review does not close until Jay can explain the work
+## No comprehension gate — the review closes on code merit
 
-This is the project's one hard gate, defined once — the four-part explanation Jay must give, and the
-"you never self-certify this" rule — in `.claude/rules/00-process.md` (`alwaysApply: true`, so it's
-already loaded; **don't restate it here**). It lives **at the review's exit**, not before the build:
-after the findings are relayed and any greenlit fixes have landed and re-passed, the review is **still
-open** until Jay demonstrates comprehension of the **finished, reviewed** code in his own words. Do
-**not** declare the phase done, merge, or write the closing `docs/progress_log.md` entry before that.
-If his explanation is missing any of the rule's four parts, say which one and ask again.
+This review closes on the **code**: findings relayed, greenlit fixes landed and re-passed, the closing
+`docs/progress_log.md` entry written. It is **not** gated by Jay's comprehension. Understanding is grown
+on a **separate, parallel track** — `/learn` + `docs/mastery.md` — which runs on its own
+spaced-repetition schedule and never blocks a phase close, a merge, or this sign-off. (The old
+comprehension exit gate, with its per-phase `JAY-VERBATIM` capture, was retired 2026-07-01.)
 
-What's specific to this command — not in rule 00 — is how that explanation gets captured and enforced
-once it lands:
-
-**The gate has teeth — you cannot skip this by writing prose instead of the artifact.** When Jay's
-explanation lands:
-
-1. Paste his message **unedited, in full**, into `docs/phase_decisions/$ARGUMENTS.md`'s Comprehension
-   Capture section, inside the fenced `JAY-VERBATIM (paste, unedited)` block (see `_template.md`). Do
-   not clean it up, reorder it, or fix his typos — the raw paste is the record.
-2. Under it, quote the exact substring from that pasted block that satisfies each of the four parts.
-   If you cannot find a real sentence for one, write `MISSING — ask again` for that line and go back
-   to asking Jay — **never invent a plausible-sounding quote to fill the slot.** A fabricated citation
-   here is worse than an empty one: it makes an ungated phase look gated.
-3. **Refuse to write the closing `docs/progress_log.md` entry** (`[reviewed]`/`[done]`) until
-   `docs/phase_decisions/$ARGUMENTS.md` exists on disk with that block filled and all four citations
-   present and non-`MISSING`. This is a hard stop, not a reminder — if the file or the block is
-   missing, say so and go fill it before doing anything else. The closing heading itself **must name
-   the bare phase token** next to the tag, e.g. a heading reading "2026-07-01 — W1 reviewed:
-   capture funnel `[reviewed]`", so `tests/test_phase_gate_artifacts.py` can find and check it — this
-   same invariant runs in CI, so a phase marked done in the log without a matching filled `Wn.md` fails
-   the build, not just the honor system.
-
-Only once the artifact is written and checked is the phase done and mergeable.
+If this phase introduced new techniques worth locking in, the natural follow-up is to run `/learn`
+later — but that is Jay's practice cadence, not a precondition here. Once fixes are in and the log entry
+is written, the phase is done and mergeable.

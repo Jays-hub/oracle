@@ -10,8 +10,8 @@ that couldn't see this repo; everything they asked you to *paste*, the CLI agent
 
 - **`/build-phase <P>`** — `.claude/commands/build-phase.md`. The builder. Run it in the main thread
   (ideally on Sonnet). It reads the phase spec from `forecasting/docs/construction_roadmap.md`, builds
-  only that phase (no pre-code gate), writes real tests, and runs `pytest`/`ruff` before handoff. The
-  Comprehension Contract is enforced later, at the review's exit, not here.
+  only that phase (no pre-code gate), writes real tests, and runs `pytest`/`ruff` before handoff.
+  Comprehension is grown separately on the `/learn` + `docs/mastery.md` track and gates nothing here.
 - **`/review-phase <P>`** — `.claude/commands/review-phase.md`. The reviewer's launcher. It gathers a
   git diff base and dispatches the `phase-reviewer` subagent, then relays the findings verbatim.
 - **`phase-reviewer`** — `.claude/agents/phase-reviewer.md`. A **read-only, Opus** subagent (tools:
@@ -30,14 +30,15 @@ that couldn't see this repo; everything they asked you to *paste*, the CLI agent
    back findings + an honest verdict.
 5. You decide what to fix. Fixes go back to a Sonnet build pass and re-run — fixing is ordinary build
    work, not gated.
-6. **The comprehension exit gate.** The review does **not** close until you can explain, in your own
-   words, the finished, reviewed work: why-this-why-now, codebase impact, the three-domain practices,
-   and the review delta + the failure mode it guards + the "say it to a chef" one-liner. Only when that
-   lands does the agent record it in the decision log, write the closing log entry, and merge the branch.
+6. **The review closes on the code.** Once findings are relayed, greenlit fixes have landed and
+   re-passed, the agent records the review in the decision log, writes the closing `docs/progress_log.md`
+   entry, and merges the branch. Nothing waits on your comprehension. Growing that understanding is a
+   separate track — run `/learn` on your own cadence to have the `comprehension-tutor` quiz the new
+   techniques and update `docs/mastery.md`.
 
-One phase, one branch, one review that closes on *your* understanding. The old "keep each phase in its
-own chat" becomes "keep each phase on its own branch" — same isolation, with a real diff and rollback
-instead of copy-paste.
+One phase, one branch, one review that closes on the *code*. The old "keep each phase in its own chat"
+becomes "keep each phase on its own branch" — same isolation, with a real diff and rollback instead of
+copy-paste.
 
 ## Why a reviewer *subagent* (not a second chat, not this thread)
 
@@ -68,13 +69,15 @@ leakage canary); `random_state=42`; and the **seam firewall** (`_truth/` read on
 `onramp/` never imports `forecasting/`, the boundary test). Anti-drift is now a review finding:
 over-engineering ahead of the dollar-beating step gets flagged, not rewarded.
 
-**Inverted the comprehension gate (the important one).** This used to be a *pre-code* gate: the agent
-presented Gates 1–3 and hard-stopped until Jay cleared Gate 4 before a line was written. That stalled
-delivery and let understanding be certified against code that didn't exist yet. `00-process.md` now puts
-the gate at the **review's exit** instead: the agent builds freely, and the **review** is what can't
-close until Jay can fully explain the finished work in his own words. The agent never self-certifies it.
-Same contract — the project stays *yours* — but the explanation is now tested against real, reviewed
-code instead of a plan.
+**Retired the comprehension gate entirely (2026-07-01).** It went through two forms — first a *pre-code*
+gate (present Gates 1–3, hard-stop until Jay cleared Gate 4 before a line was written), then a
+*review-exit* gate (the review couldn't close until Jay explained the finished work). Both coupled two
+clocks that move at different speeds: shipping is per-phase and fast, understanding is cumulative and
+needs re-testing over time. `00-process.md` now runs comprehension as a fully **parallel track** — the
+`/learn` command + `comprehension-tutor` subagent maintaining `docs/mastery.md`, a spaced-repetition
+ledger that resurfaces each topic on a schedule set by how well it's understood. Build and review close
+on the code; understanding is grown continuously and gates nothing. The project stays *yours* because a
+concept is re-checked weeks later, not certified once at a phase boundary.
 
 ## Notes
 

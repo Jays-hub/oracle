@@ -40,11 +40,13 @@ import the other; the only thing they share is the seam.
 
 ## Standing orders that span BOTH parts
 
-1. **The Comprehension Contract (the gate — on the review's exit, not the build's start).** Building is
-   never blocked by a comprehension gate; code may be written freely. But a phase's **review may not
-   close** — no sign-off, no merge, no "done" — until Jay can **fully explain, in his own words, the
-   changes made during both the build and the review.** Applies to engine and on-ramp alike. Enforced by
-   `.claude/rules/00-process.md`; full reasoning in `docs/overview_and_method.md`.
+1. **Comprehension is a parallel track, not a gate.** Nothing about Jay's understanding blocks work:
+   building is free and a phase's **review closes on the code** (findings, fixes, log entry) — no
+   comprehension sign-off, no verbatim capture. Understanding is grown and re-checked over time on its
+   own spaced-repetition track — the **`/learn`** command + **`comprehension-tutor`** subagent
+   maintaining **`docs/mastery.md`** — which never blocks a build, review, merge, or phase close.
+   Applies to engine and on-ramp alike. Defined in `.claude/rules/00-process.md`; reasoning in
+   `docs/overview_and_method.md`. (The old review-exit gate was retired 2026-07-01.)
 2. **Anti-Drift Standing Order.** The highest-value work is barely ML (the newsvendor reframe + the
    data-access grind). Name the drift if a session reaches for sophistication before the simpler,
    higher-dollar step exists — **including drift *into* the on-ramp**, which is more buildable and
@@ -76,13 +78,13 @@ compute, the popularity×margin grid, and a schema-validated export of the sales
 seam (`data/raw/`). Shared seam schemas (`schemas/`) and a test suite — including the cross-module
 boundary test — are in place. The **forecasting engine** (`forecasting/`) has **P0–P2 built**: the
 decision frame, the simulated-data generator + baselines + backtest harness, and the data-cleaning +
-feature pipeline + point model. See `forecasting/CLAUDE.md` Current status for detail, including one
-known open test failure. The common store exists with its contract.
+feature pipeline + point model. See `forecasting/CLAUDE.md` Current status for detail. The common store
+exists with its contract.
 
 **Storage decided (2026-06-25): DuckDB-over-Parquet** is the shared store
 (`docs/common_base_reconciliation.md`) — the `data/raw/**` files stay the firewall, DuckDB is the
-query layer over them. Standing up the query layer is a gated phase — its review must clear the
-Comprehension Contract before it closes: **decided, not yet built.**
+query layer over them. Standing up the query layer is a phase whose review closes on code merit like any
+other: **decided, not yet built.**
 
 **On-ramp website (next surface):** a clean, simple client-facing website is the on-ramp's planned
 face. North-star vision: `onramp/plate_cost/docs/website_vision.md`; governance: the new full-stack

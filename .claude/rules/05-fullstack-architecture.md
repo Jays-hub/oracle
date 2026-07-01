@@ -69,8 +69,9 @@ its backend. They are the full-stack peers of the engine rules (`02`–`04`, sco
 - **Deterministic where it matters.** Seed any stochastic component (`random_state=42` convention);
   pin dependency versions. Reproducibility is part of the trust story.
 
-## The Gate Still Applies (at the review's exit)
+## What counts as a phase (gets an adversarial review)
 - A new view that introduces a **data transform or decision logic** (a new derived metric, a new
-  capture leg, a re-cost rule) is a new *phase*: build it freely, but its **review can't close** until
-  Jay can explain the finished work in his own words (`00-process.md`). Pure presentation wiring of an
-  already-built computation is mechanical and does not trigger the review gate.
+  capture leg, a re-cost rule) is a new *phase*: build it freely, then run it through an adversarial
+  review that closes on code merit (`00-process.md`). Pure presentation wiring of an already-built
+  computation is mechanical and does not trigger a review. Comprehension is grown separately on the
+  `/learn` + `docs/mastery.md` track and gates nothing here.
