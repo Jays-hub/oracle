@@ -14,23 +14,28 @@
 
 ## Comprehension Capture (filled when the review closes — the phase's exit gate)
 
-Jay's own-words explanation of the **finished, reviewed** work. The review does not close until all of
-this is present.
+Jay's own-words explanation of the **finished, reviewed** work. The review does not close until this
+whole section is present — the fenced block filled with his actual words (not a paraphrase, not agent
+prose standing in for it), and every citation below pointing at a real sentence inside that block. A
+citation that can't be found verbatim in the fenced block means the gate is not cleared yet.
 
-**Why this, why now (verbatim):**
-> "..."
+**JAY-VERBATIM (paste, unedited):**
+```
+<paste Jay's full explanation here exactly as he wrote it — do not summarize, correct, or reformat it>
+```
 
-**Codebase impact + practices in all three domains (verbatim):**
-> "..."
+**Which sentence satisfies each part** (quote the exact substring from the block above):
 
-**What the review found & changed (verbatim):**
-> "..."
+1. **What & why:** "..."
+2. **Codebase impact:** "..."
+3. **Practices in all three domains** — (a) software/coding, (b) data-science/statistical, (c)
+   restaurant/consulting: "..." / "..." / "..."
+4. **Review delta + failure mode + chef one-liner:** "The failure mode this guards against is ..." /
+   "..."
 
-**Failure mode guarded against (verbatim):**
-> "The failure mode this guards against is ..."
-
-**Chef one-liner (verbatim):**
-> "..."
+If any citation is missing, leave it as `MISSING — ask again` rather than inventing a plausible-sounding
+quote. A visibly empty citation is the point: it makes an incomplete gate impossible to mistake for a
+cleared one.
 
 ---
 

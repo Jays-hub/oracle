@@ -3,14 +3,17 @@ description: Run an adversarial, read-only Opus review of a finished on-ramp web
 argument-hint: <web phase id, e.g. W0, W1, or 'uncommitted' for current changes>
 ---
 
-Launch the **`web-reviewer`** subagent (read-only, Opus) to adversarially review the on-ramp web phase:
+Launch the **`web-reviewer`** subagent (Opus; read-only over the codebase, write-scoped only to
+`docs/phase_decisions/**`) to adversarially review the on-ramp web phase:
 **`$ARGUMENTS`**. If that is empty, default to reviewing the uncommitted/most-recent changes under
 `onramp/` and say so.
 
-Why a subagent and not this thread: the review must run in a **fresh context that never saw the
-builder's justifications** — that is the whole point of the original "review in a separate chat"
-instruction, achieved natively. Do not pre-summarize the code or pre-judge it for the reviewer; hand it
-the phase id and let it form its own view from the repo.
+Why a subagent and not this thread: the review must run **cold to the build chat** — it never saw the
+builder's own narration, rationalizations, or in-thread back-and-forth, which is what "review in a
+separate chat" was actually protecting against. It is **deliberately handed the builder's decision log**
+(below) so it can tell an intentional tradeoff from a mistake — cold to the conversation, not blind to
+the documented reasoning. Do not pre-summarize the code or pre-judge it for the reviewer beyond that; let
+it form its own view from the repo.
 
 Before launching, gather two things:
 
@@ -31,13 +34,21 @@ Prompt to give the subagent:
 > end with the structured findings + honest sign-off. Here is the diff base: {git output}. Before
 > reviewing code, read the builder's decision log below — use it to distinguish deliberate choices from
 > mistakes, and critique the reasoning where the rationale is weak.
+> **Before you return control, write your full findings block + sign-off, verbatim, to
+> `docs/phase_decisions/$ARGUMENTS_review.md`** (create it; this is the one path you may use your Write
+> tool on — nothing else). This is the durable record Jay reads directly; it is not relayed through the
+> builder's thread.
 >
 > ## Builder's Decision Log
 > {contents of docs/phase_decisions/$ARGUMENTS.md, or "No decision log exists — infer intent from
 > code and flag unconfirmed assumptions aggressively."}
 
-When the subagent returns, relay its report to Jay **verbatim in structure** (the findings block, the
-verdict, the test/lint result, the top-3 fixes, the single biggest risk). Do not soften or re-grade it.
+When the subagent returns, confirm `docs/phase_decisions/$ARGUMENTS_review.md` exists and point Jay at
+it directly — that file, not this chat, is the authoritative report. Then relay its contents to Jay
+**verbatim in structure** (the findings block, the verdict, the test/lint result, the top-3 fixes, the
+single biggest risk) so he doesn't have to leave the conversation to read it. Do not soften or re-grade
+it; the file is there specifically so a mismatch between the relay and the artifact is itself visible
+and checkable.
 
 Then, **do not auto-fix.** Present the findings and ask Jay how he wants to proceed. When Jay greenlights
 fixes, hand them back to a build pass (`/model sonnet`, then apply the reviewer's concrete fixes), re-run
@@ -46,27 +57,34 @@ uses. Fixing is ordinary build work; it is **not** gated by anything before the 
 
 ## The comprehension exit gate — the review does not close until Jay can explain the work
 
-This is the project's one hard gate (`.claude/rules/00-process.md`), and it lives **here, at the review's
-exit** — not before the build. After the findings are relayed and any greenlit fixes have landed and
-re-passed, the review is **still open**. Do **not** declare the phase done, do **not** merge, and do
-**not** write the closing `docs/progress_log.md` entry until Jay demonstrates comprehension of the
-**finished, reviewed** code.
+This is the project's one hard gate, defined once — the four-part explanation Jay must give, and the
+"you never self-certify this" rule — in `.claude/rules/00-process.md` (`alwaysApply: true`, so it's
+already loaded; **don't restate it here**). It lives **at the review's exit**, not before the build:
+after the findings are relayed and any greenlit fixes have landed and re-passed, the review is **still
+open** until Jay demonstrates comprehension of the **finished, reviewed** code in his own words. Do
+**not** declare the phase done, merge, or write the closing `docs/progress_log.md` entry before that.
+If his explanation is missing any of the rule's four parts, say which one and ask again.
 
-Ask Jay to explain, **in his own words**, all four:
+What's specific to this command — not in rule 00 — is how that explanation gets captured and enforced
+once it lands:
 
-1. **What & why** — what this phase built and why it was the right step now (the dependency that placed it
-   here).
-2. **Codebase impact** — the files/modules it created or touched, what they produce, what they unlock.
-3. **Practices invoked, in all three domains** — (a) software/coding craft, (b) data-science/statistical
-   concept, (c) restaurant/consulting standard.
-4. **The review delta + the failure mode** — what the review found and changed (or why it changed
-   nothing), the **"say it to a chef"** one-liner, and the sentence **"The failure mode this guards
-   against is ___."** (filled in, not blank).
+**The gate has teeth — you cannot skip this by writing prose instead of the artifact.** When Jay's
+explanation lands:
 
-**You never self-certify this — Jay clears it.** If his explanation is missing any of the four (including
-the filled-in failure-mode sentence and the chef one-liner), the gate is **not** cleared: say which part
-is missing and ask again. Keep the review open until it lands.
+1. Paste his message **unedited, in full**, into `docs/phase_decisions/$ARGUMENTS.md`'s Comprehension
+   Capture section, inside the fenced `JAY-VERBATIM (paste, unedited)` block (see `_template.md`). Do
+   not clean it up, reorder it, or fix his typos — the raw paste is the record.
+2. Under it, quote the exact substring from that pasted block that satisfies each of the four parts.
+   If you cannot find a real sentence for one, write `MISSING — ask again` for that line and go back
+   to asking Jay — **never invent a plausible-sounding quote to fill the slot.** A fabricated citation
+   here is worse than an empty one: it makes an ungated phase look gated.
+3. **Refuse to write the closing `docs/progress_log.md` entry** (`[reviewed]`/`[done]`) until
+   `docs/phase_decisions/$ARGUMENTS.md` exists on disk with that block filled and all four citations
+   present and non-`MISSING`. This is a hard stop, not a reminder — if the file or the block is
+   missing, say so and go fill it before doing anything else. The closing heading itself **must name
+   the bare phase token** next to the tag, e.g. a heading reading "2026-07-01 — W1 reviewed:
+   capture funnel `[reviewed]`", so `tests/test_phase_gate_artifacts.py` can find and check it — this
+   same invariant runs in CI, so a phase marked done in the log without a matching filled `Wn.md` fails
+   the build, not just the honor system.
 
-When it lands: record Jay's explanation **verbatim** in the comprehension-capture section of
-`docs/phase_decisions/$ARGUMENTS.md`, then write the closing `docs/progress_log.md` entry (tagged
-`[reviewed]`/`[done]`) and only then is the phase done and mergeable.
+Only once the artifact is written and checked is the phase done and mergeable.
