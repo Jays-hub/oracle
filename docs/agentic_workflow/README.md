@@ -31,6 +31,8 @@ it on every turn would re-create the overhead it documents.
 - [`subagent_workflow_deliverables.md`](subagent_workflow_deliverables.md) — deliverables + concrete
   solutions for the subagent/multi-agent-mechanics gaps logged in `current_state.md`'s 2026-06-30
   "Third pass" entry (build/review loop, cold-context handoffs). Same strike-and-record convention.
+- [`lessons.md`](lessons.md) — dated log of mistakes made while operating this workflow, each with a
+  concise guideline to prevent recurrence.
 
 ## Maintenance convention
 
