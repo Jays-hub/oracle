@@ -72,11 +72,9 @@ Fold those findings into your build plan. The agent does not start from cold.
 Carry these forward into the decision log (Step 3); they are the material Jay's review-exit explanation
 will be checked against. They do **not** require Jay's sign-off before you write code.
 
-**Name the drift.** Per the Anti-Drift Standing Order: if this phase (or your plan for it) reaches for
-sophistication — deep sequence models, elaborate causal inference, premature infra — before the
-simpler, higher-dollar step exists and beats baseline, **say so and redirect** to the simplest thing
-that respects the economics. Drift *into the on-ramp* (more buildable, more gratifying than the moat)
-counts too.
+**Name the drift.** Per the Anti-Drift Standing Order (`CLAUDE.md` — canonical, not restated here):
+if this phase or your plan for it reaches for sophistication before the simpler, higher-dollar step
+exists and beats baseline, say so and redirect to the simplest thing that respects the economics.
 
 ---
 
@@ -127,8 +125,9 @@ Put them beside the existing suite (`forecasting/tests/`, `onramp/plate_cost/tes
 - **Shape/dtype assertions** at the important boundaries.
 - One **edge case** (empty input, NaN present, single class, stockout-censored day, boundary value).
 
-Then **run them yourself** — `pytest` (full-repo and the local suite) and `ruff` — and iterate until
-green. Don't hand Jay code you haven't run.
+Then **run them yourself** — `make test` (full-repo and the local suite) and `make lint` — and iterate
+until green. Both hard-code the `restaurant-dev` conda env (`Makefile`), so they never silently
+degrade to a `base` env missing pytest/ruff. Don't hand Jay code you haven't run.
 
 ---
 
@@ -150,7 +149,7 @@ explanation is recorded there when the review closes, not now.
 Hand back, clearly separated:
 
 1. **The code** (paths listed).
-2. **The tests** + the `pytest`/`ruff` output you actually ran.
+2. **The tests** + the `make test`/`make lint` output you actually ran.
 3. **Assumptions** (load-bearing marked).
 4. **What you deliberately did NOT do** — scope boundaries and anything deferred to a later phase.
 5. **Self-review note** + the **1-2 spots you're least confident about**, so the reviewer looks there
