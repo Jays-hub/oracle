@@ -39,6 +39,33 @@ protection as a required status check ... haven't been exercised." Both now done
 
 ---
 
+## 2026-07-01 — Decided: reviewer subagent sheds comprehension-gate duties; backlog #8 retired `[decided]`
+
+Jay's decision, recorded here rather than in the backlog itself (per that file's convention of
+linking decisions rather than restating them): the reviewer subagent (`phase-reviewer`/`web-reviewer`,
+via `/review-phase`/`/review-web`) keeps every one of its original adversarial-review duties — leakage,
+split correctness, dollar-metric verdict, firewall checks, seam/UI/API hunts, the whole hunt list —
+but **drops comprehension-checking from the user entirely**. No gate of any kind is to live inside the
+reviewer going forward.
+
+- **Consequence for backlog #8:** the item's remaining open piece — a live dry-run where Jay pastes a
+  real, unedited comprehension explanation and the reviewer quote-checks it against the four parts —
+  is now moot. There is nothing gate-shaped left on the reviewer side to exercise. Retired in
+  `efficiency_backlog.md`, not marked done-as-originally-specified.
+- **Not yet implemented.** This is a decision, not a build — the actual files
+  (`phase-reviewer.md`/`web-reviewer.md`/`review-phase.md`/`review-web.md`) still contain the
+  comprehension-exit-gate sections built for #8 (the `Pn.md`-refusal behavior, the `JAY-VERBATIM`
+  citation check). Jay is making those edits separately. Until they land, don't trust the files'
+  current text as describing the post-decision behavior.
+- **Open thread, not resolved here:** `.claude/rules/00-process.md` still states the review-exit gate
+  as the mechanism enforcing the Comprehension Contract. If comprehension-checking is meant to
+  continue existing somewhere else (a different subagent, the main build thread, a standalone step),
+  that new home hasn't been named yet — this note only records that the reviewer is being cleared of
+  the duty, not what (if anything) replaces it there. Worth resolving before the next phase review, so
+  `00-process.md` doesn't quietly contradict what the reviewer actually does.
+
+---
+
 ## 2026-07-01 — CI verified end-to-end on GitHub; #13 commit split confirmed done; `no-mistakes` evaluated `[verify]`
 
 Closes out the part of backlog #3 this repo's own checkout couldn't prove (see the entry below: "a
