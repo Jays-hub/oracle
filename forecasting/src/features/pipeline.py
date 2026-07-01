@@ -80,15 +80,20 @@ class FeaturePipeline:
       - Stores train_max_date for the optional leakage check.
       - Loads era boundaries (injectable for tests, otherwise read from sim.yaml).
 
-    transform(df, check_leakage=False):
+    transform(df, check_leakage=True):
       - Adds feature columns to a copy of df.
       - Does NOT read the 'demand' column for features — only date and id columns
         are used, so transform is safe to call on test data without a demand column.
-      - check_leakage=True: hard-fails if any transform date <= train_max_date.
+      - check_leakage=True (the default): hard-fails if any transform date <=
+        train_max_date. Opt out with check_leakage=False ONLY for the one legitimate
+        exception -- transforming the same rows just passed to fit(), to build
+        training features (see GlobalLGBMModel.fit() in models/point.py).
 
     The authoritative leakage canary (max feature_date < min target_date) runs
     automatically inside RollingOriginBacktest.run() (backtest.py). The pipeline's
-    own check is a second line of defense for direct callers.
+    own check is a second line of defense for direct callers, and now runs by
+    default rather than opt-in (efficiency_backlog.md #6) -- a caller has to
+    deliberately pass check_leakage=False to silence it, not the other way around.
     """
 
     def __init__(
@@ -133,7 +138,7 @@ class FeaturePipeline:
         return self
 
     def transform(
-        self, df: pd.DataFrame, check_leakage: bool = False
+        self, df: pd.DataFrame, check_leakage: bool = True
     ) -> pd.DataFrame:
         """Add feature columns to df without using current-row demand.
 
@@ -141,8 +146,10 @@ class FeaturePipeline:
         ----------
         df             : must contain [business_date, item_id, service_period];
                          'demand' is kept if present but never used to build features.
-        check_leakage  : hard-fail if any transform date <= train_max_date.
-                         Use True for test/validation; False for training self-transform.
+        check_leakage  : hard-fail if any transform date <= train_max_date. Defaults
+                         to True (rule 02: the leakage canary runs on the production
+                         path, not opt-in). Pass False ONLY for the training
+                         self-transform (see class docstring).
         """
         if self._train_max_date is None:
             raise RuntimeError("FeaturePipeline.fit() must be called before transform()")

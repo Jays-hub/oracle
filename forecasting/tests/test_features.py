@@ -145,8 +145,8 @@ def test_lag_1_never_equals_same_day_demand():
     train = pd.DataFrame(rows)
     pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries()).fit(train)
 
-    # Self-transform on training data
-    result = pipeline.transform(train)
+    # Self-transform on training data (sanctioned exception, pipeline.py docstring)
+    result = pipeline.transform(train, check_leakage=False)
     # For any row where demand != lag_1 (day 0 has NaN, others alternate), check no match
     # The key invariant: lag_1 at row i should equal demand at row i-1, not row i
     has_same_day_leak = False
@@ -185,7 +185,9 @@ def test_lag_7_equals_same_weekday_last_week():
         "service_period": "dinner",
         "demand": 0,
     }])
-    result = pipeline.transform(test)
+    # test_date falls within the training window by construction (needed to pin down
+    # a known lag value against hand-computed history) -- the sanctioned exception.
+    result = pipeline.transform(test, check_leakage=False)
     # test_date = Feb 1 + 7 days = Feb 8, which is rows[7] (demand=7). d-7 calendar days
     # is Feb 1 == rows[0], demand=0. lag_7 must pull exactly that row, not rows[1].
     assert result["lag_7"].iloc[0] == pytest.approx(0.0)
@@ -214,7 +216,8 @@ def test_rolling_mean_7_uses_prior_7_days():
         "service_period": "dinner",
         "demand": 100,
     }])
-    result = pipeline.transform(test)
+    # test_date is training day 7 by construction (sanctioned exception, see above).
+    result = pipeline.transform(test, check_leakage=False)
     # Window should cover days 0-6 (all demand=1), mean=1.0
     assert result["rolling_mean_7"].iloc[0] == pytest.approx(1.0), (
         "rolling_mean_7 should be 1.0 (mean of 7 prior days at demand=1), "
@@ -262,6 +265,18 @@ def test_check_leakage_passes_for_future_dates():
     assert len(result) == len(future_test)
 
 
+def test_transform_default_raises_on_overlap_without_any_flag():
+    """The leakage canary must be on BY DEFAULT (efficiency_backlog.md #6) -- a caller
+    that never mentions check_leakage at all must still get a hard failure on a leaky
+    window, not a silent pass. Regression guard against the canary reverting to opt-in.
+    """
+    train = _demand_df(n_days=14)
+    pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries()).fit(train)
+    overlap_test = _demand_df(start="2022-02-07", n_days=3)
+    with pytest.raises(ValueError, match="[Ll]eakage"):
+        pipeline.transform(overlap_test)  # no check_leakage kwarg at all
+
+
 # ------------------------------------------------------------------ edge cases --
 
 def test_unknown_item_gives_nan_lags():
@@ -279,7 +294,9 @@ def test_is_weekend_correct():
     """is_weekend must be 1 on Saturday (5) and Sunday (6), 0 otherwise."""
     train = _demand_df(n_days=7)
     pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries()).fit(train)
-    result = pipeline.transform(train)
+    # Self-transform on training data (sanctioned exception, pipeline.py docstring) --
+    # this test only checks calendar features, which don't depend on the split anyway.
+    result = pipeline.transform(train, check_leakage=False)
     for _, row in result.iterrows():
         d = row["business_date"]
         expected = 1 if d.weekday() >= 5 else 0

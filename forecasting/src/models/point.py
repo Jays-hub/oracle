@@ -74,7 +74,11 @@ class GlobalLGBMModel(BaseBaseline):
         df["business_date"] = _coerce_date(df["business_date"])
 
         self._pipeline = FeaturePipeline(sim_cfg_path=self._sim_cfg_path).fit(df)
-        featured = self._pipeline.transform(df)
+        # check_leakage=False: the one sanctioned exception (pipeline.py docstring) --
+        # this transforms the SAME rows just passed to fit(), to build training
+        # features/labels. The canary would always fire here since train_max_date
+        # trivially equals the transform window's own max.
+        featured = self._pipeline.transform(df, check_leakage=False)
 
         feat_cols = self._pipeline.feature_columns()
         X = featured[feat_cols].copy()
@@ -134,7 +138,10 @@ class GlobalLGBMModel(BaseBaseline):
         # 'demand' placeholder so transform() finds the column it might copy through
         input_df["demand"] = 0
 
-        featured = self._pipeline.transform(input_df, check_leakage=False)
+        # Inference must always be on genuinely future dates -- rely on the pipeline's
+        # default (check_leakage=True) so predicting inside/before the training
+        # window fails loud instead of silently producing a number (backlog #6).
+        featured = self._pipeline.transform(input_df)
         feat_cols = self._pipeline.feature_columns()
         X = featured[feat_cols].copy()
         for col in _CAT_COLS:
