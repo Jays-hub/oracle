@@ -37,16 +37,19 @@ is never blocked and the review closes on the **code**. Do **not** present gates
 build. Comprehension is grown on a separate, parallel track (`/learn` + `docs/mastery.md`) that Jay runs
 on his own cadence — it never blocks this build or the review.
 
-**Branch pre-check (first).** Run `git branch --show-current`. The working branch for phase `Pn`
-must be `phase/Pn` (e.g. `phase/P2` for P2). If it isn't, emit **exactly**:
+**Working-state pre-check (first).** Run `git branch --show-current`. The only real risk here is
+building directly on a shared trunk branch. If the result is `main` or `master`, emit **exactly**:
 
-> You're on `<current-branch>`. Switch first:
+> You're on `<current-branch>`, a shared trunk. Switch to a working branch or worktree first, e.g.:
 > ```
 > git switch -c phase/Pn
 > ```
 > Reply when done and I'll continue.
 
-Then **stop and wait** — this is the one stop in Step 0. Do not build on the wrong branch.
+and **stop and wait**. Otherwise — a named branch, or **empty output (detached HEAD)** — proceed
+without asking. Detached HEAD is expected, not an error: parallel-worktree tools (e.g. Treehouse) run
+each session that way and branch/commit/PR later at ship time. Do not require the `phase/Pn` naming
+convention; it's a nice-to-have when a branch already exists, never a gate.
 
 **Exploration pass (orient before building).** Once the branch is confirmed, spawn a subagent
 (`subagent_type: Explore`) with `search breadth: thorough` and these instructions:

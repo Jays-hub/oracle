@@ -5,6 +5,24 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-01 — `/build-phase`'s branch gate fixed to not misfire under detached-HEAD session tools `[built]`
+
+Jay runs this repo through Treehouse, which puts each parallel session on a detached HEAD and defers
+branching/commit/PR to a separate `/ship` step. `/build-phase`'s Step 0 branch pre-check required the
+current branch to already be named `phase/Pn` and hard-stopped otherwise — it fired on the very first
+detached-HEAD session and would have refired every phase.
+
+- **Fix (`.claude/commands/build-phase.md`, Step 0):** narrowed the check to its actual purpose —
+  refuse to build directly on a shared trunk (`main`/`master`) — and explicitly allow both a named
+  branch and empty output (detached HEAD) through without stopping. The `phase/Pn` naming convention is
+  now a suggestion offered in the trunk-refusal message, not a gate.
+- `/review-phase` needed no change — it already keys off `git log`/`git status`, not a branch name, so
+  it was already detached-HEAD-safe.
+- Mechanical, Jay-specified fix to a workflow file; no new step, so no review triggered
+  (`00-process.md` carve-out).
+
+---
+
 ## 2026-07-01 — Comprehension gate removed; replaced by a parallel `/learn` + `docs/mastery.md` track `[built]`
 
 Implements the decision recorded in the `[decided]` entry below (reviewer sheds comprehension duties)
