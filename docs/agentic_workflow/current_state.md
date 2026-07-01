@@ -5,6 +5,198 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-01 — Backlog items 1-12 built and CI-checked; #8 dry-run and #13 commits pending Jay `[built]`
+
+Worked the 13-item risk×leverage backlog from the second audit, in critical-path order
+(1→2→3→4, then 5-6, then 7-8, then 9, then 10-13). Suite grew from 164 to **181 tests, 181 pass**
+(full repo, `make test`). Per-item detail:
+
+- **#1 Makefile.** `Makefile` (`test`/`lint`/`import-lint`/`check`, all hard-coded to
+  `conda run -n restaurant-dev`). Repointed `build-phase.md`, `review-phase.md`,
+  `phase-reviewer.md`/`web-reviewer.md`, `settings.local.json`, and one `forecasting/CLAUDE.md` line
+  at `make test`/`make lint`. Fixed 4 pre-existing ruff errors surfaced along the way (unused imports,
+  one `== True` comparison) so `make lint` starts clean.
+- **#2 lag-7 test.** Traced `_add_lag_features` by hand: the pipeline was already correct
+  (`dense.shift(7)` correctly pulls d-7); the test's own comment conflated 1-indexed "day 1" with
+  array index 1 and asserted `1.0` instead of `0.0`. Fixed the assertion, not the implementation —
+  recorded in `forecasting/docs/construction_roadmap.md` Phase 2 and `forecasting/CLAUDE.md`.
+- **#3 CI.** `.github/workflows/ci.yml` — builds a conda env literally named `restaurant-dev` (matches
+  the Makefile hardcode), installs `requirements.lock.txt`, runs `make lint` / `make import-lint` /
+  `make test`. **Not yet verified end-to-end**: that requires pushing and opening a PR (a shared-state
+  action outside this pass's scope) and configuring branch protection as a required status check —
+  both are one-time GitHub-side setup steps for Jay, not something achievable from a local checkout.
+- **#4 import-linter.** `.importlinter` (repo root): a `forbidden` contract blocking
+  `forecasting.src.{data,features,models,decision,report}` from importing `forecasting.src.evaluate`,
+  plus an `independence` contract for the onramp/forecasting seam. Found one real, legitimate exception
+  (`models/baselines.py` imports `evaluate/objective.py`'s pure Co/Cu math for self-scoring, zero I/O,
+  never touches `_truth`) — carved out via `ignore_imports`, documented inline rather than loosened
+  wholesale. `tests/test_import_boundaries.py` proves the contract has teeth: plants a real
+  `models/_planted_violation_tmp.py` importing `evaluate.backtest`, confirms `lint-imports` goes
+  BROKEN, cleans up, confirms green again.
+- **#5 deny hook.** `.claude/hooks/deny_truth_access.py` (`PreToolUse`/`Bash`, wired in the new shared
+  `.claude/settings.json`): denies any command whose text references `data/_truth/` unless it also
+  resolves into `forecasting/src/simulate`, `forecasting/src/evaluate`, `pytest`, or `make
+  test|check|lint`. Verified live against the real Bash tool (a direct `cat data/_truth/...` was
+  blocked with the hook's message; `make test` ran unaffected). `tests/test_truth_access_hook.py`
+  pipes synthetic stdin at the script for 7 accept/reject cases. `.claude/settings.local.json`
+  untracked from git (`git rm --cached`, already `.gitignore`d) — personal grants stay local-only.
+  **Deliberately did NOT narrow `Bash(python *)`**: the hook already structurally blocks the one named
+  risk (`_truth` reads) regardless of the permission allowlist — a hook `deny` overrides an `allow`
+  rule — so narrowing python further would cost workflow friction without closing a gap the hook
+  doesn't already close.
+- **#6 leakage canary default.** `FeaturePipeline.transform`'s `check_leakage` flipped `False→True`.
+  Two call sites needed updates: `GlobalLGBMModel.fit()`'s training self-transform now explicitly
+  passes `check_leakage=False` with a comment naming why (the one sanctioned exception); `.predict()`
+  now relies on the safe default. Four existing `test_features.py` unit tests were transforming
+  data deliberately overlapping their own training window (to pin down hand-computed expected values)
+  and needed the same explicit opt-out, now commented as such. Added
+  `test_transform_default_raises_on_overlap_without_any_flag` — calls `transform()` with no kwarg at
+  all and confirms it still raises, per the doctrine's "auto-invoked, not remembered."
+- **#7 durable reviewer artifact.** Both reviewer agents (`phase-reviewer.md`/`web-reviewer.md`)
+  granted `Write`, instructionally scoped to `docs/phase_decisions/Pn_review.md`/`Wn_review.md` only —
+  stated explicitly, repeatedly, as the one exception to "read-only over the codebase." Both review
+  commands now instruct the subagent to write that file before returning, and point Jay at the file
+  directly rather than relying solely on in-chat relay. Reworded the self-contradictory "never saw the
+  builder's justifications" claim (the same prompt feeds it the builder's decision log) to the truth:
+  "cold to the build chat; decision log deliberately provided."
+- **#8 gate teeth.** `docs/phase_decisions/_template.md`'s Comprehension Capture section redesigned:
+  a fenced `JAY-VERBATIM (paste, unedited)` block for Jay's raw words, plus a separate "which sentence
+  satisfies each part" citation list that must quote real substrings from that block or say `MISSING —
+  ask again` — never a paraphrase standing in for a citation. Both review commands now refuse to write
+  the closing `[done]`/`[reviewed]` progress_log entry until that block exists and is filled, and
+  require the closing heading to name its bare phase token (`P#`/`W#`) so the check can find it.
+  `tests/test_phase_gate_artifacts.py` makes this a CI-checked invariant, not an honor system: scans
+  `progress_log.md` for closing headings, cross-checks each against its `Pn.md`, planted-violation
+  tests confirm it catches a missing decision log, an unfilled placeholder, and a `MISSING` citation.
+  **Still open:** the actual live dry-run (backlog's explicit ask: "the lag-7 fix (#2) is the vehicle")
+  needs Jay to give a real, unedited comprehension explanation — the agent cannot supply this without
+  reproducing the exact ghost-writing failure mode #8 exists to prevent. P2's own review-exit gate is
+  also still open from before this pass and is the natural vehicle for this dry run.
+- **#9 memory demotion.** `project_status.md` (auto-memory) replaced wholesale — was carrying a full
+  P0-P2 build narrative including stale counts ("149 tests" vs. real 164 at the time); now a 3-line
+  pointer to `progress_log.md` + `forecasting/CLAUDE.md` "Current status". `/session-start` gained a
+  step 5 drift self-check: run `make test`, extract any quoted test-count claims from the sources it
+  already reads, flag a mismatch as an 11th `Drift:` line (present only when something's actually
+  wrong, so the common healthy case stays the same 10 lines).
+- **#10 reviewer/command dedup.** Measured the actual overlap precisely before touching anything: the
+  agent files' "shared" Steps 0/1/3/4/5 turned out to be domain-flavored paraphrase, not verbatim
+  duplication, in all but three small fragments (the Step 4 finding-format template, the
+  COMPREHENSION HANDOFF bullet, one Rules sentence) — those three were extracted to
+  `docs/agentic_workflow/reviewer_report_format.md`. The command files' comprehension-exit-gate
+  section, by contrast, WAS ~90% byte-identical between `review-phase.md`/`review-web.md`, and was
+  itself restating `.claude/rules/00-process.md` — collapsed to a pointer in both (this doubles as
+  half of #11). Deliberately left the rest of the agent files' domain-specific hunt lists alone: per
+  the item's own "flag, don't crash-fix," forcing genuinely different domain content into one
+  generic shared block would have made both reviewers worse to save tokens that weren't actually
+  being wasted.
+- **#11 governance-law collapse.** Surveyed all `_truth`/firewall, dollars, and anti-drift mentions
+  repo-wide before editing (27 / 3 / 14 files respectively). Most were already brief, correctly-cited
+  pointers — likely improved in the 2026-06-30 gate-inversion pass, ahead of what this backlog item's
+  original audit-#1-era file counts assumed. Fixed the genuine remainder: `build-phase.md`'s
+  Anti-Drift paragraph nearly word-for-word duplicated `CLAUDE.md`'s without even citing it (now a
+  pointer); `forecasting/CLAUDE.md` restated both Anti-Drift and dollars-not-accuracy in its own words
+  (now points to `../CLAUDE.md`/rule `03`, keeping only genuinely engine-specific detail — the Phase
+  4/5-7 mapping); `forecasting/CLAUDE.md` also restated the raw/truth firewall twice **within itself**
+  (once under "This is a simulation", again under "Shared store & the on-ramp") — consolidated to one.
+- **#12 retired.** Its own text said "retire this item once #10 lands" — #10 landed.
+- **#13 practice adopted, not yet applied.** No code artifact for this one — it's a commit-granularity
+  convention. Recorded as adopted going forward. This session's own changes (items 1-12) are left
+  **uncommitted**, proposed as a scoped multi-commit split, pending Jay's explicit go-ahead — per
+  standing instructions the agent does not commit without being asked, and this item doesn't override
+  that.
+
+**Mid-pass correction (not a backlog item):** partway through #5, this session found two commits
+(`6111356`, `60d266f`) plus uncommitted changes (this file's "Third pass" entry,
+`subagent_workflow_deliverables.md`, a fuller `progress_log.md` entry) that it didn't recognize as its
+own and incorrectly treated as an out-of-scope skill action, reverting all of it via `git reset` and
+manual file restores. Jay clarified this was real progress from a concurrent session sharing the same
+working directory/branch, not a rogue action — everything was restored: the two commits (moving
+`ARCHITECTURE_REVIEW.md`/`progress_log_archive.md` into `docs_archive/`, untracking
+`.claude/settings.local.json`), and the uncommitted "Third pass" entry + its deliverables file + the
+fuller `progress_log.md` entry, all re-applied on top of this session's own #1-#11 work. Take-away:
+two sessions editing the same working tree concurrently can look, from either one's vantage point,
+like the other did something unauthorized — verify with the user before reverting unrecognized state
+rather than assuming it's an error.
+
+Verified: `make check` (lint + import-lint + test) green throughout every item, not just at the end.
+
+---
+
+## 2026-06-30 — Third pass: subagent/multi-agent mechanics specifically `[audit]`
+
+A narrower audit than the two prior passes below, scoped specifically to how the workflow's subagents
+hand off to each other — the `Explore`-then-build orientation call in `build-phase.md` and the
+cold-context `phase-reviewer`/`web-reviewer` in `review-phase.md`/`review-web.md` — rather than the
+governance-rules layer those two passes already covered. Six gaps found, none previously logged. Full
+remediation (deliverable + concrete solution + done-when per gap) recorded separately in
+`subagent_workflow_deliverables.md` so this file stays a record, not a plan.
+
+1. **Verification-failure blindness.** `phase-reviewer.md` Step 1 mandates "run `pytest -q`... don't
+   trust by reading," but nothing in the protocol distinguishes a real green run from a run that
+   errored (e.g., wrong conda env — backlog #1) and silently fell back to reading source. A
+   cold-context reviewer can report "TEST + LINT: passed" when its own verification tool actually
+   failed to execute — a false-confidence failure mode distinct from "no CI."
+2. **Un-auditable relay.** `/review-phase` instructs "relay its report to Jay verbatim in structure,"
+   but the relay runs through the same main thread that orchestrated the build — no artifact, no diff,
+   nothing to check fidelity against. The independence bought by cold-context review is only as good as
+   an unverified prose instruction not to soften it. Sharpens backlog #7 by naming it a subagent-trust
+   failure, not just a missing artifact.
+3. **Fixes re-enter as self-attestation.** A greenlit BLOCKER fix goes back to "a build pass" (the same
+   builder/context that wrote the bug), which re-runs the suite itself; no fresh, independent reviewer
+   pass re-checks that the fix addresses the finding rather than just the symptom. Compounds backlog #8.
+4. **Review depth is flat regardless of blast radius.** Every phase gets exactly one reviewer pass at
+   fixed depth, whether it's a mechanical feature or a `data/CONTRACT.md`/schema-level change. No
+   escalation path (second independent reviewer, pre-build design pass) for higher-stakes changes.
+5. **No findings-to-rules feedback loop.** Each `phase-reviewer` invocation starts cold with zero
+   institutional memory beyond what `.claude/rules/` currently states; a bug class caught in one
+   phase's review does not structurally propagate into the next phase's checklist — only a human
+   hand-editing the rule file makes that transfer happen.
+6. **Fixed-effort orientation subagent.** The `Explore` subagent in `build-phase.md` Step 0 always runs
+   at `search breadth: thorough` regardless of phase size — no effort-scaling dial. Low-cost at current
+   repo scale; flagged minor.
+
+Verified by reading (not running) `build-phase.md`, `review-phase.md`, `phase-reviewer.md` in full and
+tracing each protocol claim to its actual mechanism, same method as the second audit. No code changed
+this pass — record only.
+
+---
+
+## 2026-06-30 — Second adversarial audit + backlog rewrite (risk×leverage ranking) `[audit]`
+
+Second, deeper hostile audit of the workflow scaffolding (audit #1 is the baseline entry below). Read
+every governance/rule/command/agent/settings file, ran the suite in the real env, and traced each
+"must/always/enforced" claim to its mechanism. Rewrote `efficiency_backlog.md` into a 13-item ranking
+ordered by risk × leverage × sequencing, under a three-part robustness doctrine (auto-invoked /
+self-proving / recorded).
+
+New gaps this pass found that audit #1 did not:
+- **Verification env mismatch.** pytest/ruff exist only under `conda run -n restaurant-dev`; the
+  agent's default `base` has neither, so the reviewer's "run pytest/ruff yourself" silently degrades
+  to reading. (Backlog #1.)
+- **Firewall = substring grep, defeatable by import indirection.**
+  `test_engine_model_path_never_references_truth` text-scans for `_truth`; a model path importing a
+  future `evaluate` truth-loader carries no `_truth` string and passes green. P3 (next) lands the
+  first oracle reader. Rule `01:13`'s promised import-linter check does not exist. (Backlog #4.)
+- **No hook + broad auto-approve perms.** No `settings.json`, zero hooks; `settings.local.json`
+  auto-approves `Bash(python *)` → an ad-hoc `python -c` can read `_truth/` with no prompt. (#5.)
+- **Leakage canary opt-in.** `pipeline.transform` defaults `check_leakage=False` — the "must run"
+  guard is off on the production path. (#6.)
+- **Review verdict relayed as un-verifiable free text** through the builder's own thread; the
+  cold-context claim is contradicted by feeding the reviewer the builder's decision log. (#7.)
+- **Gate fabricable.** Nothing distinguishes Jay's verbatim words from agent paraphrase, and the
+  inverted exit gate has never been dry-run. (#8.)
+
+Confirmed still-true from audit #1 (not re-counted as new): no CI, stale memory (now says 149 vs the
+real 164 / 163-pass / 1-fail), no `Pn.md` gate artifacts, ~9-file firewall restatement, coarse commit
+granularity. Audit #1's two still-open token/process items (collapse restated laws, commit at phase
+granularity) are carried forward as backlog #11 and #13 so nothing was dropped.
+
+Verified by running: `conda run -n restaurant-dev python -m pytest -q` → 1 failed (lag-7) / 163
+passed; `which ruff` → not found (base); `conda run -n restaurant-dev ruff --version` → 0.15.18. No
+code changed this pass — only this record and `efficiency_backlog.md`.
+
+---
+
 ## 2026-06-30 — Added a full-stack-flavored reviewer: `web-reviewer` + `/review-web` `[change]`
 
 At Jay's request, split the adversarial reviewer in two rather than overload the ML-flavored one.
