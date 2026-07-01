@@ -28,6 +28,14 @@ protection as a required status check ... haven't been exercised." Both now done
   `gh pr close --delete-branch`) and local. `main` carries no trace of the planted failure — the test
   file never touched `main`, only the throwaway branch.
 - Backlog #3 is now fully done (was previously "CI stood up, verification pending") — struck below.
+- **Correction surfaced by this commit's own push.** Pushing this entry's file directly to `main`
+  (the doc commit, not a PR) still succeeded — but GitHub printed `remote: Bypassed rule violations
+  for refs/heads/main: - Required status check "guard-set" is expected.` So the required check
+  *does* structurally apply to direct pushes too, not just PR merges as first assumed above; it's
+  only silent because `enforce_admins: false` gives the repo owner (Jay) a default bypass, with a
+  visible warning rather than a hard block. A non-admin's direct push would actually be blocked the
+  same way the PR was. Worth knowing before assuming "direct push still works" means "the check
+  doesn't apply there."
 
 ---
 
