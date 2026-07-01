@@ -5,6 +5,36 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-01 — CI verified end-to-end on GitHub; #13 commit split confirmed done; `no-mistakes` evaluated `[verify]`
+
+Closes out the part of backlog #3 this repo's own checkout couldn't prove (see the entry below: "a
+real PR-goes-red + branch-protection verification still needs a push"), and confirms #13 actually
+happened rather than remaining a proposal.
+
+- **#3, push verification.** The 10-commit split described below (`2a7afc9`..`128e919`) plus the 2
+  pre-existing concurrent-session commits were pushed to `origin/main` (reconciled with the concurrent
+  session — local branch is `main`, tracking `origin/main`, both at `128e919`). `gh` wasn't installed
+  on this machine, so it couldn't be checked from the terminal; installed via `brew install gh`
+  (2.95.0), authenticated in a separate session. `gh run view 28516744092` confirms the `guard-set`
+  job (lint + import-lint + test, in the pinned `restaurant-dev` conda env) ran on GitHub's actual
+  infrastructure and passed in 1m3s for the push to `main`. Two non-blocking annotations (Node 20
+  forced-upgrade notice, conda `defaults`-channel implicit-add) are cosmetic, no action taken.
+  **Still open:** this only proves the happy path goes green — a planted-failure PR going red and
+  branch protection as a required status check (the original done-when) haven't been exercised.
+- **#13, commit-at-phase-granularity.** Actually done, not just adopted as a going-forward practice:
+  the accumulated items-1-12 diff was split into 10 scoped commits and pushed. One known scoping
+  imperfection: `forecasting/CLAUDE.md`'s full diff landed entirely in commit 1 (`2a7afc9`) instead of
+  being split across commits 1/3/4/11 as intended — `git commit -m "..." <pathspec>` re-stages a
+  pathspec's *entire* working-tree diff, silently overriding an earlier partial `git add -p` stage on
+  the same file. Documented in commit 7's message rather than fixed via amend, per the standing
+  no-amend policy.
+- **`no-mistakes` (Kun Chen) evaluated against this CI, not redundant.** Its own pipeline is
+  review → test → docs → lint → push → PR → **CI** — the last stage watches an actual CI run to
+  auto-fix/escalate. It has nothing to gate on without `.github/workflows/ci.yml` existing; it would
+  sit on top as a local pre-push orchestration layer, not a substitute for the workflow file itself.
+
+---
+
 ## 2026-07-01 — Backlog items 1-12 built and CI-checked; #8 dry-run and #13 commits pending Jay `[built]`
 
 Worked the 13-item risk×leverage backlog from the second audit, in critical-path order
