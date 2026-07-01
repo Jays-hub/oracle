@@ -23,7 +23,8 @@ cross-module boundary test at `../../../tests/test_module_boundaries.py`.
 **Storage direction (decided 2026-06-25):** the shared store is **DuckDB-over-Parquet** — the
 `data/raw/**` files are the durable, diffable, firewall-enforcing artifact; DuckDB is the query
 layer over them. The decision record is `../../../docs/common_base_reconciliation.md`; standing up
-the query layer is a gated build step (Comprehension Contract, `../../../.claude/rules/00-process.md`).
+the query layer is a normal phase — build freely, review closes on code merit
+(`../../../.claude/rules/00-process.md`).
 
 ---
 

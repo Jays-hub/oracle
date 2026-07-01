@@ -1,17 +1,20 @@
 # Construction Roadmap (start → finish)
 
-This is the phase-by-phase **build plan**: concrete code, in order, each phase gated on understanding
-(the Comprehension Contract, `docs/overview_and_method`) and on beating the prior baseline **in dollars**. The conceptual
+This is the phase-by-phase **build plan**: concrete code, in order, each phase gated on beating the
+prior baseline **in dollars**. Comprehension is *not* a gate on the build — it's grown separately on the
+`/learn` + `docs/mastery.md` spaced-repetition track (`docs/overview_and_method`). The conceptual
 "textbook" is distributed across `docs/overview_and_method` (method) plus the engine chapters in
 `forecasting/docs/` (the spine, the data spec, the hard truths, the mastery curriculum); this is the
 build sequence that operationalizes it.
 
 Every phase carries the same block:
 - **Objective** — what exists when it's done.
-- **Why now** — the dependency that makes this the right next step (Gate 1).
-- **Build** — the code deliverables (Gate 2).
-- **Practices invoked** — (a) coding, (b) data science, (c) restaurant/consulting (Gate 3).
-- **Checkpoint** — what you must be able to explain + the chef-sentence (Gate 4).
+- **Why now** — the dependency that makes this the right next step.
+- **Build** — the code deliverables.
+- **Practices invoked** — (a) coding, (b) data science, (c) restaurant/consulting.
+- **Checkpoint** — what you should be able to explain (a natural `/learn` topic; not a build gate). The
+  per-phase *chef-sentence* is a plain-language aid for talking to operators (see
+  `mastery_and_customer_language.md`), not a required comprehension artifact.
 - **Done when** — the dollar-gated exit.
 
 ---

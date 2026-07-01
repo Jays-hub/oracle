@@ -30,75 +30,64 @@ pay, or would adopt. Hold that line. The simulation is the gym; discovery is the
 
 ---
 
-## THE COMPREHENSION CONTRACT (the operating rule of this project)
+## HOW COMPREHENSION WORKS (the operating rule of this project)
 This is the rule that makes this project *yours* rather than a thing an agent built while you
-watched. It is encoded in `CLAUDE.md` as a hard gate; here is the full reasoning and what it
-actually requires.
+watched. It used to be a hard gate on every phase's review exit; as of 2026-07-01 it is a **parallel
+practice track** — encoded in `CLAUDE.md` and `.claude/rules/00-process.md`. Here is the full reasoning
+and what it actually requires.
 
-**The principle:** every increment advances on two tracks at once — the **construction** (working
-code) and the **comprehension** (the why). The contract does **not** block the construction: the agent
-builds freely, and you do not have to pre-certify understanding against code that doesn't exist yet.
-What the contract gates is the **close of the phase's review** — you do not get to mark a phase done,
-merge it, or move on until that phase's *finished, reviewed* code is solid in your own head. The
-comprehension is tested against the real thing that was built and the real findings the adversarial
-review produced.
+**The principle:** every increment advances on two tracks at once — the **construction** (working code)
+and the **comprehension** (the why) — but the two tracks run on **independent clocks.** Construction is
+never blocked, and a phase's **review closes on the code** (findings relayed, greenlit fixes landed, log
+entry written). Comprehension is not a checkpoint you clear once at phase-close; it is grown and
+**re-checked over time** on a spaced-repetition track that never blocks a build, a review, or a merge.
 
-### Why the exit, not the entrance
-A pre-code gate certifies a plan; an exit gate certifies the product. Building first and explaining
-after means your explanation is forced to account for what the code *actually does* and what the review
-*actually caught* — including the parts that only became clear once the thing existed. It also stops the
-gate from being theatre performed against a roadmap paragraph. The construction is never the bottleneck;
-your understanding of the finished increment is.
+### Why a parallel track, not a gate on the exit
+Shipping is fast and per-phase; understanding is slow, cumulative, and only proves durable when it's
+**re-tested weeks later.** A one-shot gate at phase-close certified understanding against a single
+moment — and coupled two clocks that move at different speeds, so either shipping waited on a quiz or the
+quiz got rubber-stamped to unblock shipping. Decoupling them fixes both: code ships on its merits, and a
+concept learned in P1 resurfaces on its own schedule in P4 to confirm it actually stuck. The mechanism
+is the **`/learn`** command driving the **`comprehension-tutor`** subagent, which reads the real code and
+git history, quizzes whatever topics are **due**, grades your answers, and maintains **`docs/mastery.md`**
+— a ledger of every topic at a mastery level (L0 Unseen → L4 Mastered) whose level sets when it next
+resurfaces.
 
-### What you must be able to explain before a phase's review closes
-The review stays open until you can say, in your own words, all four:
+### What the tutor tests you on
+The tutor grounds every question in the actual code/commit and probes across **three domains** — an
+answer describable in only one domain is half-understood:
 
-**1 — WHY THIS, WHY NOW.**
+**WHY THIS, WHY NOW (`seq`).**
 What problem did this phase solve, and why was it the right step rather than something later?
 Sequencing is itself a skill: you build the baseline before the model because you need something to
 beat; you unconstrain censored demand before you trust the distribution because otherwise the
 distribution is fit to a lie. If you can't say why *now*, you don't understand the dependency
 structure yet.
 
-**2 — CODEBASE IMPACT.**
-Which files/modules did this touch, what does it produce, and what does it unlock downstream? This
-forces you to hold the architecture in your head, not just the local task. "This added
+**CODEBASE IMPACT & CODING CRAFT (`code`).**
+Which files/modules did this touch, what does it produce, and what does it unlock downstream — and the
+software practice that keeps it correct (a reproducible backtest harness; no leakage across the
+train/test boundary; the leakage canary and `.shift(1)`; deterministic seeds; typed config). "This added
 `forecasting/src/decision/newsvendor.py`, which consumes the quantile model's output and produces the prep
 quantity the report layer renders" — that sentence means you see how the piece fits.
 
-**3 — PRACTICES INVOKED, in all three domains.**
-The discipline that makes you credible is that every step draws on three knowledge bases, and you
-name them explicitly:
-- **(a) Coding craft** — the software practice (e.g., a reproducible backtest harness; no data
-  leakage across the train/test boundary; deterministic seeds; typed config).
-- **(b) Data science / statistics** — the concept (e.g., quantile loss; conformal coverage;
-  partial pooling; Tweedie likelihood for zero-inflated counts).
-- **(c) Restaurant / consulting standard** — the domain truth (e.g., sold-out ≠ low demand; the
-  prep decision is committed in the morning; food cost vs. contribution margin; one-time setup or
-  it dies on adoption).
-Work you can only describe in one of these three domains is work you half-understand.
+**THE DATA-SCIENCE CONCEPT (`ds`).**
+The statistical technique and *why it's the right tool here*: quantile loss; conformal coverage; partial
+pooling; Tweedie likelihood for zero-inflated counts; the newsvendor critical ratio. Prefer answers that
+connect the technique to the dollar objective and to the failure mode it guards against — a topic only
+reaches **L4 (Mastered)** when you both explain it and connect it to the why-here-why-now and that
+failure mode.
 
-**4 — THE REVIEW DELTA + COMPREHENSION CHECK.**
-What did the adversarial review find, and what did it change (or why did it change nothing)? Then two
-outputs prove the understanding landed: (1) you restate the increment in your own words, including the
-failure mode it guards against; (2) you produce the **"say it to a chef"** one-liner. If you can explain
-a technique to a line cook in one sentence, you understand it; if you can't, you've imported a library,
-not a concept. Captured verbatim in the phase's decision log when the review closes.
-
-### Why "say it to a chef" is a technical test, not a soft skill
-Your edge is culinary domain knowledge, and your buyers are operators, not ML engineers. Every
-modeling choice in this project has a plain-language justification *because the math is built out of
-the operation*. The newsvendor critical ratio is literally the dish's P&L. Censoring is literally
-"you sold out." If a step has no honest chef-sentence, suspect it's intellectual candy that doesn't
-earn its place (see anti-drift, below).
+There is **no "say it to a chef" one-liner** in this system — it was retired with the gate. The three
+domains still matter for the same reason they always did:
 
 ### How the three domains interlock (why this isn't three separate jobs)
 The reason this venture is defensible is that the three knowledge bases are the *same* object viewed
 three ways. "Prep to the 80th percentile of demand" is simultaneously a statistical statement
 (a quantile), a software task (read `F⁻¹(r)` off a calibrated model), and a kitchen policy ("you hate
 running out of this cheap dish"). Someone who only has the stats fits a generic forecaster; someone
-who only has the domain has intuition they can't scale; you're building the bridge. The contract
-exists so you actually build the bridge instead of leaning on one pillar.
+who only has the domain has intuition they can't scale; you're building the bridge. The comprehension
+track exists so you actually build the bridge instead of leaning on one pillar.
 
 ---
 

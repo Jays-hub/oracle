@@ -1,5 +1,5 @@
 ---
-description: Build one gated phase of the engine/on-ramp under the Comprehension Contract. Usage: /build-phase P1
+description: Build one phase of the engine/on-ramp; the review closes on code, comprehension runs separately via /learn. Usage: /build-phase P1
 argument-hint: <phase id or spec, e.g. P1, P2, or W1>
 ---
 
@@ -22,9 +22,9 @@ You are in the repo. Read what you need directly; never request pasted docs, dif
    `forecasting/docs/construction_roadmap.md`. For an on-ramp/web phase (`W0`, `W1`, ...), use
    `onramp/plate_cost/docs/website_vision.md` section 8 and `onramp/README.md`.
 2. **The governance that already binds you.** `CLAUDE.md` (platform charter), `forecasting/CLAUDE.md`
-   (engine) or `onramp/plate_cost/CLAUDE.md` (on-ramp), `docs/overview_and_method.md` (the
-   Comprehension Contract in full), and the always-on rules in `.claude/rules/` (auto-loaded for the
-   paths you touch). **Do not restate these as prompt inputs — obey them.**
+   (engine) or `onramp/plate_cost/CLAUDE.md` (on-ramp), `docs/overview_and_method.md` (how comprehension
+   works — a parallel track, not a gate), and the always-on rules in `.claude/rules/` (auto-loaded for
+   the paths you touch). **Do not restate these as prompt inputs — obey them.**
 3. **What already exists.** The current code under the phase's target dirs, `docs/progress_log.md`
    (newest first — where the last phase left off), and the prior phase's outputs. Read before you build.
 
@@ -32,10 +32,10 @@ You are in the repo. Read what you need directly; never request pasted docs, dif
 
 ## Step 0 — Set up and orient (building is NOT gated — go ahead and build)
 
-**The comprehension gate is on the review's *exit*, not here.** Per `.claude/rules/00-process.md`,
-building is never blocked by a pre-code gate. Do **not** present gates and stop. Set up, then build.
-Comprehension is tested later, by `/review-phase`, which will not close until Jay can fully explain the
-finished work (see Step 3 and the review command).
+**There is no comprehension gate anywhere in this loop.** Per `.claude/rules/00-process.md`, building
+is never blocked and the review closes on the **code**. Do **not** present gates and stop. Set up, then
+build. Comprehension is grown on a separate, parallel track (`/learn` + `docs/mastery.md`) that Jay runs
+on his own cadence — it never blocks this build or the review.
 
 **Branch pre-check (first).** Run `git branch --show-current`. The working branch for phase `Pn`
 must be `phase/Pn` (e.g. `phase/P2` for P2). If it isn't, emit **exactly**:
@@ -69,8 +69,8 @@ Fold those findings into your build plan. The agent does not start from cold.
   data-science/statistical concept, (c) restaurant/consulting standard. A step describable in only one
   domain is half-understood — surface all three.
 
-Carry these forward into the decision log (Step 3); they are the material Jay's review-exit explanation
-will be checked against. They do **not** require Jay's sign-off before you write code.
+Carry these forward into the decision log (Step 3); they are the reviewer's briefing and, later, good
+raw material for `/learn` topics. They do **not** require Jay's sign-off before you write code.
 
 **Name the drift.** Per the Anti-Drift Standing Order (`CLAUDE.md` — canonical, not restated here):
 if this phase or your plan for it reaches for sophistication before the simpler, higher-dollar step
@@ -141,10 +141,9 @@ each is handled or flag it as a known gap — never claim "handled" when you onl
 in completely — your why-this-why-now / codebase-impact / three-domain practices from Step 0, every
 load-bearing assumption, every non-obvious design decision (chose X over Y because Z), constraints
 discovered mid-build, deferred items, and the two spots you're least confident about. This file is the
-reviewer's briefing **and** the material Jay's review-exit explanation gets checked against; an
-incomplete log means the reviewer audits code without context and will find false positives where your
-decisions were deliberate. Leave the comprehension-capture section for the review to fill — Jay's
-explanation is recorded there when the review closes, not now.
+reviewer's briefing; an incomplete log means the reviewer audits code without context and will find
+false positives where your decisions were deliberate. (There is no comprehension-capture section — that
+was retired 2026-07-01; comprehension lives on the `/learn` + `docs/mastery.md` track.)
 
 Hand back, clearly separated:
 
@@ -154,10 +153,10 @@ Hand back, clearly separated:
 4. **What you deliberately did NOT do** — scope boundaries and anything deferred to a later phase.
 5. **Self-review note** + the **1-2 spots you're least confident about**, so the reviewer looks there
    first.
-6. **Decision log + progress entry:** `docs/phase_decisions/$ARGUMENTS.md` filled in (comprehension
-   section left for the review), and a dated `docs/progress_log.md` entry (tagged `[built]`) naming the
-   artifacts, the verified test count, and a pointer to the decision log. The phase is **not** marked
-   done here — that happens only when the review's comprehension gate clears.
+6. **Decision log + progress entry:** `docs/phase_decisions/$ARGUMENTS.md` filled in, and a dated
+   `docs/progress_log.md` entry (tagged `[built]`) naming the artifacts, the verified test count, and a
+   pointer to the decision log. The phase is **not** marked done here — that happens when the review
+   closes on the code (findings relayed, greenlit fixes landed).
 7. **Plain-English explanation** of the key decisions, for a learner.
 
 Then tell Jay:

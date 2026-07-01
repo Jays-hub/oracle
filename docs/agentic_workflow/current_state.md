@@ -5,6 +5,60 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-01 — Comprehension gate removed; replaced by a parallel `/learn` + `docs/mastery.md` track `[built]`
+
+Implements the decision recorded in the `[decided]` entry below (reviewer sheds comprehension duties)
+and goes further per Jay's direction: **the comprehension exit-gate is removed from the whole loop, not
+just the reviewer.** Building and review now close on the **code**; comprehension is grown on a fully
+parallel, ongoing spaced-repetition track that gates nothing. This resolves that entry's "open thread"
+(where comprehension-checking would live) — its new home is named and built.
+
+**New machinery (the comprehension track):**
+- **`docs/mastery.md`** — the ledger. Mastery scale L0 Unseen → L4 Mastered, each level carrying a
+  spaced-repetition interval (L1 ~1d / L2 ~3d / L3 ~7d / L4 ~21d); per-topic Level / Last reviewed /
+  Next due. Seeded with 14 topics from P0–P2 at L0. Three test domains: `code` (hygiene), `ds`
+  (technique), `seq` (why-this-why-then). **No "say it to a chef" one-liner** — retired with the gate.
+- **`.claude/agents/comprehension-tutor.md`** — read-only Socratic tutor, Opus, Write-scoped to
+  `docs/mastery.md` only. Two modes: (A) read ledger + code + git log, select due topics, generate
+  code-grounded questions; (B) grade Jay's answers across the three domains, move levels, recompute
+  Next due, write the ledger. Gates nothing.
+- **`.claude/commands/learn.md`** — the `/learn` command. Orchestrates the one-shot tutor across three
+  beats (get quiz → quiz Jay → `SendMessage` the same agent his answers for grading), since a subagent
+  can't hold a live back-and-forth.
+
+**What was stripped / removed (the gate):**
+- `.claude/rules/00-process.md` rewritten: comprehension is a parallel track, building *and* review are
+  ungated by it. Kept "name the drift" + phase-scope definition.
+- COMPREHENSION HANDOFF removed from `phase-reviewer.md`, `web-reviewer.md`, and
+  `reviewer_report_format.md`; the "comprehension exit gate" sections removed from `review-phase.md`
+  and `review-web.md`; build-phase.md de-gated. Both reviewers now review build progress only.
+- `docs/phase_decisions/_template.md` — Comprehension Capture / `JAY-VERBATIM` section deleted (the
+  file is now purely the reviewer's briefing).
+- **`tests/test_phase_gate_artifacts.py` deleted** — it was the CI teeth enforcing the gate's
+  `Pn.md` artifact; with no gate there is no artifact to enforce. Suite: **181 → 175 pass** (−6). All
+  175 green, verified via `make test`.
+- Governance/doc references updated across `CLAUDE.md`, `forecasting/CLAUDE.md`, `README.md`,
+  `docs/overview_and_method.md` (the "say it to a chef" / part-4 subsections rewritten out),
+  `docs/phase_build_review_workflow.md`, `forecasting/docs/{construction_roadmap,README,
+  mastery_and_customer_language}.md`, `docs/common_base_reconciliation.md`, the two on-ramp seam/vision
+  docs, `schemas/__init__.py`, rule `05`, and `toolbox-auditor.md` (now audits whether the `/learn`
+  track is real or an inert all-L0 ledger). `efficiency_backlog.md` #8 updated from "retired by
+  decision" to "implemented." Also fixed a stale "known open test failure" line in `CLAUDE.md`.
+
+**Why (the design rationale):** shipping is fast and per-phase; understanding is slow, cumulative, and
+only proves durable when re-tested weeks later. A one-shot gate at phase-close coupled two clocks moving
+at different speeds — either shipping waited on a quiz or the quiz got rubber-stamped to unblock it.
+Decoupling lets a P1 concept resurface in P4 on its own schedule while code ships on merit.
+
+**Known imperfections / not yet done:** the `/learn` loop has **not been dry-run** — `docs/mastery.md`
+is a seeded all-L0 ledger nobody has quizzed against yet (the toolbox-auditor is now primed to flag
+exactly this if it stays inert). Historical `docs/progress_log.md` entries (2026-06-29/30) still
+describe the old gate in past tense; left as accurate history, not rewritten. `SendMessage`-continuation
+of the tutor between Mode A and Mode B is the intended mechanism but is unproven until the first real
+`/learn` run.
+
+---
+
 ## 2026-07-01 — Backlog #3 fully closed: branch protection enabled, planted-failure PR verified blocked `[verify]`
 
 Closes the one piece the prior entry (below) left open: "a planted-failure PR going red and branch

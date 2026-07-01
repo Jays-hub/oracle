@@ -82,8 +82,9 @@ and scores against `_truth/` — which only `simulate/` writes and only `evaluat
 ## 6. Starting checklist — for the session that actually builds the DB
 
 Do **not** do these now (Phase 0, nothing built; Anti-Drift). When the time comes — i.e. once
-`forecasting/src/simulate/` emits real Parquet, or the first plate-cost BOM write happens — run the
-Comprehension gate (`.claude/rules/00-process.md`) for "stand up the shared query layer," then:
+`forecasting/src/simulate/` emits real Parquet, or the first plate-cost BOM write happens — treat "stand
+up the shared query layer" as a normal phase (build freely, review closes on code merit;
+`.claude/rules/00-process.md`), then:
 
 1. **Land the store as Parquet, not CSV**, under the existing `data/{raw,interim,processed,_truth}/`
    layout. Parquet keeps types and is what DuckDB reads fastest. (CSV is fine for tiny seed tables.)

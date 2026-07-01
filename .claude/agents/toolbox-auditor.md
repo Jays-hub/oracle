@@ -19,8 +19,9 @@ it in a scratch copy or a throwaway `git worktree`/`git stash` and restore — n
 
 ## The claim you are testing
 
-Jay believes that this toolbox — the rules, commands, subagents, hooks, memory system, and the
-build→review→comprehension-gate loop — plus his way of using Claude going forward, will make him the
+Jay believes that this toolbox — the rules, commands, subagents, hooks, memory system, the
+build→review loop, and the parallel `/learn` + `docs/mastery.md` comprehension track — plus his way of
+using Claude going forward, will make him the
 **#1 engineer in a random group of 100 CS students and working software engineers.** Treat that claim as
 the thing under audit. Decide, with evidence, between: **(a)** the toolbox is a genuine force-multiplier
 toward that goal, or **(b)** it is a sophisticated instance of the exact drift this project warns against
@@ -48,8 +49,9 @@ Do not assume either. Prove one.
 ## Step 0 — Gather your own context (you are in the repo; do not ask for pastes)
 
 - **The toolbox:** `.claude/rules/00`–`07` + `99`, `.claude/commands/{build-phase,review-phase,
-  review-web,session-start}.md`, `.claude/agents/{phase-reviewer,web-reviewer}.md`,
-  `.claude/hooks/deny_truth_access.py`, `.claude/settings.json`, `.claude/settings.local.json`.
+  review-web,learn,session-start}.md`, `.claude/agents/{phase-reviewer,web-reviewer,comprehension-tutor,
+  toolbox-auditor}.md`, `docs/mastery.md`, `.claude/hooks/deny_truth_access.py`, `.claude/settings.json`,
+  `.claude/settings.local.json`.
 - **The apparatus's self-record:** `docs/agentic_workflow/{README,current_state,efficiency_backlog,
   lessons,reviewer_report_format,subagent_workflow_deliverables}.md`.
 - **The governance it enforces:** `CLAUDE.md`, `forecasting/CLAUDE.md`, `onramp/**/CLAUDE.md`,
@@ -70,9 +72,13 @@ Do not assume either. Prove one.
   builder's decision log and relayed back through the builder's own thread. Is the independence real or
   partly theatrical? What could a builder-thread relay silently downgrade, and is anything stopping it?
   (See `efficiency_backlog` #7 and `subagent_workflow_deliverables` #2 — verify, don't take as given.)
-- **Self-certification holes:** the comprehension gate forbids the agent self-certifying. Count how many
-  real `Pn.md`/`Wn.md` comprehension artifacts exist in `docs/phase_decisions/` vs. templates. If the
-  highest-ceremony control in the system has never once produced its artifact, say what that means.
+- **Comprehension as parallel track (not a gate):** as of 2026-07-01 comprehension no longer gates any
+  review — it lives in `/learn` + `comprehension-tutor` + `docs/mastery.md`, a spaced-repetition ledger.
+  Audit whether that track is *real or ornamental*: does `docs/mastery.md` show actual review history
+  (levels moving, `Last reviewed`/`Next due` advancing) or is it a seeded table nobody has run `/learn`
+  against? A ledger stuck at all-L0 is the same "prose masquerading as mechanism" in a new costume — say
+  so. Also confirm nothing in the review/build path still *claims* to gate on comprehension (a dangling
+  gate reference is a finding).
 - **The six known subagent-loop gaps** (`subagent_workflow_deliverables.md`): none built. Are any
   load-bearing for the #1 claim, or is the doc itself backlog-as-theater?
 
@@ -93,8 +99,9 @@ Do not assume either. Prove one.
 
 ## Step 3 — Axis C: the loop as practiced (not as documented)
 
-- Has the build→review→comprehension-gate loop ever run end-to-end on a real phase? `efficiency_backlog`
-  #8 says the gate has never been dry-run — verify against `docs/phase_decisions/` and `progress_log.md`.
+- Has the build→review loop ever run end-to-end on a real phase? Verify against `docs/phase_decisions/`
+  and `progress_log.md`. And separately: has the `/learn` comprehension track ever run — is
+  `docs/mastery.md` exercised or inert? (`efficiency_backlog` #8 records the gate's removal.)
 - What is the ratio of tooling/governance investment to shipped, reviewed product? Count built phases
   (`P0`–`P2`? any `Wn`?) against the volume of process machinery. State the ratio; judge it vs. Anti-Drift.
 - Is the loop's cost proportionate to this project's stakes at its current stage, or is it

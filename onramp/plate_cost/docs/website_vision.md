@@ -2,9 +2,10 @@
 
 **Status:** north-star vision, **not a build spec.** This doc paints the *complete* client-facing
 website the plate-cost on-ramp deserves — so we know what we're building toward. The actual build
-stays **thin and phased** (see §8) and every new step still clears the Comprehension Contract gate
-(`../../../.claude/rules/00-process.md`). Read the two disciplines below before reading the vision,
-because they bound it.
+stays **thin and phased** (see §8); every new step gets an adversarial review that closes on code merit
+(`../../../.claude/rules/00-process.md`), while comprehension is grown separately on the `/learn` +
+`docs/mastery.md` track. Read the two disciplines below before reading the vision, because they bound
+it.
 
 **Part of the plate-cost docs.** Index: [plate_cost_overview.md](plate_cost_overview.md).
 Governance: `../CLAUDE.md` · durable on-ramp mandate: `../../README.md` · full-stack rules:
