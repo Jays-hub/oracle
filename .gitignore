@@ -46,3 +46,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# ── Claude Code — personal, machine-local permission grants ──────────
+# settings.local.json accumulates broad "always allow" grants from interactive
+# approvals; it isn't meant to be shared (docs/agentic_workflow/efficiency_backlog.md #5).
+.claude/settings.local.json
