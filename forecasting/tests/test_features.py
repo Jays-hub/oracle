@@ -1,7 +1,6 @@
 """Tests for the Phase-2 feature pipeline (forecasting/src/features/pipeline.py)."""
 from __future__ import annotations
 
-import datetime
 from datetime import date, timedelta
 
 import numpy as np
@@ -187,8 +186,9 @@ def test_lag_7_equals_same_weekday_last_week():
         "demand": 0,
     }])
     result = pipeline.transform(test)
-    # demand at date(2022, 2, 1) (i=0) was 0; lag_7 at day 8 should be demand at day 1 = 1
-    assert result["lag_7"].iloc[0] == pytest.approx(1.0)
+    # test_date = Feb 1 + 7 days = Feb 8, which is rows[7] (demand=7). d-7 calendar days
+    # is Feb 1 == rows[0], demand=0. lag_7 must pull exactly that row, not rows[1].
+    assert result["lag_7"].iloc[0] == pytest.approx(0.0)
 
 
 # ------------------------------------------------------------------ rolling stats --
@@ -228,7 +228,7 @@ def test_rolling_std_nan_with_single_observation():
     pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries()).fit(train)
     # Transform on day 3: only 2 training days, window [d-7…d-1] has at most 2 obs
     test = _demand_df(start="2022-02-03", n_days=1)
-    result = pipeline.transform(test)
+    pipeline.transform(test)
     # With only 2 prior obs in the 7-day window, std may be defined (n=2 → float);
     # with only 1 prior obs (first possible test day), std must be NaN
     train_1day = _demand_df(n_days=1, base_demand=10)

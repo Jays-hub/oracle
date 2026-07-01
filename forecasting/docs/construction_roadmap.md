@@ -99,12 +99,14 @@ verified against `_truth/`.
 > **Candy warning:** resist deep sequence models (TFT/N-BEATS/DeepAR) here. For one restaurant and a
 > few dozen items, a well-featured GBM wins and is faster to value. Park them for Phase 6 scale.
 
-> **Open bug (found 2026-06-30, unfixed):** `forecasting/tests/test_features.py::`
-> `test_lag_7_equals_same_weekday_last_week` is red — a leakage-adjacent lag test, the exact defect
-> class Phase 2 exists to guard against. Decide whether the lag-7 selection in
-> `forecasting/src/features/pipeline.py` is wrong or the test's day-index arithmetic is (its comment
-> is internally inconsistent: "day 8 / index 7 / day 1"). Do not record further Phase 2 progress over
-> this red test. Logged in `docs/progress_log.md` (2026-06-30 audit entry).
+> **Resolved (2026-06-30):** `forecasting/tests/test_features.py::test_lag_7_equals_same_weekday_last_week`
+> was red because of the test's own arithmetic, not the implementation. Traced `_add_lag_features`
+> (`forecasting/src/features/pipeline.py`) by hand: `test_date` = Feb 1 + 7 days = Feb 8 = `rows[7]`
+> (demand=7); `dense.shift(7)` at that position correctly pulls `rows[0]` (Feb 1, demand=0) — exactly
+> d-7 calendar days, the same-weekday-last-week lag the function is supposed to compute. The test's
+> comment conflated 1-indexed "day 1" with array index 1 and asserted `1.0` instead of the correct
+> `0.0`. Fixed the assertion (not the pipeline); suite is green (164/164). Backlog:
+> `docs/agentic_workflow/efficiency_backlog.md` #2.
 
 ---
 

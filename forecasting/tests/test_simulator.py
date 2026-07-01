@@ -32,7 +32,6 @@ def sim_outputs():
         if not cfg["menu_eras"]:
             cfg["menu_eras"] = [{"start": "2023-01-01", "id": 0, "name": "Test"}]
 
-        import tempfile as _tf
         cfg_file = Path(tmp) / "sim_test.yaml"
         cfg_file.write_text(_yaml.dump(cfg))
 
@@ -140,7 +139,7 @@ def test_pollution_rate_in_range(sim_outputs):
     n = len(df)
     if n == 0:
         return
-    n_comp = ((df["discount_amount"] > 0) | (df["comp_flag"] == True)).sum()
+    n_comp = ((df["discount_amount"] > 0) | df["comp_flag"]).sum()
     n_void = df["void_flag"].sum()
     pollution_frac = (n_comp + n_void) / n
     assert 0.02 <= pollution_frac <= 0.15, (
