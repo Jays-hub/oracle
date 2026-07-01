@@ -5,6 +5,32 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-01 — Backlog #3 fully closed: branch protection enabled, planted-failure PR verified blocked `[verify]`
+
+Closes the one piece the prior entry (below) left open: "a planted-failure PR going red and branch
+protection as a required status check ... haven't been exercised." Both now done, for real, on
+`origin/main`.
+
+- **Branch protection enabled.** `guard-set` (the CI job — lint + import-lint + test) set as a
+  required status check on `main` via `gh api PUT .../branches/main/protection`. Deliberately scoped
+  to *only* the required-status-check rule (`required_pull_request_reviews: null`,
+  `restrictions: null`) — this does not force Jay's existing direct-push-to-main workflow through
+  PRs; it only makes the check binding for whatever PRs do get opened. Confirmed live via
+  `gh api repos/Jays-hub/oracle/branches/main/protection`.
+- **Planted-failure PR, run end-to-end.** Branch `test/planted-ci-failure` added one file
+  (`forecasting/tests/test_planted_ci_failure.py`, a bare `assert False`) — no production code
+  touched. Pushed, opened as PR #1, watched `gh run view` go `completed failure` on the `guard-set`
+  check.
+- **Merge block confirmed two ways, not just inferred.** `gh pr view --json mergeStateStatus` read
+  `BLOCKED`; then `gh pr merge --merge` was actually attempted (not just inspected) and GitHub refused
+  it outright: *"the base branch policy prohibits the merge."* That sentence is the done-when.
+- **Cleanup:** PR #1 closed without merging; `test/planted-ci-failure` deleted both remote (via
+  `gh pr close --delete-branch`) and local. `main` carries no trace of the planted failure — the test
+  file never touched `main`, only the throwaway branch.
+- Backlog #3 is now fully done (was previously "CI stood up, verification pending") — struck below.
+
+---
+
 ## 2026-07-01 — CI verified end-to-end on GitHub; #13 commit split confirmed done; `no-mistakes` evaluated `[verify]`
 
 Closes out the part of backlog #3 this repo's own checkout couldn't prove (see the entry below: "a
