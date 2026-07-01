@@ -1,0 +1,30 @@
+[importlinter]
+root_packages =
+    forecasting
+    onramp
+    schemas
+
+[importlinter:contract:engine-truth-firewall]
+name = Engine model-path code (data/features/models/decision/report) must never import the truth-scoring module
+type = forbidden
+source_modules =
+    forecasting.src.data
+    forecasting.src.features
+    forecasting.src.models
+    forecasting.src.decision
+    forecasting.src.report
+forbidden_modules =
+    forecasting.src.evaluate
+# objective.py is pure Co/Cu math with zero I/O -- it never reads data/_truth/ and is the
+# sanctioned dollar-metric shared by baselines' self-scoring (rule 03, "dollars not accuracy").
+# Every OTHER path into evaluate/ (backtest, baseline_floor, and any future truth-loader) stays
+# forbidden; a new import there is exactly the leak class this contract exists to catch.
+ignore_imports =
+    forecasting.src.models.baselines -> forecasting.src.evaluate.objective
+
+[importlinter:contract:seam-independence]
+name = onramp and forecasting couple only through the data/ seam, never through code imports
+type = independence
+modules =
+    forecasting
+    onramp

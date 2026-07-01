@@ -11,6 +11,7 @@ pydantic>=2.0        # schema enforcement on BOM + price records (see schemas/, 
 # ── Dev & test (baseline from day one) ──
 pytest>=8.0          # the validation harness
 ruff>=0.4            # lint + format (.gitignore already expects .ruff_cache/)
+import-linter>=2.0   # import-graph seam firewall — .importlinter (efficiency_backlog.md #4)
 
 # ── Storage layer: DuckDB-over-Parquet (decided 2026-06-25, docs/common_base_reconciliation.md) ──
 duckdb>=0.10         # shared query layer over data/raw/** (the on-ramp's store helper)

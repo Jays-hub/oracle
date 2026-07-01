@@ -1,0 +1,38 @@
+name: CI
+
+# The whole guard set (lint, import-boundary, tests), run in the same pinned env every
+# local/agent invocation uses (conda env `restaurant-dev`, see Makefile). This is the
+# mechanism behind rules 01/02's "runs in CI" claim — see
+# docs/agentic_workflow/efficiency_backlog.md #3.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  guard-set:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up conda env restaurant-dev
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          activate-environment: restaurant-dev
+          python-version: "3.12"
+
+      - name: Install locked dependencies
+        run: pip install -r requirements.lock.txt
+
+      - name: make lint
+        run: make lint
+
+      - name: make import-lint
+        run: make import-lint
+
+      - name: make test
+        run: make test

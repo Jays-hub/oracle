@@ -30,26 +30,23 @@ freely, but no engine phase is *done* until Jay can fully explain the finished, 
 words (restate it + the "say it to a chef" line) — the agent never self-certifies it.
 
 ## What "done" means at every step
-**Beat the prior baseline in DOLLARS, not accuracy.** The objective is realized cost
-`Σ (Co·overage + Cu·underage)` vs. the gut/naive baseline — never MAPE or RMSE. If a new layer
-doesn't reduce dollar cost over the simpler version, it does not ship. Validate before deepening
-applies *inside* the model, not just to strategy.
+Dollars, not accuracy — the platform standing order (`../CLAUDE.md`) and its full metric definition
+(`.claude/rules/03-model-training.md`) are canonical; not re-derived here. Engine-specific: if a new
+layer doesn't reduce dollar cost over the simpler version, it does not ship — validate before
+deepening applies *inside* the model, not just to strategy.
 
 ## ANTI-DRIFT STANDING ORDER
-Jay's known failure mode is a pull toward intellectually rich modeling over the highest-value,
-least-contested work. The two highest-leverage things here are barely "ML": the **newsvendor
-reframe** (Phase 4) and the **data-access/exogenous grind** (Phases 5–7). If a session drifts
-toward deep sequence models / elaborate causal inference before the per-dish critical-ratio
-quantile model exists and beats baseline, the agent must name the drift and redirect. (This applies
-across the company — including drift *into* the on-ramp peer; see `../CLAUDE.md`.)
+Canonical statement: `../CLAUDE.md`. Engine-specific: the two highest-leverage things here are barely
+"ML" — the **newsvendor reframe** (Phase 4) and the **data-access/exogenous grind** (Phases 5–7). If a
+session drifts toward deep sequence models / elaborate causal inference before the per-dish
+critical-ratio quantile model exists and beats baseline, name the drift and redirect.
 
 ## This is a simulation — the data must be built first
-Phase 1 generates synthetic data that mirrors a real first data dump. The discipline:
-- `data/raw/` = "what the restaurant hands you" — messy, polluted, censored. **Models read ONLY here.**
-- `data/_truth/` = ground truth from the generator (true demand, stockouts, real recipes, injected
-  spoilage). **For scoring ONLY — never a model input.** This is what lets you verify the models work.
-The shared store is platform infrastructure (owned by neither code peer); the seam contract is
-`data/CONTRACT.md`. Full schemas + generative process + realism checklist: `forecasting/docs/simulated_data.md`.
+Phase 1 generates synthetic data that mirrors a real first data dump — a ground-truth generator (true
+demand, stockouts, real recipes, injected spoilage) is what lets you verify the models actually work,
+which a real customer's data never lets you do. The raw/truth split itself and who reads/writes each
+side is the platform firewall, stated once below ("Shared store & the on-ramp") — not re-derived here.
+Full schemas + generative process + realism checklist: `forecasting/docs/simulated_data.md`.
 
 ## The build path (phases → see forecasting/docs/construction_roadmap)
 - **P0** Repo + config + the decision frame (Co/Cu per item, the dollar objective).
@@ -93,6 +90,8 @@ Python. pandas/polars, numpy, scipy. **LightGBM/XGBoost** (Poisson/Tweedie + qua
 statsmodels/sktime (classical baselines, time-series CV). **MAPIE** (conformal). PyMC/NumPyro
 (hierarchical, Phase 6+). pytest for the validation harness. YAML config (`config/`). DuckDB over the
 `data/` Parquet/CSV store as the shared query layer (see `docs/common_base_reconciliation.md`).
+pytest/ruff live only in the `restaurant-dev` conda env — always invoke via `make test` / `make lint`
+(repo-root `Makefile`), never bare.
 
 ## Docs index (the encyclopedia lives in two homes)
 **Engine theory — `forecasting/docs/`:** `conceptual_spine` (the newsvendor keystone) ·
@@ -120,9 +119,11 @@ here and in `docs/progress_log.md`).
   tagging); `forecasting/src/features/pipeline.py` (calendar, lags, rolling stats, walk-forward CV,
   leakage canary); `forecasting/src/models/point.py` (point forecast baselines: lag-7, rolling-28,
   gut-proxy).
-- **Known open issue:** `forecasting/tests/test_features.py::test_lag_7_equals_same_weekday_last_week`
-  is red (see `forecasting/docs/construction_roadmap.md` Phase 2 callout) — unresolved, do not treat
-  P2 as fully clean until fixed.
-- **Suite: 164 tests, 163 pass / 1 fail** (the lag-7 test above).
-**P3 is next:** censored-demand unconstraining — but only once the lag-7 test is fixed.
+- **Suite: 181 tests, 181 pass** (full repo via `make test`; 164 engine+seam tests as of the P2
+  backfill, +17 from the 2026-07-01 workflow-efficiency pass — CI/import-linter/hook/gate-artifact
+  tests under `tests/`, none of them engine-specific). The former red test
+  (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not an
+  implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
+  callout. P2 is now clean.
+**P3 is next:** censored-demand unconstraining.
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.
