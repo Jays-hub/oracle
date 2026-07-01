@@ -10,6 +10,30 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-06-30 — Documentation-relevance review: `docs_archive/` created `[docs]`
+
+Read every authored doc in the repo (~31 files across `docs/`, `forecasting/docs/`,
+`onramp/plate_cost/docs/`, and the root/module `CLAUDE.md`/`README.md`s — `.claude/rules|agents|commands`
+excluded as live config, not historical record) and assessed each for whether it still governs current
+work or has already been absorbed elsewhere. Result: only 2 of ~31 had actually served their purpose;
+this repo's non-redundant-by-design doc discipline means almost everything found is either an active
+governance file, an open backlog/spec, or a directly cross-referenced authoritative source.
+
+- **`ARCHITECTURE_REVIEW.md` → `docs_archive/ARCHITECTURE_REVIEW.md`.** A 2026-06-22 audit whose own
+  header already marks its core recommendation superseded; the adopted decision is now fully captured
+  in `CLAUDE.md`, `../onramp/README.md`, `../data/CONTRACT.md`, and `common_base_reconciliation.md`.
+- **`progress_log_archive.md` → `docs_archive/progress_log_archive.md`.** Already-archived entries
+  (2026-06-25 and earlier); relocated so there's one archive location instead of two.
+- **`docs_archive/README.md` (new)** — explains why each archived file was retired and points back to
+  its current authority, same convention as every other folder's index doc.
+- Repointed this file's two references to the new paths (the intro line and the "older history"
+  pointer below).
+
+No code or governance content changed — a pure documentation-hygiene pass, so the Comprehension
+Contract gate did not trigger (mechanical, per `00-process.md`'s carve-out).
+
+---
+
 ## 2026-06-30 — Project-state snapshot from a workflow audit `[audit]`
 
 A full audit of the agentic workflow (recorded in `docs/agentic_workflow/current_state.md`) also
