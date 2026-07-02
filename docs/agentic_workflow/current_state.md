@@ -5,6 +5,57 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-02 — Third audit landed + full remediation; the review loop ran for real (first `Pn_review.md`) `[built] [verify]`
+
+**The audit.** `/audit-toolbox` ran cold (Opus); artifact: `toolbox_audit_2026-07-01.md`. Verdict:
+construction Adequate, token economics Adequate (~1,960 tok idle / ~4,900–6,500 engine-build — audit
+#1's 9.6k is stale-better), **the loop as practiced: Theater** (zero `Pn.md`/`Pn_review.md` ever
+produced; `mastery.md` inert at 14/14 L0). 1 BLOCKER, 3 MAJOR, 3 MINOR, 1 NIT, kill list. Bottom
+line: stop building tooling; run the loop you have.
+
+**Remediation, same pass (backlog #14–#19; every fix meets the doctrine — auto-invoked, self-proving,
+recorded):**
+- **M1 — `_truth` hook bypass closed.** Sanctioning is structural now: quote-aware comment-strip +
+  unquoted-separator segmenting (`.claude/hooks/shell_lex.py`, shared); pytest/`make test` sanctions
+  only the segment it leads. `cat data/_truth/x # pytest` denied. +6 planted bypass tests
+  (`tests/test_truth_access_hook.py`, 13 total).
+- **M2 — write-scoping is mechanism, not prose.** New `.claude/hooks/enforce_agent_write_scope.py`,
+  registered in `settings.json` (Bash + Write/Edit/MultiEdit/NotebookEdit): keyed on the harness's
+  `agent_type` hook-input field, it denies the four scoped subagents any in-repo write outside their
+  one artifact — file tools AND Bash escapes (redirects, `sed -i`/`perl -i`, `tee`, file mutators,
+  mutating git incl. `stash`/`worktree add`; `cp` judged by destination so scratch-copies OUT stay
+  legal). Writes outside the tree (scratchpad, /tmp) stay allowed: the guarantee protects the tree.
+  28 planted tests (`tests/test_agent_write_scope_hook.py`). Agent defs updated to cite the mechanism.
+  **Known limit:** the harness snapshots hook config at session start, so the new matcher wires up
+  from the next session; the hook logic itself is CI-proven, and the pattern (project hooks fire
+  inside subagents) was proven live this session when `deny_truth_access` blocked the auditor's grep.
+- **M4 — relay-from-file.** `/review-phase`, `/review-web`, `/audit-toolbox`: the relay must be
+  produced by Reading the artifact (path + `shasum` printed) — mismatch impossible by construction;
+  the never-run manual diff-check is gone.
+- **MINORs/NIT:** `subagent_workflow_deliverables.md` #2 struck as built (`62daf42`) and #1/3/4/5/6
+  **frozen** until the loop has run once (kill list #1); rules 05/07 narrowed to
+  `onramp/**/{web,api,server,routes}/**` (pure-compute plate-cost no longer loads web rules; the
+  audit's "06 matches zero files" was itself stale — `web/static/style.css` exists); audit #1's 9.6k
+  figure annotated as superseded; canary rule 99 **considered and kept** (kill list #3 — it fired this
+  very session; owner's live tripwire).
+- **Suite after all fixes: 209 passed** (175 pre-existing + 28 new write-scope + 6 new
+  planted-bypass), `make lint` clean.
+
+**The loop ran for real (audit BLOCKER, review half).** `/review-phase P2` (cold Opus) produced the
+first-ever real review artifact, `docs/phase_decisions/P2_review.md`, through the new relay-from-file
+flow. It caught a genuine gap the backfilled log never would have: **P2's dollar gate is demonstrated
+by no committed code** (the GBM is imported by nothing; no `test_point.py`; no cleaning-vs-`_truth`
+check in `evaluate/`) — though the reviewer's own harness confirms the model *does* beat the floor
+($128,467.93 vs $144,789.25, ~11%). Plus 2 MAJOR (stale status docs describing a superseded
+`point.py`; train/serve lag-NaN skew), 3 MINOR, 1 NIT. **Findings await Jay's greenlight per
+`/review-phase` — deliberately not auto-fixed; fixes are P2 build work, not toolbox work.**
+
+**Still open (backlog #20):** the comprehension half — Jay runs `/learn` once and a `mastery.md`
+level actually moves. The agent cannot close that half; only the tutor grading Jay's live answers
+writes the ledger.
+
+---
+
 ## 2026-07-01 — `/build-phase`'s branch gate fixed to not misfire under detached-HEAD session tools `[built]`
 
 Jay runs this repo through Treehouse, which puts each parallel session on a detached HEAD and defers
@@ -463,8 +514,13 @@ here; this file stays scoped to the workflow machinery itself.)
 4. **Governance redundancy ~40%.** The firewall law is restated ~11×, dollars-not-accuracy ~6×,
    anti-drift ~6×, the four gates re-listed verbatim in `build-phase.md` despite its own "don't
    restate" instruction. ~9.6k governance tokens on a typical engine-build turn, ~40% avoidable.
+   *(Audit #1 baseline — superseded: after the #10/#11 dedup and gate removal, the 2026-07-01 audit
+   measured ≈1,960 tok idle / ≈4,900–6,500 tok engine-build, "no large fat left to cut" — see
+   `toolbox_audit_2026-07-01.md` §4.)*
 5. **Aspirational load paid now.** Rules `05+07` (~2.4k tok) load on any `onramp/*.py` edit despite
    zero web-stack code; rule `04`'s registry/drift machinery targets empty `report/`+`decision/` dirs.
+   *(05/07 narrowed to web/api/server/routes subpaths 2026-07-02, per the 2026-07-01 audit's
+   MINOR-05/07.)*
 
 ### Git reality vs. narrated process
 3 commits, all 2026-06-30; multiple build phases squashed into single commits. The many discrete

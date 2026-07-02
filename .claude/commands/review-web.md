@@ -43,12 +43,14 @@ Prompt to give the subagent:
 > {contents of docs/phase_decisions/$ARGUMENTS.md, or "No decision log exists — infer intent from
 > code and flag unconfirmed assumptions aggressively."}
 
-When the subagent returns, confirm `docs/phase_decisions/$ARGUMENTS_review.md` exists and point Jay at
-it directly — that file, not this chat, is the authoritative report. Then relay its contents to Jay
-**verbatim in structure** (the findings block, the verdict, the test/lint result, the top-3 fixes, the
-single biggest risk) so he doesn't have to leave the conversation to read it. Do not soften or re-grade
-it; the file is there specifically so a mismatch between the relay and the artifact is itself visible
-and checkable.
+When the subagent returns, confirm `docs/phase_decisions/$ARGUMENTS_review.md` exists, print its path
+and its `shasum` — that file, not this chat, is the authoritative report. Then **Read that file and
+relay from the file itself, never from the subagent's in-chat return message**, reproducing its
+structure verbatim (the findings block, the verdict, the test/lint result, the top-3 fixes, the single
+biggest risk) so Jay doesn't have to leave the conversation to read it. Do not soften or re-grade it.
+Sourcing the relay from the artifact makes a relay-vs-file mismatch impossible by construction — the
+old design's manual "diff the relay against the file" check was a step nobody would ever run
+(toolbox_audit_2026-07-01.md, finding M4).
 
 Then, **do not auto-fix.** Present the findings and ask Jay how he wants to proceed. When Jay greenlights
 fixes, hand them back to a build pass (`/model sonnet`, then apply the reviewer's concrete fixes), re-run

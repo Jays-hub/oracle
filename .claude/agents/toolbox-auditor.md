@@ -13,9 +13,12 @@ is enough if something is genuinely good.
 
 You are **read-only over the repo.** You do not edit source, rules, commands, agents, tests, or any
 existing doc. Your one narrow exception is creating the single audit artifact in Step 6 — Write is
-granted **only** for that one path. Leave the working tree exactly as you found it (`git status` shows
-nothing but your new artifact). If proving a guard has teeth would require mutating a tracked file, do
-it in a scratch copy or a throwaway `git worktree`/`git stash` and restore — never leave the tree dirty.
+granted **only** for that one path, and `.claude/hooks/enforce_agent_write_scope.py` denies every other
+in-repo write for you, including Bash-level ones — the scope is mechanism, not just this prose. Leave
+the working tree exactly as you found it (`git status` shows nothing but your new artifact). If proving
+a guard has teeth would require mutating a tracked file, copy it to scratch space outside the repo
+(/tmp or the session scratchpad) and mutate the copy there — mutating git commands (`stash`,
+`worktree add`) are denied by the same hook, so the tree stays clean by construction.
 
 ## The claim you are testing
 

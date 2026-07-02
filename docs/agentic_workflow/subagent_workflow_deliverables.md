@@ -2,9 +2,16 @@
 
 Remediation for the 2026-06-30 "Third pass: subagent/multi-agent mechanics" entry in
 `current_state.md`. That entry is the record of what's wrong; this file is the plan to fix it — six
-deliverables, one per gap found, each with a concrete solution and a done-when test. None of these are
-built yet. Strike an item here and add a dated `current_state.md` entry when it lands, same convention
-as `efficiency_backlog.md`.
+deliverables, one per gap found, each with a concrete solution and a done-when test. **#2 is built**
+(landed in `62daf42` "Reviewer writes durable artifact"; the 2026-07-01 audit's MINOR finding was that
+this line still said otherwise — self-record drift, fixed 2026-07-02). Strike an item here and add a
+dated `current_state.md` entry when it lands, same convention as `efficiency_backlog.md`.
+
+**FROZEN (2026-07-02, per toolbox_audit_2026-07-01.md kill list #1):** items **1, 3, 4, 5, 6** are
+frozen until the build→review loop has run **once** end-to-end on a real phase (a real
+`Pn_review.md`, greenlit fixes, a closing log entry). They are enterprise process for a loop that had
+run zero times; building them before the loop has a single honest pass is the Anti-Drift violation the
+audit named. Unfreeze by running the loop, not by editing this banner.
 
 Two of these (2, 3) sharpen/compound existing `efficiency_backlog.md` items (#7, #8) rather than
 duplicate them — noted per item.
@@ -34,7 +41,7 @@ VERDICT line, never a silent pass, and this has been observed once for real.
 
 ---
 
-## 2. Durable, un-relayed review artifact
+## 2. Durable, un-relayed review artifact — ✅ BUILT (`62daf42`; relay-from-file hardening 2026-07-02)
 
 **Problem:** The reviewer's independent opinion reaches Jay only after passing back through the same
 main thread that orchestrated the build — "relay verbatim" is a prose instruction with nothing to check
