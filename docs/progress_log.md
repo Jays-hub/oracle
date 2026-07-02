@@ -60,6 +60,41 @@ edits it references; this entry is the log pointer.
   from 209 — net +11 across `test_point.py`, `test_features.py` (`extend_history`), and `test_cleaner.py`
   (comp/censoring/data-quality cases).
 
+
+## 2026-07-02 — Backfill: W0 (read-only reveal) was built but never logged or reviewed `[built]` `[backfilled]`
+
+`/build-phase W0` was invoked to build the on-ramp's first web phase; exploration found it **already
+built** — `onramp/plate_cost/web/` (FastAPI app, Jinja2 templates, static CSS) exists, matches the
+`website_vision.md` §8 W0 spec, and its test suite passes. Like the 2026-06-30 P1/P2 backfill, this
+landed in the squashed `a66f85a` initial commit (2026-06-30) from work actually done earlier — the
+only prior trace is an oblique "2026-06-25 W0 hardening pass" mention in this log's 2026-06-29 entry.
+No `docs/phase_decisions/W0.md` existed and `/review-web W0` has never run. Jay chose to backfill the
+missing artifacts rather than rebuild working code.
+
+- **What's built:** `web/app.py` — single `GET /` route, sync handler (blocking I/O runs in
+  FastAPI's threadpool), calm 503 + correlation-id on failure (no stack trace to the client).
+  `web/compute.py` — thin glue running the same chain as `src/run.py` (`src/bom/loader.py` →
+  `src/pricing/compute.py` → `src/report/grid.py`) against local `onramp/plate_cost/data/sample_*.csv`
+  — **not** the seam (`data/raw/`), because the seam carries only BOM+sales and can't reconstruct
+  margins. `web/templates/{base,grid,error}.html` — server-rendered Jinja2, no JS framework, sample-data
+  banner, quadrant grid, dollar figures rounded to the $0.25 grid with margin derived from the
+  *rounded* cost (rule 06 reconciliation discipline). `web/__main__.py` — `python -m web`, binds
+  `127.0.0.1:8000` only.
+- **Tests: 10/10 pass** (`onramp/plate_cost/tests/test_web.py`) — 200 status, quadrant sections
+  present, dollar figures, sample banner, margin-reconciles-with-rounded-cost, static file reachable,
+  empty `skipped` on clean data, `DishRow` contract match, legible 503 on simulated failure,
+  uncostable dish surfaced not dropped (not silently dropped). `ruff check` clean. Full-repo
+  `make test`: 209 passed (unchanged — no code was added).
+- **Boundary firewall holds:** `tests/test_module_boundaries.py` already `rglob`s all of `onramp/`,
+  so `web/` is covered — no `forecasting/` import, no `_truth` path.
+- **Gap flagged, not fixed:** no deployment/hosting artifact exists anywhere (no Dockerfile, no prod
+  ASGI config) despite the spec calling W0 "a single hosted page" / "show a client in 60s." Not
+  recorded as deferred to any later phase — an open question for `/review-web W0` to weigh in on.
+  Full reasoning, design decisions, and load-bearing assumptions: **`docs/phase_decisions/W0.md`**
+  (itself a reconstructed, not contemporaneous, decision log — flagged as such in its own Reviewer
+  Focus Areas).
+- Not marked done here — per `00-process.md`, that happens when `/review-web W0` closes on the code.
+
 ---
 
 ## 2026-06-30 — Documentation-relevance review: `docs_archive/` created `[docs]`
