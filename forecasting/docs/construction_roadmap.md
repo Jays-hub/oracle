@@ -111,6 +111,20 @@ verified against `_truth/`.
 > `0.0`. Fixed the assertion (not the pipeline); suite is green (164/164). Backlog:
 > `docs/agentic_workflow/efficiency_backlog.md` #2.
 
+> **Remediation (2026-07-02, `docs/phase_decisions/P2_review.md`):** three findings closed. **BLOCKER-1**
+> — the dollar gate wasn't committed anywhere: added `forecasting/src/evaluate/point_floor.py` (point
+> model vs. baselines through the same backtest — $133,121.17 vs. $147,584.42 clean floor) and
+> `forecasting/src/evaluate/cleaning_check.py` (cleaned demand vs. the hidden ground truth). Building
+> the latter surfaced a real bug: `cleaner.py` was excluding comp-flagged rows, which actually tags
+> real fulfilled orders (comped on the bill, not phantom demand) — excluding them moved observed
+> demand *away* from truth (MAE 0.522 vs. 0.472 raw). Fixed: comps now stay in; only voids + staff
+> meals are stripped (MAE now 0.302). **MAJOR-2** — status docs described `point.py` as the three
+> baselines; it's `GlobalLGBMModel` (LightGBM Poisson) — corrected in `CLAUDE.md`. **MAJOR-3** — lag
+> features are skewed in the block backtest (see `point.py` docstring); added
+> `FeaturePipeline.extend_history()` + `forecasting/src/evaluate/day_ahead_eval.py` as a supplementary,
+> non-gating diagnostic rather than restructuring the shared backtest harness (Anti-Drift — out of
+> scope for a remediation pass).
+
 ---
 
 ## Phase 3 — Censored-demand unconstraining

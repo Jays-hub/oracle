@@ -114,19 +114,25 @@ here and in `docs/progress_log.md`).
 - **P1 — simulated data + baselines + backtest.** `forecasting/src/simulate/generator.py` (the
   synthetic restaurant → `data/raw/` + `data/_truth/`); `forecasting/src/models/baselines.py`
   (seasonal-naive / same-weekday rolling mean / Croston); `forecasting/src/evaluate/backtest.py`
-  (rolling-origin CV) + `baseline_floor.py`; `forecasting/src/data/loader.py`. Reproducible raw-only
-  baseline floor: $144,789 (clean) / $148,882 (dirty) via
+  (rolling-origin CV) + `baseline_floor.py`; `forecasting/src/data/loader.py`. Reproducible baseline
+  floor (best baseline both cases: `rolling28`): $148,881.58 (dirty) / $147,584.42 (clean) via
   `python -m forecasting.src.evaluate.baseline_floor`.
-- **P2 — cleaning + point model.** `forecasting/src/data/cleaner.py` (pollution stripping, menu-era
+- **P2 — cleaning + point model.** `forecasting/src/data/cleaner.py` (pollution stripping — voids +
+  staff meals only; comp-flagged rows are kept as genuine demand, not stripped — see below; menu-era
   tagging); `forecasting/src/features/pipeline.py` (calendar, lags, rolling stats, walk-forward CV,
-  leakage canary); `forecasting/src/models/point.py` (point forecast baselines: lag-7, rolling-28,
-  gut-proxy).
-- **Suite: 175 tests, 175 pass** (full repo via `make test`; 164 engine+seam tests as of the P2
-  backfill, +11 from the 2026-07-01 workflow-efficiency pass — CI/import-linter/hook tests under
-  `tests/`, none of them engine-specific. The 6 gate-artifact tests from that pass were removed
-  2026-07-01 when the comprehension gate was retired). The former red test
+  leakage canary); `forecasting/src/models/point.py` — `GlobalLGBMModel`, a global LightGBM Poisson
+  model (`item_id` a native categorical, trained across all items). P2's dollar-gated "done when" is
+  now committed: `forecasting/src/evaluate/point_floor.py` runs the point model through the same
+  backtest as the baselines — **$133,121.17 vs. the $147,584.42 clean floor, a $14,463.25 win** — and
+  `forecasting/src/evaluate/cleaning_check.py` verifies the cleaned series against the hidden ground
+  truth (MAE 0.302 vs. 0.472 raw). That check is *why* comps are kept: excluding comp-flagged rows
+  (an earlier P2 choice) moved observed demand further from truth, not closer, because a comp tags a
+  real fulfilled order — the kitchen still made and served the dish. See
+  `docs/phase_decisions/P2_review.md` for the full remediation record.
+- **Suite: 213 tests, 213 pass** (full repo via `make test`; +4 from `test_point.py`, added alongside
+  `point_floor.py`/`cleaning_check.py` to close the P2 review's BLOCKER-1). The former red test
   (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not an
   implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
-  callout. P2 is now clean.
+  callout.
 **P3 is next:** censored-demand unconstraining.
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.
