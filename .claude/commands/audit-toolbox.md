@@ -30,11 +30,12 @@ Prompt to give the subagent:
 > `docs/agentic_workflow/toolbox_audit_<date>.md`** (run `date +%F` for the date; this is the one and
 > only path you may write to). Here is the tree state: {git output}.
 
-When the subagent returns, confirm `docs/agentic_workflow/toolbox_audit_<date>.md` exists and point Jay
-at it directly — that file, not this chat, is the authoritative report. Then relay its contents **verbatim
-in structure** (the scorecard, the ranked findings, the ledger, the token-savings table, the kill list,
-and the bottom line) so Jay doesn't have to leave the conversation. **Do not soften or re-grade it** — the
-file is there specifically so a mismatch between the relay and the artifact is itself visible.
+When the subagent returns, confirm `docs/agentic_workflow/toolbox_audit_<date>.md` exists, print its
+path and its `shasum` — that file, not this chat, is the authoritative report. Then **Read that file and
+relay from the file itself, never from the subagent's in-chat return message**, reproducing its structure
+verbatim (the scorecard, the ranked findings, the ledger, the token-savings table, the kill list, and
+the bottom line) so Jay doesn't have to leave the conversation. **Do not soften or re-grade it** —
+sourcing the relay from the artifact makes a relay-vs-file mismatch impossible by construction.
 
 Then **do not auto-fix.** Present the findings and ask Jay how he wants to proceed. Acting on this audit
 changes the workflow, so any resulting edit to `.claude/**` or the governance layer is a **workflow

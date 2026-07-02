@@ -64,3 +64,46 @@ def test_allows_pytest_running_the_firewall_test():
 def test_allows_unrelated_commands():
     out = _run_hook("git status")
     assert out == {}
+
+
+# --- Bypass cases planted per toolbox_audit_2026-07-01.md finding M1 ---------------
+# Sanctioning must be structural (the test invocation LEADS the segment that touches
+# _truth), never substring presence anywhere in the command text.
+
+
+def test_denies_truth_read_with_pytest_comment_suffix():
+    """The audit's exact exploit: a trailing `# pytest` must sanction nothing."""
+    out = _run_hook(
+        "python -c \"import pandas as pd; pd.read_csv('data/_truth/truth_demand.csv')\" # pytest"
+    )
+    assert out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+
+def test_denies_truth_read_chained_with_echo_pytest():
+    """`&& echo pytest` puts the token in a different segment; the read stays naked."""
+    out = _run_hook("cat data/_truth/truth_params.yaml && echo pytest")
+    assert out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+
+def test_denies_truth_read_chained_after_real_test_run():
+    """A genuine `make test` leading the chain must not sanction a follow-on raw read."""
+    out = _run_hook("make test && cat data/_truth/truth_params.yaml")
+    assert out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+
+def test_denies_truth_read_with_sanctioned_module_comment_suffix():
+    """Same exploit through the module pattern: a commented path must sanction nothing."""
+    out = _run_hook("cat data/_truth/truth_params.yaml # forecasting/src/evaluate")
+    assert out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+
+def test_denies_truth_read_piped_into_pytest_lookalike():
+    """A `pytest` word downstream of a pipe is not the leader of the reading segment."""
+    out = _run_hook("head data/_truth/truth_demand.csv | grep pytest")
+    assert out.get("hookSpecificOutput", {}).get("permissionDecision") == "deny"
+
+
+def test_allows_env_prefixed_pytest_leading_its_own_segment():
+    """The structural anchor still admits real test runs: env vars + pytest leading."""
+    out = _run_hook("TRUTH_DIR=data/_truth/ pytest forecasting/tests -k truth_firewall")
+    assert out == {}

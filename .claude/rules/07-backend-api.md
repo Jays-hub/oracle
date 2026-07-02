@@ -1,6 +1,8 @@
 ---
+# .py scoped to web/api/server/routes subdirs only: pure-compute plate-cost Python is
+# not the service layer these rules govern (toolbox_audit_2026-07-01.md, MINOR-05/07).
 paths:
-  - "onramp/**/*.py"
+  - "onramp/**/web/**"
   - "onramp/**/api/**"
   - "onramp/**/server/**"
   - "onramp/**/routes/**"
