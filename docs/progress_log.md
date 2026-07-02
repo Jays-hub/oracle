@@ -10,6 +10,57 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-02 — P2 review remediation: dollar-gate evidence committed + comp-exclusion bug found & fixed `[built]`
+
+Closed all 7 findings in `docs/phase_decisions/P2_review.md` (the phase-reviewer's adversarial pass on
+P2). Full detail, evidence, and code pointers live in that file and in the module docstrings/rule
+edits it references; this entry is the log pointer.
+
+- **BLOCKER-1 — the dollar gate is now a committed, runnable artifact, not a review-time ad hoc
+  check.** `forecasting/src/evaluate/point_floor.py` runs `GlobalLGBMModel` through the same
+  `RollingOriginBacktest` as the three baselines and asserts the win; `forecasting/src/evaluate/
+  cleaning_check.py` (the second sanctioned `_truth/` reader) verifies the cleaned demand series is
+  closer to ground truth than raw. `forecasting/tests/test_point.py` (+5 tests) covers the fit/predict
+  contract and a non-regression backtest guard.
+- **Found while building the truth check, not part of the original review: `cleaner.py`'s
+  comp-exclusion was actively wrong.** Comp-flagged rows tag real, fulfilled guest orders (comped on
+  the bill after the kitchen prepped and served them) — not phantom demand like staff meals. Excluding
+  them moved observed demand *further* from `_truth/truth_demand.csv` (MAE 0.522 vs. 0.472 raw) because
+  observed demand is already censored at or below the true series, so removing any real-demand subset
+  can only widen that gap. Fixed: `cleaner.py` now excludes only voids + staff meals; comps stay in
+  (MAE 0.302). This also corrects the stale claim in the 2026-06-30 backfill entry below and in the old
+  `CLAUDE.md` "Current status", which described `point.py` as the three baselines — it is
+  `GlobalLGBMModel` (global LightGBM Poisson). `.claude/rules/01-data-ingestion.md`'s "Restaurant-
+  Specific Signal Cleaning" section updated to match (previously said "tag and exclude comps").
+  Dollar floor moved with the corrected cleaning: clean floor $147,584.42 (was $144,789, computed on
+  the over-stripped series); point model still wins clean, $133,121.17 (a $14,463.25 margin).
+- **MAJOR-3 — lag-feature skew in the block backtest documented, not silently left implicit.**
+  `RollingOriginBacktest` scores a whole test window in one `predict()` call, so lag features deep in
+  the window are mostly NaN (symmetric across baselines and the GBM, so the dollar comparison stays
+  fair — see `point.py` docstring). Added `FeaturePipeline.extend_history()` (+2 tests) and
+  `forecasting/src/evaluate/day_ahead_eval.py`, a non-gating diagnostic that replays the real
+  day-ahead regime (reveal each day's actual before scoring the next): lag fill rate goes from ~4-25%
+  to 100%. Restructuring the shared backtest harness itself was judged out of scope for a remediation
+  pass (Anti-Drift).
+- **MINOR-4 — censored tag now scoped to `service_period`.** Was keyed on `(date, item_id)` only, so a
+  dinner 86 wrongly censored that day's lunch row too. Now derives `service_period` from `time_86d`
+  the same way `loader.py` does for POS sales. +1 test (`test_dinner_86_leaves_lunch_uncensored`).
+- **MINOR-5 — two rule-01 requirements added to `cleaner.py`:** a missingness report (null count/% per
+  column, printed before any exclusion) and a qty==0-with-no-void/comp-flag quarantine (a data-quality
+  anomaly, not censored demand — no numeric effect on demand values, since such a row already
+  contributed 0 to the aggregate; this closes an observability gap). +3 tests.
+- **MINOR-6 — `GlobalLGBMModel.fit()` now logs rule-03 diagnostics:** a per-item predicted-vs-actual
+  mean table (`self.item_bias_`) and feature importances (`self.feature_importances_`), the check that
+  would surface censored-row contamination as per-item bias. MLflow logging stays parked (premature
+  infra). +1 test.
+- **NIT — dtype convention (Python `date`/object-dtype ids vs. rule 01's `datetime64`/`Categorical`
+  letter) recorded as deliberate in `.claude/rules/01-data-ingestion.md` rather than refactored — no
+  measured correctness or perf cost, internally consistent across every consumer.**
+- **Suite: 220 tests, 220 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 209 — net +11 across `test_point.py`, `test_features.py` (`extend_history`), and `test_cleaner.py`
+  (comp/censoring/data-quality cases).
+
+
 ## 2026-07-02 — Backfill: W0 (read-only reveal) was built but never logged or reviewed `[built]` `[backfilled]`
 
 `/build-phase W0` was invoked to build the on-ramp's first web phase; exploration found it **already

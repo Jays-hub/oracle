@@ -277,6 +277,47 @@ def test_transform_default_raises_on_overlap_without_any_flag():
         pipeline.transform(overlap_test)  # no check_leakage kwarg at all
 
 
+# ------------------------------------------------------------------ extend_history --
+
+def test_extend_history_populates_lag_for_next_day():
+    """After extend_history reveals day D's actual demand, day D+1's lag_1 must equal it
+    -- the day-ahead regime day_ahead_eval.py relies on (P2_review.md MAJOR-3)."""
+    train = _demand_df(n_days=14, base_demand=10)
+    pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries()).fit(train)
+
+    day_15 = date(2022, 2, 1) + timedelta(days=14)
+    revealed = pd.DataFrame([{
+        "business_date": day_15,
+        "item_id": "item_a",
+        "service_period": "dinner",
+        "demand": 42,
+    }])
+    pipeline.extend_history(revealed)
+
+    day_16 = day_15 + timedelta(days=1)
+    test = pd.DataFrame([{
+        "business_date": day_16,
+        "item_id": "item_a",
+        "service_period": "dinner",
+        "demand": 0,
+    }])
+    result = pipeline.transform(test)
+    assert result["lag_1"].iloc[0] == pytest.approx(42.0), (
+        "lag_1 on the day after extend_history should equal the revealed actual, "
+        f"not NaN or the stale training-only history. Got: {result['lag_1'].iloc[0]}"
+    )
+
+
+def test_extend_history_before_fit_raises():
+    pipeline = FeaturePipeline(era_boundaries=_synthetic_era_boundaries())
+    revealed = pd.DataFrame([{
+        "business_date": date(2022, 2, 1), "item_id": "item_a",
+        "service_period": "dinner", "demand": 5,
+    }])
+    with pytest.raises(RuntimeError, match="fit"):
+        pipeline.extend_history(revealed)
+
+
 # ------------------------------------------------------------------ edge cases --
 
 def test_unknown_item_gives_nan_lags():

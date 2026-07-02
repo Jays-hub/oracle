@@ -20,6 +20,7 @@ paths:
 ## Type Safety & Schema Enforcement
 - Enforce strict data type casting on load: dates → `datetime64[ns]`, item/category columns → `pd.Categorical`, quantities → `int64`, prices → `float64`.
 - Validate schema at ingestion time (pandera or a schema dict); fail loudly on type or range violations rather than silently coercing.
+- **Recorded convention (2026-07-02, P2 review NIT):** `forecasting/src/data/{cleaner,loader}.py` and `features/pipeline.py` deviate from the letter of the rule above — `business_date` is a Python `date` object (not `datetime64[ns]`), and `item_id`/`service_period` stay plain-`object` strings, cast to `pd.Categorical` only at the LightGBM boundary in `models/point.py`. This is a deliberate, internally-consistent choice (every consumer agrees on it), not an oversight — a cross-file dtype migration was judged not worth doing for a style-only deviation with no measured correctness or perf cost. Revisit if that changes.
 
 ## Temporal Integrity
 - Sort all data by `(date, service_period)` immediately after load and assert monotonicity before any downstream step.
@@ -27,6 +28,8 @@ paths:
 - Seed all deterministic operations (`random_state=42`) for reproducibility.
 
 ## Restaurant-Specific Signal Cleaning
-- Tag and exclude comps, voids, and staff meals from the demand signal before any model sees data. Log the exclusion count per run.
+- Tag and exclude structural pollution — voids and staff meals — from the demand signal before any model sees data. Log the exclusion count per run.
+- **Comps are not automatically excluded.** A comp tags a real, fulfilled order (comped on the bill after the kitchen already prepped and served it) — it is not automatically phantom demand the way a staff meal is. Verify any comp-exclusion policy against `data/_truth/` (via the sanctioned reader in `forecasting/src/evaluate/`) before excluding a comp/discount category: in this project's simulated data, excluding comp-flagged rows moved observed demand *further* from ground truth, not closer (`forecasting/src/evaluate/cleaning_check.py`, `docs/phase_decisions/P2_review.md` BLOCKER-1), because observed demand is already censored at or below the true series, so removing any real-demand subset can only widen that gap.
 - Detect and tag menu-era boundaries (item introductions, price changes, recipe reformulations) — all features and models must be era-aware.
 - Stockout detection: if `sold_qty == prep_qty` on a given day, flag as potentially censored (true demand ≥ observed). Do not treat these as clean observations. This `sold == capacity` pattern — not a `qty == 0` row — is the censored-demand signal Phase 3 unconstrains.
+- Censored tags must be scoped to the actual daypart affected (via a stockout-event timestamp, e.g. `time_86d`), not just `(date, item)` — a dinner-only stockout must not censor that day's lunch row.

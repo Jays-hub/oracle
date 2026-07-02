@@ -17,6 +17,21 @@ Why Poisson objective:
   - Overdispersion (variance > mean) is handled by the Poisson's log-link; Tweedie
     generalizes it further. For P2 Poisson is the correct baseline; Tweedie is a P3+
     upgrade if calibration shows systematic over-dispersion.
+
+Known limitation -- lag features are skewed in a BLOCK backtest (P2_review.md MAJOR-3):
+  - RollingOriginBacktest scores a whole multi-week test window in one predict() call.
+    FeaturePipeline only has TRAINING history to look back on, so a test day deep in
+    the window has no revealed prior-test-day actuals -- lag_1 is ~96% NaN, lag_7 ~75%,
+    by the end of a 28-day block. This is symmetric across baselines and the GBM (the
+    naive baselines degrade to training-only info the same way), so point_floor.py's
+    dollar comparison stays fair -- if anything conservative -- but it understates a
+    properly-served day-ahead model (lead_time_days=1 is the real product horizon).
+  - forecasting/src/evaluate/day_ahead_eval.py is the supplementary (non-gating)
+    diagnostic that replays the realistic regime: FeaturePipeline.extend_history()
+    reveals each day's ACTUAL demand before the next day is scored, so lags are
+    populated the way they would be in production. Restructuring the shared
+    RollingOriginBacktest itself to do this for every model was judged out of scope
+    for a P2 remediation pass (Anti-Drift) -- see construction_roadmap.md Phase 2.
 """
 from __future__ import annotations
 
@@ -111,7 +126,32 @@ class GlobalLGBMModel(BaseBaseline):
             f"[point_model] trained {self.n_estimators} rounds, "
             f"{len(X)} rows, {len(feat_cols)} features"
         )
+        self._log_diagnostics(X, y, featured["item_id"])
         return self
+
+    def _log_diagnostics(self, X: pd.DataFrame, y: pd.Series, item_ids: pd.Series) -> None:
+        """Rule 03 training diagnostics: per-item predicted-vs-actual mean (large bias
+        signals missing era features or censored-demand contamination -- exactly the 130
+        censored rows currently fed into the target, see construction_roadmap.md Phase 3)
+        and feature importance. Stored on self for programmatic access (e.g. point_floor.py).
+        MLflow run logging stays parked as premature infra (P2_review.md MINOR-6).
+        """
+        pred = self._model.predict(X)
+        diag = pd.DataFrame({"item_id": item_ids.values, "pred": pred, "actual": y.values})
+        self.item_bias_ = (
+            diag.groupby("item_id")
+            .agg(pred_mean=("pred", "mean"), actual_mean=("actual", "mean"))
+            .assign(bias=lambda d: d["pred_mean"] - d["actual_mean"])
+            .sort_values("bias")
+        )
+        self.feature_importances_ = pd.Series(
+            self._model.feature_importance(), index=self._model.feature_name()
+        ).sort_values(ascending=False)
+
+        print("[point_model] per-item predicted vs. actual mean (bias = pred - actual):")
+        print(self.item_bias_.round(3).to_string())
+        print("[point_model] feature importances:")
+        print(self.feature_importances_.to_string())
 
     def predict(
         self,

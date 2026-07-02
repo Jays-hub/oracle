@@ -174,6 +174,33 @@ class FeaturePipeline:
         """The feature column names the model should consume."""
         return list(FEATURE_COLS)
 
+    def extend_history(self, revealed_df: pd.DataFrame) -> "FeaturePipeline":
+        """Append newly-revealed ACTUAL demand into the lookback history.
+
+        Cheap: appends to the per-(item, service_period) history series only -- does not
+        retrain era boundaries or any model weights. This lets a caller replay the real
+        day-ahead regime (forecasting/src/evaluate/day_ahead_eval.py): by the time day D
+        is scored, every prior day's actual demand is already known, not just the
+        original training window's. Never pass predicted values here -- only already-
+        elapsed actuals, or this becomes recursive-forecast leakage.
+
+        Parameters
+        ----------
+        revealed_df : columns [business_date, item_id, service_period, demand (int)]
+        """
+        if self._train_max_date is None:
+            raise RuntimeError("FeaturePipeline.fit() must be called before extend_history()")
+        df = revealed_df.copy()
+        df["business_date"] = _coerce_date(df["business_date"])
+        for (item_id, sp), grp in df.groupby(["item_id", "service_period"]):
+            new = grp.set_index("business_date")["demand"].astype(float)
+            new.index = pd.DatetimeIndex(pd.to_datetime(new.index))
+            existing = self._history.get((item_id, sp), pd.Series(dtype=float))
+            combined = pd.concat([existing, new.sort_index()])
+            combined = combined[~combined.index.duplicated(keep="last")].sort_index()
+            self._history[(item_id, sp)] = combined
+        return self
+
     # ------------------------------------------------------------------ #
     #  Private feature builders                                            #
     # ------------------------------------------------------------------ #

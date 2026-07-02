@@ -1,13 +1,21 @@
 """Phase-2 signal cleaner — removes observable pollution from the raw demand series.
 
-Three categories of row-level exclusion, applied in order before aggregation:
+Two categories of row-level exclusion, applied in order before aggregation:
   1. Void rows (structural: a voided line is never a sale)
-  2. Comp-flagged rows (comp_flag == True; ~60% of total comps are flagged per sim.yaml)
-  3. Staff-server rows (server_id in pollution.staff_server_ids from sim.yaml)
+  2. Staff-server rows (server_id in pollution.staff_server_ids from sim.yaml)
 
-The ~40% of comps that are silently untagged are NOT removed — they are invisible at
-the information boundary and are honest residual noise the model must be robust to.
-Removing them would require ground-truth knowledge that the raw export does not carry.
+Comp-flagged rows (comp_flag == True) are deliberately NOT excluded. A comp tags a
+real, fulfilled guest order that was later discounted/comped on the bill — the kitchen
+still prepped and served the dish, so it is genuine prep demand, not noise. This was
+verified by forecasting/src/evaluate/cleaning_check.py (the sanctioned oracle-comparison
+module; docs/phase_decisions/P2_review.md BLOCKER-1): dropping comp-flagged rows moved
+observed demand FURTHER from the hidden ground truth (MAE 0.522 vs. 0.472 raw), because
+observed demand is already censored at or below the true series, so removing any
+real-demand subset can only widen that gap. Keeping voids+staff-only removed and comps
+in gives the closest MAE to ground truth (0.302) of any variant tested. Comps (flagged
+or silent) stay in by design; the ~40% of comps that are silently untagged were never
+removable anyway — they are invisible at the information boundary, honest residual
+noise the model must be robust to.
 
 After row-level exclusion the demand series is aggregated to (date, item_id, period)
 using the same alias reconciliation as the naive loader. Censored day-items are then
@@ -74,6 +82,20 @@ def _assert_config_names_in_seam(name_to_id: dict[str, str]) -> None:
         )
 
 
+def _print_missingness_report(df: pd.DataFrame) -> None:
+    """Rule 01: print a null count/% per column before any row is dropped."""
+    n = len(df)
+    missing = df.isna().sum()
+    print(f"[cleaner] missingness report ({n} rows):")
+    any_missing = False
+    for col, cnt in missing.items():
+        if cnt > 0:
+            any_missing = True
+            print(f"    {col}: {cnt} ({cnt / n * 100:.1f}%)")
+    if not any_missing:
+        print("    (no missing values)")
+
+
 def _load_cfg(cfg_path: Path) -> dict[str, Any]:
     return yaml.safe_load(Path(cfg_path).read_text(encoding="utf-8"))
 
@@ -124,28 +146,44 @@ def clean_demand(
 
     df = load_pos_sales(raw_dir)
     n_raw = len(df)
+    _print_missingness_report(df)
+
+    # 0. Quarantine qty==0 anomalies (rule 01): a zero-quantity line with NEITHER a void
+    # nor a comp flag set is a data-quality anomaly (export glitch / dropped flag) —
+    # NOT censored demand. True censoring is sold_qty == prep_qty (a P3 concern), never
+    # a zero row. Has no effect on aggregated demand values (a qty==0 row already
+    # contributes 0 to the groupby sum) — this is about surfacing the anomaly, not a
+    # scoring fix.
+    _void_flag = df["void_flag"].astype(str).str.lower().isin(["true", "1"])
+    _comp_flag = df["comp_flag"].astype(str).str.lower().isin(["true", "1"])
+    zero_qty_anomaly = (df["qty"] == 0) & ~_void_flag & ~_comp_flag
+    n_anomaly = int(zero_qty_anomaly.sum())
+    if n_anomaly:
+        print(f"[cleaner] QUARANTINED {n_anomaly} qty==0 rows with no void/comp flag (data-quality anomaly)")
+    df = df[~zero_qty_anomaly].copy()
 
     # 1. Drop voids — a voided line is never a sale (structural exclusion)
     void_mask = df["void_flag"].astype(str).str.lower().isin(["true", "1"])
     df = df[~void_mask].copy()
     n_void = int(void_mask.sum())
 
-    # 2. Drop comp-flagged rows — observable comps are not guest-driven demand.
-    # comp_flag=True marks ~60% of comps; the 40% that are silent stay in (honest noise).
-    comp_mask = df["comp_flag"].astype(str).str.lower().isin(["true", "1"])
-    df = df[~comp_mask].copy()
-    n_comp = int(comp_mask.sum())
-
-    # 3. Drop staff-server rows — back-of-house accounts follow a scheduling pattern
+    # 2. Drop staff-server rows — back-of-house accounts follow a scheduling pattern
     # orthogonal to guest demand and must not train a demand signal.
     staff_mask = df["server_id"].isin(staff_ids)
     df = df[~staff_mask].copy()
     n_staff = int(staff_mask.sum())
 
+    # Comp-flagged rows are intentionally NOT dropped — see module docstring
+    # (verified via cleaning_check.py against the hidden ground truth: excluding them
+    # moves observed demand further away, not closer).
+    n_comp = int(
+        df["comp_flag"].astype(str).str.lower().isin(["true", "1"]).sum()
+    )
+
     n_kept = len(df)
     print(
-        f"[cleaner] {n_raw} raw rows → removed {n_void} voids, {n_comp} flagged comps, "
-        f"{n_staff} staff rows → {n_kept} kept "
+        f"[cleaner] {n_raw} raw rows → removed {n_void} voids, {n_staff} staff rows "
+        f"({n_comp} comp-flagged rows kept as genuine demand) → {n_kept} kept "
         f"(~{(n_raw - n_kept) / n_raw * 100:.1f}% excluded)"
     )
 
@@ -188,19 +226,29 @@ def clean_demand(
     # An 86 event means the kitchen ran out before service ended — observed demand on
     # that day understates true demand. Only the go-forward window has entries; all
     # other days are tagged censored=False (historical board was wiped nightly).
+    # Keyed on (date, item, service_period) via time_86d -- a dinner 86 must not mark
+    # that day's lunch row censored too (P2_review.md MINOR-4).
     eightysix = _load_eightysix_log(raw_dir)
     if not eightysix.empty:
         eightysix = eightysix.copy()
         # item_name in the 86 log drifts with era; reconcile it the same way
         eightysix["item_id"] = eightysix["item_name"].map(name_to_id)
         eightysix = eightysix.dropna(subset=["item_id"])
-        censored_keys = set(zip(eightysix["business_date"], eightysix["item_id"]))
+        eightysix["service_period"] = eightysix["time_86d"].apply(
+            lambda t: (
+                "lunch" if int(str(t).split(":")[0]) < _LUNCH_DINNER_CUTOFF_HOUR
+                else "dinner"
+            )
+        )
+        censored_keys = set(
+            zip(eightysix["business_date"], eightysix["item_id"], eightysix["service_period"])
+        )
     else:
         censored_keys = set()
 
     demand["censored"] = [
-        (d, i) in censored_keys
-        for d, i in zip(demand["business_date"], demand["item_id"])
+        (d, i, sp) in censored_keys
+        for d, i, sp in zip(demand["business_date"], demand["item_id"], demand["service_period"])
     ]
     n_censored = int(demand["censored"].sum())
     print(f"[cleaner] censored day-items tagged: {n_censored}")

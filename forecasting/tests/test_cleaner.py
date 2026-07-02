@@ -56,11 +56,14 @@ def raw_dir(tmp_path):
 
 # ------------------------------------------------------------------ exclusions --
 
-def test_comp_flagged_rows_excluded(raw_dir):
-    """comp_flag=True rows must not count toward demand."""
+def test_comp_flagged_rows_kept(raw_dir):
+    """comp_flag=True rows count toward demand — a comp tags a real, fulfilled order
+    (the kitchen prepped and served it), not phantom demand. Verified against
+    data/_truth/truth_demand.csv: excluding these rows moves observed demand further
+    from truth, not closer (see cleaner.py module docstring)."""
     _write_pos(raw_dir, [
-        _base_row(item_name="House Burger", comp_flag=True),   # should be excluded
-        _base_row(item_name="House Burger", comp_flag=False),  # should count
+        _base_row(item_name="House Burger", comp_flag=True),   # real order, comped
+        _base_row(item_name="House Burger", comp_flag=False),  # real order, full price
     ])
     d = clean_demand(raw_dir)
     row = d[
@@ -68,7 +71,7 @@ def test_comp_flagged_rows_excluded(raw_dir):
         & (d["item_id"] == "house_burger")
         & (d["service_period"] == "dinner")
     ]
-    assert row["demand"].iloc[0] == 1, "comp_flag=True row should be excluded"
+    assert row["demand"].iloc[0] == 2, "comp_flag=True row should count as demand"
 
 
 def test_staff_server_rows_excluded(raw_dir):
@@ -99,6 +102,33 @@ def test_void_rows_excluded(raw_dir):
         & (d["service_period"] == "dinner")
     ]
     assert row["demand"].iloc[0] == 1, "Void row should be excluded"
+
+
+# ------------------------------------------------------------------ data quality (rule 01) --
+
+def test_missingness_report_printed(raw_dir, capsys):
+    """clean_demand must print a missingness report before any exclusion (rule 01)."""
+    _write_pos(raw_dir, [_base_row(item_name="House Burger")])
+    clean_demand(raw_dir)
+    assert "missingness report" in capsys.readouterr().out
+
+
+def test_qty_zero_anomaly_quarantined_and_logged(raw_dir, capsys):
+    """A qty==0 row with no void/comp flag is a data-quality anomaly (rule 01) --
+    quarantined and logged, not silently treated as either a sale or censored demand."""
+    _write_pos(raw_dir, [
+        _base_row(item_name="House Burger", qty=0, void_flag=False, comp_flag=None),
+        _base_row(item_name="House Burger", qty=1),
+    ])
+    clean_demand(raw_dir)
+    assert "QUARANTINED 1 qty==0 rows" in capsys.readouterr().out
+
+
+def test_qty_zero_void_row_not_flagged_as_anomaly(raw_dir, capsys):
+    """A qty==0 row that IS void-flagged is explained by the void, not an anomaly."""
+    _write_pos(raw_dir, [_base_row(item_name="House Burger", qty=0, void_flag=True)])
+    clean_demand(raw_dir)
+    assert "QUARANTINED" not in capsys.readouterr().out
 
 
 def test_silent_comp_remains(raw_dir):
@@ -134,6 +164,31 @@ def test_86d_day_tagged_censored(raw_dir):
         & (d["item_id"] == "house_burger")
     ]
     assert row["censored"].any(), "Item that was 86'd must be tagged censored=True"
+
+
+def test_dinner_86_leaves_lunch_uncensored(raw_dir):
+    """A dinner-service 86 must not mark that day's LUNCH row censored too (MINOR-4:
+    censored_keys must be scoped by service_period via time_86d, not just date+item)."""
+    _write_pos(raw_dir, [
+        _base_row(item_name="House Burger", sold_at=_SOLD_LUNCH),
+        _base_row(item_name="House Burger", sold_at=_SOLD_DINNER),
+    ])
+    _write_eightysix(raw_dir, [
+        {"business_date": _DATE, "item_name": "House Burger", "time_86d": "20:30:00"}
+    ])
+    d = clean_demand(raw_dir)
+    lunch = d[
+        (d["business_date"] == datetime.date(2023, 1, 2))
+        & (d["item_id"] == "house_burger")
+        & (d["service_period"] == "lunch")
+    ]
+    dinner = d[
+        (d["business_date"] == datetime.date(2023, 1, 2))
+        & (d["item_id"] == "house_burger")
+        & (d["service_period"] == "dinner")
+    ]
+    assert not lunch["censored"].iloc[0], "A dinner 86 must not censor the lunch row"
+    assert dinner["censored"].iloc[0], "The dinner row itself must still be censored"
 
 
 def test_non_86d_item_not_censored(raw_dir):
