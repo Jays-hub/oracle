@@ -30,7 +30,9 @@ PyYAML>=6.0          # load + validate config/items.yaml (forecasting/src/config
 # ── Forecasting engine P2: the point model (2026-06-30) ──
 lightgbm>=4.0         # GlobalLGBMModel — Poisson objective, item_id as native categorical
                       # (forecasting/src/models/point.py)
-scipy>=1.11           # lightgbm's own hard runtime dependency (pip show lightgbm: Requires numpy, scipy)
+scipy>=1.11           # was already lightgbm's transitive dependency; now also used directly by
+                      # forecasting/src/models/unconstrain.py (P3) for the NegBin/Poisson
+                      # method-of-moments fit + truncated tail expectation
 
 # ── Added later, when their phase arrives — NOT installed now (Anti-Drift) ──
 # pandera>=0.18       # alternative to pydantic for the seam schemas in schemas/
