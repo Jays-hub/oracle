@@ -140,6 +140,108 @@ W0, verdict "Yes, with one caveat" — no BLOCKER/MAJOR). Full reasoning lives i
 - **Suite: 222 tests, 222 pass** (`make check`: lint clean, both import-linter contracts kept). Up
   from 220 — net +2 in `onramp/plate_cost/tests/test_web.py`.
 
+
+## 2026-07-02 — P3 review remediation: dollar gate's false failure was a measurement bug — corrected result PASSES `[built]`
+
+`/review-phase P3` (`docs/phase_decisions/P3_review.md`) found the P3 dollar gate's reported
+−$3,533.87 "regression" was a false negative, not a real result. Closed all 3 findings; full evidence
+and reasoning: `docs/phase_decisions/P3.md` "Remediation" section (this entry is the log pointer).
+
+- **BLOCKER-1 — `unconstrain_floor.py` scored its two arms against two different answer keys.** The
+  clean arm was scored against `clean_demand()`'s capped actual; the unconstrained arm was scored against
+  its own corrected actual. On the censored test days, that mechanically raised the bar for the
+  unconstrained arm alone, fabricating a regression. Rewritten so both arms train on their own target
+  (that's the point of the comparison) but are SCORED against one fixed ruler
+  (`_oracle_actual`: `clean_demand()`'s observed series with observably-censored rows raised to their
+  real `true_demand` from the oracle — sanctioned, `unconstrain_floor.py` lives in `evaluate/`).
+  **Corrected result: popular-item dollar cost, clean $112,428.46 → unconstrained $110,928.54, a
+  +$1,499.91 improvement — the dollar gate now PASSES.** Both halves of the phase's "done when" are
+  legitimately met: recovered demand tracks truth on capped days (MAE 5.076 → 3.090) *and* popular-item
+  dollar cost improves vs. Phase 2.
+- **MINOR-1 — 2 of 66 observable censored rows fell outside every backtest fold.**
+  `RollingOriginBacktest`'s week-granularity test windows left the last fold's end 2 days short of the
+  series' true final date (2024-06-28 vs. 2024-06-30). Fixed surgically with
+  `_splits_with_full_tail_coverage`, which extends only the LAST fold's test window to the series' true
+  end, touching no other fold's boundaries. A first attempt instead trimmed days off the series' START so
+  the fold math divided evenly — rejected after it shifted every fold's date boundaries and materially
+  changed the dollar result along with the coverage (confirmed by reproducing the reviewer's own
+  spot-check number, +$1,507.15, using the *old* fold placement — a fix for a 2-day tail gap should not
+  perturb the other three folds, and the surgical version doesn't; the ~$7 gap between +$1,499.91 and
+  +$1,507.15 is exactly the now-included tail days).
+- **NIT-1 — stale MAE numbers.** `unconstrain.py`'s docstring and `P3.md` quoted "MAE 5.28 → 3.09,
+  bias −5.08 → −1.70"; the real run shows 5.076 → 3.090, bias −5.076 → −1.699 (MAE must equal |bias| here
+  since every capped error has the same sign — the original numbers were internally inconsistent).
+  Refreshed in both places.
+- **`forecasting/tests/test_unconstrain_floor.py` (new, +6 tests):** guards both fixes directly against
+  regressing back — the ruler function takes no per-arm parameter (structurally can't diverge between
+  arms again), a missing truth row raises loudly, and the tail-extension helper is asserted to leave
+  every fold except the last byte-identical to `RollingOriginBacktest`'s own output.
+- **Suite: 238 tests, 238 pass** (`make check`: lint clean, both import-linter contracts kept). Up from
+  232 — net +6, all in `test_unconstrain_floor.py`.
+- P3 is now done: build closed on `docs/progress_log.md` (2026-07-02 build entry below), review closed on
+  this entry — per `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-02 — P3: censored-demand unconstraining built — truth-check passes, dollar gate fails honestly `[built]`
+
+`/build-phase P3` — recovers true demand on sold-out (censored) day-items so the point model's training
+target stops silently understating popular dishes. Full reasoning, evidence, and the two open judgment
+calls a reviewer should weigh in on: **`docs/phase_decisions/P3.md`**. Not marked done here — per
+`00-process.md`, that happens when `/review-phase P3` closes on the code.
+
+- **`forecasting/src/models/unconstrain.py` (new) — `unconstrain_demand(demand_df, min_history=8)`.**
+  Fits a Negative Binomial (falling back to Poisson when the sample isn't overdispersed) via method of
+  moments to each item's own uncensored history — expanding-window, strictly-prior-only, same
+  shift-then-roll discipline `FeaturePipeline`'s lag features already use — then takes the **conditional
+  expectation above the observed cap**, `E[D | D > cap]`, not the unconditional mean. That distinction is
+  the whole result: a first version using the plain historical mean corrected essentially nothing (avg
+  lift +0.00 across 66 real censoring events, because a censored day is by definition an above-average
+  day, and averaging it with ordinary days regresses back toward typical). The tail-expectation version
+  lifted the same 66 rows by an average of +3.38 and cut MAE against the hidden truth stockout log from
+  **5.28 → 3.09** (bias −5.08 → −1.70). `max(observed, estimate)` enforces the one hard constraint
+  structurally: a censored observation is a lower bound, recovery can only raise the target.
+- **`forecasting/src/evaluate/unconstrain_check.py` (new)** — the phase's own literal checkpoint ("does
+  recovered demand match truth_demand on truth_stockouts days?"), the second sanctioned oracle reader
+  alongside `cleaning_check.py`. Scoped to the 66 of 713 true censoring events that were actually
+  *observable* (go-forward window only — `eightysix_log.csv` isn't populated for historical dates, the
+  "86-board reality" named in the roadmap's own Practices list) rather than diluting the check against
+  the ~90% of censoring history no method can see. **PASS.**
+- **`forecasting/src/evaluate/unconstrain_floor.py` (new)** — the dollar gate: point model trained (and
+  scored) on the unconstrained target vs. Phase 2's clean target, on the items that actually sold out.
+  **FAILS, honestly reported, not hidden:** popular-item cost $102,050.21 (clean) → $105,584.08
+  (unconstrained), a $3,533.87 regression. The script's own fold-decomposition shows this is concentrated
+  entirely in the (fold, item) windows that actually contain a censored test day — consistent with
+  `GlobalLGBMModel` being a mean-seeking point forecast asked to hit a now-honestly-higher target on a
+  right-skewed spike day, exactly the limitation Phase 4's quantile/newsvendor read-off exists to close
+  ("a point forecast can't produce the right prep quantity," construction_roadmap.md Phase 4). Verified
+  directly that scoring the same predictions against the old, still-capped actual makes the number look
+  better but is the wrong comparison — it would charge overage for correctly predicting demand that was
+  genuinely there. **Left as a flagged, unresolved tension for `/review-phase P3`, not papered over.**
+- **Fold-placement bug caught mid-build, not shipped:** `RollingOriginBacktest.splits()` anchors every
+  fold at the *first* date of whatever series it's given, not a sliding recent window. On this project's
+  ~2.5-year data, `point_floor.py`-style default fold placement only ever scores 2022-03-26..2022-07-15 —
+  nowhere near the observable censored window (2024-04-05..2024-06-30). Before catching this,
+  `unconstrain_floor.py` silently reported a **0.00 "improvement"** (identical dollar cost to the cent —
+  the two training targets never differed inside any scored fold). Fixed locally inside
+  `unconstrain_floor.py` (`_min_train_weeks_reaching_tail`, a dynamic fold-placement helper) rather than
+  touching the shared `backtest.py` harness, which `baseline_floor.py`/`point_floor.py`/`day_ahead_eval.py`
+  already cite numbers against. Worth knowing: `point_floor.py`'s own "$133,121.17" is therefore scored
+  entirely on 2022 data and never touches a single censored row, clean or corrected.
+- **`.claude` firewall note:** the substring-scan boundary test (`test_module_boundaries.py`) flagged the
+  literal string `_truth` inside `unconstrain.py`'s own docstring — written while *explaining* that the
+  module never touches the hidden ground-truth store. Reworded to match `cleaner.py`'s existing
+  "oracle"/"hidden ground-truth store" vocabulary. A real, if slightly ironic, catch.
+- **`forecasting/tests/test_unconstrain.py` (new, +12 tests):** hand-computed correctness (fine-grain and
+  coarse-fallback cases, each independently re-derived via scipy rather than calling the module's own
+  helper), Poisson-fallback and extreme-cap edge cases, cold start, the `recovered >= observed` structural
+  invariant across a randomized series, reproducibility, and `test_correction_is_prefix_stable` — proves
+  a row's correction is a function of only its own past by construction, not just by inspection.
+- **`requirements.txt`:** comment updated — scipy is now a *direct* dependency (the NegBin/Poisson fit),
+  not just lightgbm's transitive one.
+- **Suite: 232 tests, 232 pass** (`make check`: lint clean, both import-linter contracts kept). Up from
+  220 — net +12, all in `test_unconstrain.py`.
+
 ---
 
 ## 2026-07-02 — P2 review remediation: dollar-gate evidence committed + comp-exclusion bug found & fixed `[built]`
@@ -192,6 +294,7 @@ edits it references; this entry is the log pointer.
   from 209 — net +11 across `test_point.py`, `test_features.py` (`extend_history`), and `test_cleaner.py`
   (comp/censoring/data-quality cases).
 
+---
 
 ## 2026-07-02 — Backfill: W0 (read-only reveal) was built but never logged or reviewed `[built]` `[backfilled]`
 
