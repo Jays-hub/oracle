@@ -17,6 +17,25 @@
 </section>
 {% endif %}
 
+{% if covers_warnings.unmatched_dishes or covers_warnings.orphaned_sales %}
+<section class="skipped-notice" role="alert">
+  {% if covers_warnings.unmatched_dishes %}
+  <p><strong>{{ covers_warnings.unmatched_dishes | length }} dish{{ "es" if covers_warnings.unmatched_dishes | length != 1 else "" }} matched no sales record</strong>
+  and show 0 covers below — check the name against the POS export:</p>
+  <ul>
+    {% for name in covers_warnings.unmatched_dishes %}<li>{{ name }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  {% if covers_warnings.orphaned_sales %}
+  <p><strong>{{ covers_warnings.orphaned_sales | length }} sales record{{ "s" if covers_warnings.orphaned_sales | length != 1 else "" }} matched no menu item</strong>
+  and {{ "are" if covers_warnings.orphaned_sales | length != 1 else "is" }} excluded from every dish's covers below (counted only in the total above):</p>
+  <ul>
+    {% for name in covers_warnings.orphaned_sales %}<li>{{ name }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</section>
+{% endif %}
+
 {% for quadrant in quadrants %}
   {% set items = rows | selectattr("quadrant", "equalto", quadrant) | list %}
   {% if items %}
@@ -61,4 +80,8 @@
 <div class="grid-footer">
   <p>{{ total_covers }} covers on record · Costs rounded to nearest $0.25 · Menu − ~Cost = Margin reconciles by eye</p>
 </div>
+{% endblock %}
+
+{% block footer %}
+<p>Costs rounded to nearest $0.25 · Margin = Menu − ~Cost · Figures are directional estimates</p>
 {% endblock %}

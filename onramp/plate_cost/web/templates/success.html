@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Saved{% endblock %}
+
+{# This page confirms the operator's own data was saved — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Saved</h1>
+  <p class="page-meta">{{ summary.dish_count }} dishes and {{ summary.total_covers }} covers
+  ({{ summary.period_start }} – {{ summary.period_end }}) are now on record.</p>
+</section>
+
+<section class="confirm-summary">
+  <p>Your sales and recipe data is now stored. The dashboard that reads this data back and shows
+  it in your own margin grid arrives in a later phase — today's grid view still shows the shared
+  sample data used to demo the tool.</p>
+  <p><a href="/upload">Upload again</a></p>
+</section>
+{% endblock %}

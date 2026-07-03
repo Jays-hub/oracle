@@ -10,12 +10,12 @@
   <header class="site-header">
     <span class="wordmark">Plate Cost</span>
   </header>
+  {% block sample_banner %}
   <div class="sample-banner" role="note">
     Sample data — illustrative only, not your restaurant's numbers
   </div>
+  {% endblock %}
   <main>{% block content %}{% endblock %}</main>
-  <footer class="site-footer">
-    <p>Costs rounded to nearest $0.25 · Margin = Menu − ~Cost · Figures are directional estimates</p>
-  </footer>
+  <footer class="site-footer">{% block footer %}{% endblock %}</footer>
 </body>
 </html>

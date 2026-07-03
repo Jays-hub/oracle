@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Connect your data{% endblock %}
+
+{# This page captures the operator's own data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Connect your data</h1>
+  <p class="page-meta">Upload your POS sales export and your recipe sheet — we'll show you exactly
+  what we found before anything is saved.</p>
+</section>
+
+{% if errors %}
+<section class="skipped-notice" role="alert">
+  <strong>{{ errors | length }} problem{{ "s" if errors | length != 1 else "" }} found — nothing
+  was saved:</strong>
+  <ul>
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form method="post" action="/upload" enctype="multipart/form-data" class="upload-form">
+  <div class="upload-field">
+    <label for="sales_file">Sales export (CSV)</label>
+    <p class="field-hint">Columns: <code>dish_name, count, period_start, period_end</code></p>
+    <input type="file" id="sales_file" name="sales_file" accept=".csv,text/csv" required>
+  </div>
+  <div class="upload-field">
+    <label for="bom_file">Recipe sheet (CSV)</label>
+    <p class="field-hint">Columns: <code>dish_name, ingredient_name, qty, recipe_unit, canonical_unit, yield_factor</code></p>
+    <input type="file" id="bom_file" name="bom_file" accept=".csv,text/csv" required>
+  </div>
+  <button type="submit" class="btn-primary">Review my data</button>
+</form>
+{% endblock %}
+
+{% block footer %}
+<p>Nothing is saved until you confirm on the next screen.</p>
+{% endblock %}

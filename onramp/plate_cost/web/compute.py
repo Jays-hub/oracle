@@ -14,6 +14,8 @@ from src.pricing.compute import latest_prices, load_price_observations, plate_co
 from src.report.grid import (
     QUADRANT_ACTIONS,
     build_grid,
+    covers_join_report,
+    food_cost_tier,
     normalize_name,
     round_to_quarter,
 )
@@ -40,12 +42,18 @@ class SkippedDish(TypedDict):
     reason: str
 
 
+class CoversWarnings(TypedDict):
+    unmatched_dishes: list[str]   # menu dishes that matched no sales row (show 0 covers)
+    orphaned_sales: list[str]     # sales rows that matched no menu item (excluded from every card)
+
+
 class GridData(TypedDict):
     rows: list[DishRow]
     total_covers: int
     quadrants: list[str]
     quadrant_actions: dict[str, str]
     skipped: list[SkippedDish]
+    covers_warnings: CoversWarnings
 
 
 _PLATE_COST_DIR = Path(__file__).resolve().parents[1]
@@ -62,12 +70,19 @@ _DATA_DIR = _PLATE_COST_DIR / "data"
 # discipline (the very regression audit fix #5 repaired).
 
 
-def _load_covers(path: Path) -> dict[str, int]:
-    covers: dict[str, int] = {}
+def _load_covers(path: Path) -> dict[str, tuple[str, int]]:
+    """Covers per dish, keyed by a normalized name and retaining a display name for reporting.
+
+    Mirrors `src/run.py`'s `_load_covers` so the web and CLI paths join sales the same way (rule 05:
+    reuse, don't fork, the join logic) — returns ``{normalized_name: (display_name, total_count)}``.
+    """
+    covers: dict[str, tuple[str, int]] = {}
     with open(path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            key = normalize_name(row["dish_name"])
-            covers[key] = covers.get(key, 0) + int(row["count"])
+            raw = row["dish_name"]
+            key = normalize_name(raw)
+            display, running = covers.get(key, (raw.strip(), 0))
+            covers[key] = (display, running + int(row["count"]))
     return covers
 
 
@@ -78,7 +93,8 @@ def build_grid_data() -> GridData:
     recipe_lines = load_recipe_lines(_DATA_DIR / "sample_recipe_lines.csv")
     observations = load_price_observations(_DATA_DIR / "sample_prices.csv")
     prices = latest_prices(observations)
-    covers = _load_covers(_DATA_DIR / "sample_sales.csv")
+    covers_by_key = _load_covers(_DATA_DIR / "sample_sales.csv")
+    covers = {key: count for key, (_, count) in covers_by_key.items()}
 
     dish_costs: dict = {}
     skipped: list[SkippedDish] = []
@@ -95,12 +111,21 @@ def build_grid_data() -> GridData:
             skipped.append({"name": dish.name, "reason": str(e)})
             _log.warning("plate-cost skipped dish %r: %s", dish.name, e)
 
+    unmatched_dishes, orphaned_sales = covers_join_report(dish_costs, dishes, covers_by_key)
+
     rows = build_grid(dish_costs, covers)
-    total_covers = sum(r.covers for r in rows)
+    # The true total, not sum(r.covers for r in rows): that would silently understate "covers on
+    # record" whenever a sales row is orphaned (matches no menu item) or a dish was skipped as
+    # uncostable — both already excluded from `rows`. Sum straight from the raw sales load instead.
+    total_covers = sum(count for _, count in covers_by_key.values())
 
     enriched: list[DishRow] = []
     for r in rows:
         cost_q = round_to_quarter(r.cost)
+        # Food-cost % (and its tier) is derived from the SAME rounded cost as cost_display/
+        # margin_display, so the third number on the card reconciles by eye too — not just the
+        # margin line. r.food_cost_pct (from the unrounded cost) is intentionally not used here.
+        food_cost_pct_q = cost_q / r.menu_price
         enriched.append({
             "name": r.name,
             "menu_price": r.menu_price,
@@ -108,8 +133,8 @@ def build_grid_data() -> GridData:
             # Margin derives from the rounded cost so Menu − ~Cost = Margin reconciles by eye.
             # Quadrant classification (in build_grid) still uses the precise margin.
             "margin_display": r.menu_price - cost_q,
-            "food_cost_pct": r.food_cost_pct,
-            "food_cost_tier": r.food_cost_tier,
+            "food_cost_pct": food_cost_pct_q,
+            "food_cost_tier": food_cost_tier(food_cost_pct_q),
             "covers": r.covers,
             "quadrant": r.quadrant,
         })
@@ -120,4 +145,8 @@ def build_grid_data() -> GridData:
         "quadrants": ["Star", "Plowhorse", "Puzzle", "Dog"],
         "quadrant_actions": QUADRANT_ACTIONS,
         "skipped": skipped,
+        "covers_warnings": {
+            "unmatched_dishes": unmatched_dishes,
+            "orphaned_sales": orphaned_sales,
+        },
     }
