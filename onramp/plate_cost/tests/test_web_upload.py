@@ -142,17 +142,22 @@ def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
 def test_confirm_never_touches_real_raw_dir_when_isolated(tmp_path, monkeypatch):
     """Sanity check on the test isolation itself: confirming against a monkeypatched _RAW_DIR
     must not also write the real seam (guards against a future refactor re-introducing a
-    hard-coded path that bypasses the isolation)."""
+    hard-coded path that bypasses the isolation).
+
+    data/raw/ is gitignored, so a fresh checkout (e.g. CI) has no bom.parquet at all — this must
+    hold whether or not the real file happens to exist locally from a prior `python -m src.run`."""
     monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
-    real_raw_dir = appmod.RAW_DIR
-    before = (real_raw_dir / "bom.parquet").stat().st_mtime
+    real_bom = appmod.RAW_DIR / "bom.parquet"
+    existed_before = real_bom.exists()
+    mtime_before = real_bom.stat().st_mtime if existed_before else None
 
     upload_resp = _post_upload()
     sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
     _client.post("/confirm", data={"sales_csv_b64": sales_b64, "bom_csv_b64": bom_b64})
 
-    after = (real_raw_dir / "bom.parquet").stat().st_mtime
-    assert before == after
+    assert real_bom.exists() == existed_before
+    if existed_before:
+        assert real_bom.stat().st_mtime == mtime_before
 
 
 def test_confirm_rejects_tampered_payload_never_trusts_the_hidden_field(tmp_path, monkeypatch):
