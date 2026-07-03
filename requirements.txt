@@ -23,6 +23,9 @@ jinja2>=3.1          # server-rendered HTML templates
 uvicorn[standard]>=0.28  # ASGI server (python -m web from onramp/plate_cost/)
 httpx2>=2.5          # TestClient dependency (Starlette 1.x prefers httpx2 over httpx)
 
+# ── Web layer: on-ramp website W1 (self-serve capture funnel, 2026-07-02) ──
+python-multipart>=0.0.9  # FastAPI UploadFile/Form parsing (POST /upload, POST /confirm)
+
 # ── Forecasting engine P0: the decision frame (2026-06-29) ──
 numpy>=1.26          # the dollar objective math (forecasting/src/evaluate/objective.py)
 PyYAML>=6.0          # load + validate config/items.yaml (forecasting/src/config.py)

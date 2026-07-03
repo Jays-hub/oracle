@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Confirm your data{% endblock %}
+
+{# This page shows the operator's own uploaded data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Here's what we found</h1>
+  <p class="page-meta">Nothing has been saved yet — review, then confirm.</p>
+</section>
+
+<section class="confirm-summary">
+  <dl class="dish-details">
+    <div class="detail-row"><dt>Dishes</dt><dd>{{ summary.dish_count }}</dd></div>
+    <div class="detail-row"><dt>Recipe lines</dt><dd>{{ summary.recipe_line_count }}</dd></div>
+    <div class="detail-row"><dt>Sales rows</dt><dd>{{ summary.sales_row_count }}</dd></div>
+    <div class="detail-row"><dt>Covers</dt><dd>{{ summary.total_covers }}</dd></div>
+    <div class="detail-row"><dt>Period</dt><dd>{{ summary.period_start }} – {{ summary.period_end }}</dd></div>
+  </dl>
+  <p class="page-meta">Dishes: {{ summary.dish_names | join(", ") }}</p>
+</section>
+
+{% if only_in_bom or only_in_sales %}
+<section class="skipped-notice" role="alert">
+  <strong>Check these names before confirming — they didn't match between your two files:</strong>
+  {% if only_in_bom %}
+  <p>In your recipe sheet but not your sales export:</p>
+  <ul>{% for name in only_in_bom %}<li>{{ name }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% if only_in_sales %}
+  <p>In your sales export but not your recipe sheet:</p>
+  <ul>{% for name in only_in_sales %}<li>{{ name }}</li>{% endfor %}</ul>
+  {% endif %}
+</section>
+{% endif %}
+
+<form method="post" action="/confirm">
+  <input type="hidden" name="sales_csv_b64" value="{{ sales_csv_b64 }}">
+  <input type="hidden" name="bom_csv_b64" value="{{ bom_csv_b64 }}">
+  <button type="submit" class="btn-primary">Confirm and save</button>
+</form>
+<p class="page-meta"><a href="/upload">Start over</a></p>
+{% endblock %}
+
+{% block footer %}
+<p>Confirming replaces any previously saved sales and recipe data with what's shown above.</p>
+{% endblock %}

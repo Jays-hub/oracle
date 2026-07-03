@@ -96,6 +96,56 @@ def test_grid_failure_returns_legible_error(monkeypatch):
     assert "Traceback" not in resp.text
 
 
+def test_food_cost_pct_reconciles_with_rounded_cost():
+    """Food-cost % (and its tier) must derive from the SAME rounded cost as ~Cost/margin (rule 06).
+
+    Guards a regression: the pct used to be computed from the raw unrounded cost, so it could
+    disagree with the rounded ~Cost shown right above it on the card (e.g. a card reading "27%"
+    beside a ~Cost that actually computes to 26%).
+    """
+    from web.compute import build_grid_data, food_cost_tier
+
+    data = build_grid_data()
+    for dish in data["rows"]:
+        expected_pct = dish["cost_display"] / dish["menu_price"]
+        assert abs(dish["food_cost_pct"] - expected_pct) < 1e-9, (
+            f"{dish['name']}: food_cost_pct {dish['food_cost_pct']:.4f} doesn't reconcile "
+            f"with rounded cost {dish['cost_display']:.2f}"
+        )
+        assert dish["food_cost_tier"] == food_cost_tier(expected_pct)
+
+
+def test_covers_join_surfaces_mismatches_and_total_uses_raw_sales(monkeypatch):
+    """A menu dish with no matching sales row must be named as unmatched (not silently scored 0
+    with no explanation), a sales row matching no menu item must be named as orphaned (not silently
+    dropped), and the "covers on record" headline must count ALL raw sales — not just sales attached
+    to a costed, matched dish. Ports the CLI's covers-join honesty (`src/run.py`) to the web path.
+    """
+    import web.compute as compute
+
+    real_covers_by_key = compute._load_covers(compute._DATA_DIR / "sample_sales.csv")
+    dropped_key = compute.normalize_name("Braised Short Rib")
+    _, dropped_count = real_covers_by_key[dropped_key]
+
+    def fake_load_covers(path):
+        covers = dict(real_covers_by_key)
+        del covers[dropped_key]
+        covers[compute.normalize_name("Seasonal Special")] = ("Seasonal Special", 7)
+        return covers
+
+    monkeypatch.setattr(compute, "_load_covers", fake_load_covers)
+    data = compute.build_grid_data()
+
+    assert "Braised Short Rib" in data["covers_warnings"]["unmatched_dishes"]
+    assert "Seasonal Special" in data["covers_warnings"]["orphaned_sales"]
+
+    short_rib = next(r for r in data["rows"] if r["name"] == "Braised Short Rib")
+    assert short_rib["covers"] == 0
+
+    real_total = sum(count for _, count in real_covers_by_key.values())
+    assert data["total_covers"] == real_total - dropped_count + 7
+
+
 def test_uncostable_dish_is_surfaced_not_dropped(monkeypatch):
     """A dish that fails to cost must be named in `skipped` and never vanish from the grid.
 

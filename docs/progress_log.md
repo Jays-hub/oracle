@@ -10,6 +10,137 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-02 — W1 review closed: MAJOR + 2 MINOR findings fixed `[built]`
+
+Closed every actionable finding in `docs/phase_decisions/W1_review.md` (the web-reviewer's
+adversarial pass on W1, verdict "Yes, with one MAJOR fix" — no BLOCKER). Full reasoning, code
+pointers, and the two findings deliberately left unfixed (per the reviewer's own "none required"
+call) live in `docs/phase_decisions/W1.md`'s new "Post-Review Remediation" section; this entry is
+the log pointer.
+
+- **MAJOR — the sample-data banner no longer renders over the operator's own captured data.** The
+  review caught the confirm page showing "Sample data — illustrative only, not your restaurant's
+  numbers" directly above the chef's real dish names and covers — the exact opposite of what the
+  banner should ever claim about a page displaying real captured data. `base.html`'s banner is now
+  an overridable `{% block sample_banner %}`; `upload.html`/`confirm.html`/`success.html` override
+  it empty, `grid.html` needed no change. +1 test.
+- **MINOR — `/confirm` now enforces its own upload-size policy instead of relying on an incidental
+  framework limit.** The review found that `/confirm`'s hidden-field form (no `enctype`, so
+  `application/x-www-form-urlencoded`) hits Starlette's default 1,048,576-byte-per-field cap before
+  our own `MAX_UPLOAD_BYTES` check ever ran there — so a file under our stated 1 MB limit could pass
+  `/upload` and then dead-end at `/confirm` with a raw framework JSON error. `MAX_UPLOAD_BYTES`
+  lowered from 1,000,000 to 700,000 (base64-inflated, it now always stays safely under Starlette's
+  cap), and the same size check now runs explicitly inside `confirm_submit` too — `/confirm` is
+  directly POST-able and must not assume `/upload` already validated it. +2 tests, including a
+  policy-invariant test that fails if the constant is ever raised without re-checking the math.
+- **MINOR — the seam write is now jointly atomic across the bom/sales pair, not just per file.**
+  The review reproduced a real mismatched-pair bug: failing the second `to_parquet` call mid-write
+  left a freshly-committed `bom.parquet` paired with a stale `sales_export.parquet`. `write_seam_atomic`
+  now stages both files to temp before renaming either into place, so a write failure can no longer
+  leave a mixed old/new pair — only the (near-instant, two-syscall) gap between the two renames
+  remains a window, down from the full duration of a DataFrame serialization. +1 test reproducing the
+  review's exact repro, plus the existing atomicity test strengthened to check both files (it
+  previously only checked one side and so hadn't caught this).
+- **Left unfixed, per the reviewer's own call:** mutable-name-derived seam ids (explicitly "none
+  required for W1," tracked under `data/CONTRACT.md`'s existing stable-item-id forward note) and two
+  NITs (import-time `sys.path` mutation mirroring an existing deliberate pattern; row-number citation
+  on multi-line CSV fields, correct for the realistic spreadsheet-editing case).
+- **Suite: 253 tests, 253 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 249 — net +4 across `test_seam_upload.py` and `test_web_upload.py`.
+
+---
+
+## 2026-07-02 — W1 built: self-serve capture funnel (POS upload + recipe confirmation) `[built]`
+
+Built `onramp/plate_cost/docs/website_vision.md` §8's W1 slice: a chef can now upload a sales
+export and a recipe (BOM) sheet through the browser, review a summary, confirm, and have both seam
+legs written to `data/raw/` — no CLI run required. Full reasoning, load-bearing assumptions, and
+design decisions: `docs/phase_decisions/W1.md`. Not marked done here — per `00-process.md`, that
+happens when `/review-web W1` closes on the code.
+
+- **New pure module `onramp/plate_cost/src/capture/seam_upload.py`** (framework-agnostic, no
+  FastAPI import — rule 05): `parse_sales_csv()` / `parse_bom_csv()` validate an uploaded CSV
+  against the existing `schemas/seam.py` (`BomRow`, `SalesExportRow`), accumulating **every** row
+  error instead of failing fast on the first one; `cross_reference_dishes()` flags dish names
+  present in one file but not the other (a likely typo, non-blocking — mirrors
+  `report/grid.py`'s existing `covers_join_report` honesty pattern); `write_seam_atomic()` writes
+  both Parquet files via temp-file-then-`os.replace` so a crash mid-write can never leave a
+  truncated seam file (rule 07) — the first atomic-write helper in the repo. The self-serve BOM
+  upload format is a flat sheet (`dish_name, ingredient_name, qty, recipe_unit, canonical_unit,
+  yield_factor`); `dish_id`/`ingredient_id` are derived from the names via the grid's existing
+  `normalize_name()`, not hand-authored UUIDs — a real simplification of the capture act versus the
+  CLI's normalized 3-file model.
+- **`src/run.py` refactored, not just extended:** `_export_to_raw` now builds its `BomRow`/
+  `SalesExportRow` lists exactly as before but calls the new shared `write_seam_atomic()` to
+  persist, instead of two bare `to_parquet()` calls. One writer, two producers (CLI + web) — the
+  CLI gets atomicity for free and there is exactly one place that can drift on how the seam is
+  persisted.
+- **New web routes** (`onramp/plate_cost/web/app.py`): `GET/POST /upload`, `POST /confirm`. The
+  upload→confirm handoff is fully stateless (rule 07) — no server-side session or staging directory;
+  the confirm page round-trips the original uploaded bytes through base64-encoded hidden form
+  fields, and `/confirm` **re-validates from scratch** rather than trusting the round-trip (tested).
+  Oversized uploads (>1 MB, an invented-and-documented limit — no prior convention existed to reuse)
+  are rejected before parsing. `web/upload.py` is the new thin presentation-glue sibling to
+  `web/compute.py`. Three new templates (`upload.html`, `confirm.html`, `success.html`) plus a
+  handful of new CSS rules in the existing `style.css`.
+- **Deliberately honest gap, stated on the page itself:** `success.html` does not imply the grid at
+  `/` now shows the just-uploaded data — it still doesn't (W0's `/` reads local sample CSVs, not
+  the seam, by design). Wiring a tenant's own data back into a dashboard view is W2's job.
+- **Verified against the real server, not just `TestClient`:** started `python -m web` and drove
+  the full upload → confirm → save flow with `curl` against the live socket, confirmed the correct
+  Parquet landed in `data/raw/`, then regenerated `data/raw/` from the CLI's sample data to leave it
+  as found (`data/raw/*` is gitignored, regenerable output — not a durable-state concern).
+- **Suite: 249 tests, 249 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 222 — net +27 (`tests/test_seam_upload.py` ×17, `tests/test_web_upload.py` ×10). Added
+  `python-multipart` (required by FastAPI for `UploadFile`/`Form`, previously absent from the repo
+  entirely) to `requirements.txt` and `requirements.lock.txt`.
+
+---
+
+## 2026-07-02 — W0 review closed: all 6 findings addressed `[built]`
+
+Closed every finding in `docs/phase_decisions/W0_review.md` (the web-reviewer's adversarial pass on
+W0, verdict "Yes, with one caveat" — no BLOCKER/MAJOR). Full reasoning lives in that file and in
+`docs/phase_decisions/W0.md`'s updated Explicitly Deferred table; this entry is the log pointer.
+
+- **MINOR-2 — food-cost % now reconciles with the displayed rounded cost.** The card derived
+  `margin_display` from the rounded `~Cost` (correct) but printed `food_cost_pct` from the *unrounded*
+  cost, so the two numbers on the same card could disagree (Pan-Seared Salmon read "27%" against a
+  ~Cost that computes to 26%; House Burger read "21%" against 20%). `src/report/grid.py`'s
+  `_food_cost_tier` is now the public `food_cost_tier`, and `web/compute.py` derives both
+  `food_cost_pct` and `food_cost_tier` from the same rounded `cost_q` used for `~Cost`/margin. +1 test
+  (`test_food_cost_pct_reconciles_with_rounded_cost`).
+- **MINOR-3 — web path now ports the CLI's covers-join honesty.** `web/compute.py` silently scored an
+  unmatched menu dish 0 covers with no alert and dropped orphaned sales rows from the "covers on
+  record" headline (both latent on the clean sample, real once W1 feeds dirty POS exports). Extracted
+  the CLI's join-check (`src/run.py`'s old `_report_covers_join`) into a shared
+  `src/report/grid.covers_join_report()` used by both the CLI (prints) and the web path (renders a
+  `covers_warnings` banner beside the existing skipped-dish notice in `grid.html`). The "covers on
+  record" headline now sums raw sales counts, not just sales attached to a costed, matched dish, so it
+  can no longer understate the true total. +1 test
+  (`test_covers_join_surfaces_mismatches_and_total_uses_raw_sales`).
+- **NIT — `/openapi.json` no longer served.** `docs_url`/`redoc_url` were disabled but the machine-
+  readable schema was still reachable by default; `web/app.py` now also passes `openapi_url=None`.
+- **NIT — durable chrome decoupled from plate-cost copy.** `base.html`'s footer hard-coded
+  plate-cost-specific text ("Margin = Menu − ~Cost", "$0.25") into the shell every future on-ramp
+  product would inherit. `base.html` now exposes an empty `{% block footer %}`; the plate-cost copy
+  moved into `grid.html`'s override.
+- **MINOR-1 — "hosted" gap recorded, not built.** W0's page binds `127.0.0.1` only with no deploy
+  artifact, unmet against §8's literal "hosted" wording. Judged W1/W2's problem (first point a real
+  deploy target exists), not a W0 blocker — now an explicit row in `W0.md`'s Explicitly Deferred table
+  instead of an unscheduled gap.
+- **MINOR-4 — provenance drill-down recorded as scope, not a defect.** Rule 06 wants any displayed
+  cost expandable to its recipe-line inputs; W0's "grid + dish list" slice doesn't do this, but
+  `website_vision.md` §3 already schedules "Dish detail" as its own later surface. Recorded as an
+  explicit deferred row in `W0.md` rather than left as a silent rule-vs-scope tension.
+- **NIT — quadrant dollar-margin axis flagged as an open roadmap question, not edited.** Pre-existing
+  Phase-0 property (`src/report/grid.py` classifies on absolute dollar margin, not food-cost ratio),
+  out of W0's code scope but newly client-facing. Recorded in a new "Open Roadmap Question Carried
+  Forward" section of `W0.md` for whoever next touches the grid's axis definition.
+- **Suite: 222 tests, 222 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 220 — net +2 in `onramp/plate_cost/tests/test_web.py`.
+
+
 ## 2026-07-02 — P3 review remediation: dollar gate's false failure was a measurement bug — corrected result PASSES `[built]`
 
 `/review-phase P3` (`docs/phase_decisions/P3_review.md`) found the P3 dollar gate's reported
@@ -163,6 +294,7 @@ edits it references; this entry is the log pointer.
   from 209 — net +11 across `test_point.py`, `test_features.py` (`extend_history`), and `test_cleaner.py`
   (comp/censoring/data-quality cases).
 
+---
 
 ## 2026-07-02 — Backfill: W0 (read-only reveal) was built but never logged or reviewed `[built]` `[backfilled]`
 
