@@ -5,10 +5,15 @@ mirroring test_store.py's isolation pattern. Covers: the happy path end-to-end (
 actually lands schema-valid Parquet), validation errors surfaced without a crash, the cross-file
 mismatch warning, the size-limit boundary, and that /confirm re-validates rather than trusting the
 round-tripped hidden fields.
+
+W2 added a login gate in front of these routes (test_web_auth.py owns that behavior). These tests
+are about upload/confirm logic, not auth, so an autouse fixture bypasses the gate here — mirrors
+how test_web.py's grid tests don't re-verify plate-cost math that src/pricing/ already covers.
 """
 import re
 
 import pandas as pd
+import pytest
 from fastapi.testclient import TestClient
 
 import web.app as appmod
@@ -16,6 +21,11 @@ from schemas import BomRow, SalesExportRow
 from web.app import app
 
 _client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_login(monkeypatch):
+    monkeypatch.setattr(appmod, "require_login", lambda request: None)
 
 _VALID_SALES = (
     b"dish_name,count,period_start,period_end\n"

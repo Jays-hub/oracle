@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Log in</h1>
+  <p class="page-meta">Your own captured data is only visible after you log in.</p>
+</section>
+
+{% if error %}
+<section class="skipped-notice" role="alert">{{ error }}</section>
+{% endif %}
+
+<form method="post" action="/login" class="upload-form">
+  <div class="upload-field">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+  </div>
+  <div class="upload-field">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" required>
+  </div>
+  <button type="submit" class="btn-primary">Log in</button>
+</form>
+{% endblock %}

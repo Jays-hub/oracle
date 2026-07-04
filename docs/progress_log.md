@@ -10,6 +10,87 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-04 — W2 review closed: 1 MAJOR + 4 MINOR findings addressed `[built]`
+
+Closed the adversarial review of W2 (`docs/phase_decisions/W2_review.md`, verdict "Yes,
+conditionally"). All 5 non-NIT findings greenlit by Jay; 3 were real code fixes, 2 were
+already-correct deferrals confirmed/recorded rather than built early (Anti-Drift).
+
+- **MAJOR-1 fixed** — `src/auth/credentials.py`'s `verify_credentials` fed the raw submitted
+  username straight into `hmac.compare_digest`, which raises `TypeError` on any non-ASCII
+  string, turning a login attempt with an accented username into a bare 500 instead of a clean
+  401. Fixed by encoding both operands to UTF-8 bytes before the compare (bytes have no such
+  ASCII restriction). Verified end-to-end: `POST /login {username:"café"}` now returns 401.
+  Regression test added: `test_non_ascii_username_rejected_not_raised`.
+- **MINOR-2 fixed** — `/your-data`'s period rendered as `2026-06-01 00:00:00` (a spurious
+  midnight timestamp on the trust/transparency surface) because `SalesExportRow`'s pydantic
+  `date` fields round-trip through Parquet/DuckDB as `datetime64` Timestamps. Fixed in
+  `web/your_data.py` by routing through `pd.Timestamp(...).date()` before stringifying.
+  Regression test added: `test_your_data_period_renders_as_plain_date_not_timestamp`.
+- **MINOR-3 addressed proportionately** — the CSRF finding's own recommended fix was "no code
+  change needed for the current local-only reality, gate a real token before deploy." Rather than
+  building CSRF-token machinery a single-operator localhost tool doesn't need yet (Anti-Drift),
+  made the one honest one-line change: `SessionMiddleware` now sets `same_site="lax"` explicitly
+  in `web/app.py` (converting an implicit framework default into a stated decision) and the real
+  per-request token is recorded as an explicit pre-deploy gate item in
+  `docs/phase_decisions/W2.md`'s Explicitly Deferred table, alongside the existing TLS/session-
+  secret item.
+- **MINOR-1 (tenant isolation) and the ephemeral-session-secret finding** — both were already
+  correctly deferred by the builder with the reasoning the reviewer endorsed; no code change,
+  confirmed still accurately recorded in `data/CONTRACT.md` Forward notes and W2.md's Explicitly
+  Deferred table respectively. Nothing to build now.
+- Not addressed (Jay didn't greenlight it, and reviewer confidence was "near-zero risk"): the
+  NIT on CSV formula-injection neutralization.
+- **Suite: 297 tests, 297 pass** (`make check`: ruff clean, both import-linter contracts kept).
+  Up from 295 — net +2 (`test_auth_credentials.py`, `test_web_auth.py`).
+
+---
+
+## 2026-07-04 — W2 built: account + persistence (session login, /your-data, DuckDB wired in) `[built]`
+
+Built `onramp/plate_cost/docs/website_vision.md` §8's W2 slice: session-based login now gates the
+capture funnel, and a new `/your-data` page is the web layer's first real caller of the
+DuckDB-over-Parquet store (`src/store.py`), reading an operator's own captured seam data back with a
+one-click CSV export. Full reasoning, load-bearing assumptions, and design decisions:
+`docs/phase_decisions/W2.md`. Not marked done here — per `00-process.md`, that happens when
+`/review-phase W2` closes on the code.
+
+- **New pure module `src/auth/credentials.py`** (no FastAPI import — rule 05): `verify_credentials`
+  checks a single operator username/SHA-256-password-hash pair configured entirely via
+  `ONRAMP_AUTH_USERNAME`/`ONRAMP_AUTH_PASSWORD_HASH` env vars (rule 07 — secrets in env, never in
+  code) and **fails closed** if either is unset. Deliberately a single credential, not a user table —
+  nothing has validated a need for more than one operator account yet (see W2.md's decision log).
+- **New `web/auth.py`** — `require_login(request)` returns a redirect to `/login` when the session
+  (Starlette `SessionMiddleware`) isn't authenticated, else `None`; called at the top of every
+  protected route, matching this codebase's existing manual early-return style rather than FastAPI's
+  `Depends()` + exception pattern.
+- **`web/app.py`**: wired `SessionMiddleware` (secret from `ONRAMP_SESSION_SECRET` or a per-process
+  random fallback), added `GET/POST /login`, `POST /logout`, and gated `/upload` (GET+POST) and
+  `/confirm` behind `require_login`. `GET /` stays public and unauthenticated on purpose — it shows
+  only the shared illustrative sample grid (W0), never a tenant's real data, so there's nothing to
+  isolate there and gating it would break the "show a client in 60s, no account needed" pitch.
+- **New `web/your_data.py` + `/your-data`, `/your-data/export/{bom,sales}`** — the first web-layer
+  caller of `src/store.py`'s `read_bom()`/`read_sales()`. Shows aggregate counts (dishes, recipe
+  lines, sales rows, covers, period) read back from the operator's own captured seam data, with a
+  graceful "nothing captured yet" state, and offers a one-click CSV download of each seam leg (the
+  "your data is yours, no lock-in" transparency promise from `website_vision.md` §4). Does **not**
+  show a costed margin grid from real captured data — the seam still carries no prices, so that
+  remains `web/compute.py`'s sample-data job at `/` until a priced seam leg exists.
+- **Single-tenant isolation, not a physical multi-tenant partition.** `data/raw/` stays flat and
+  unpartitioned — isolation is enforced entirely at the auth layer (every data-bearing route requires
+  a session), not by a `restaurant_id` column or per-tenant subdirectory. This matches
+  `05-fullstack-architecture.md`'s "essentially single-tenant tool" framing and `website_vision.md`
+  §9's explicit "not a mandate to build a multi-tenant platform now" — and avoids a unilateral,
+  on-ramp-only change to a seam layout the forecasting engine's loader/simulator also hard-code flat.
+  Recorded as a forward note in `data/CONTRACT.md` for when a second real tenant needs the seam
+  partitioned. **Flagged as the phase's biggest architectural call — see W2.md Reviewer Focus Areas.**
+- New dependency: `itsdangerous` (required by Starlette's `SessionMiddleware`), added to
+  `requirements.txt`/`requirements.lock.txt` (mirrors the W1 `python-multipart` precedent).
+- **Suite: 295 tests, 295 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 271 — net +24 (`tests/test_auth_credentials.py` ×7, `tests/test_web_auth.py` ×17).
+
+---
+
 ## 2026-07-02 — W1 review closed: MAJOR + 2 MINOR findings fixed `[built]`
 
 Closed every actionable finding in `docs/phase_decisions/W1_review.md` (the web-reviewer's
