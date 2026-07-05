@@ -9,6 +9,14 @@
 <body>
   <header class="site-header">
     <span class="wordmark">Plate Cost</span>
+    <nav class="site-nav">
+      {% if logged_in %}
+        <a href="/your-data">Your data</a>
+        <form method="post" action="/logout" class="logout-form"><button type="submit">Log out</button></form>
+      {% else %}
+        <a href="/login">Log in</a>
+      {% endif %}
+    </nav>
   </header>
   {% block sample_banner %}
   <div class="sample-banner" role="note">

@@ -6,26 +6,34 @@ which can't reconstruct margins (see web/compute.py for the why). No writes, no 
 
 W1: GET/POST /upload + POST /confirm are the self-serve capture funnel — a chef uploads a sales
 export and a recipe sheet, reviews a summary, then confirms, which writes the two seam legs to
-data/raw/ through schemas/ (src/capture/seam_upload.py). Confirming does NOT change what GET /
-shows (see web/templates/success.html) — W0's reveal still reads local sample data, not the seam;
-wiring the grid to read a tenant's own uploaded data is W2's job (auth + persistence), not this
-phase's.
+data/raw/ through schemas/ (src/capture/seam_upload.py).
+
+W2: session-based login (GET/POST /login, POST /logout) gates /upload, /confirm, and the new
+/your-data page + CSV export. GET / stays public and unauthenticated — it renders the shared
+sample grid (no tenant data), the "show a client in 60s" artifact W0 built; there is nothing to
+isolate there. /your-data is the first real caller of src/store.py from the web layer — it reads
+the operator's own captured seam legs back and offers a one-click CSV export
+(docs/phase_decisions/W2.md).
 
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
-validated input, atomic seam writes.)
+validated input, atomic seam writes, backend-enforced tenant isolation.)
 """
 import binascii
 import logging
+import os
+import secrets
 from base64 import b64decode, b64encode
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
+from src.auth.credentials import verify_credentials
 from src.capture.seam_upload import (
     MAX_UPLOAD_BYTES,
     RAW_DIR,
@@ -35,8 +43,10 @@ from src.capture.seam_upload import (
     write_seam_atomic,
 )
 
+from .auth import RESTAURANT_ID, SESSION_KEY, is_authenticated, require_login
 from .compute import build_grid_data
 from .upload import build_summary
+from .your_data import build_your_data_summary, export_bom_csv, export_sales_csv
 
 _WEB_DIR = Path(__file__).resolve().parent
 _RAW_DIR = RAW_DIR
@@ -44,7 +54,30 @@ _RAW_DIR = RAW_DIR
 app = FastAPI(title="Plate Cost · On-Ramp", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
-_templates = Jinja2Templates(directory=str(_WEB_DIR / "templates"))
+# Session signing key: ONRAMP_SESSION_SECRET in env for a real deploy (rule 07 — secrets in env,
+# never in code); a fresh random key per process otherwise, which is fine for today's reality —
+# a single dev/demo process (web/__main__.py binds 127.0.0.1) with no hosting story yet
+# (W0_review.md MINOR-1) — but means every process restart invalidates existing sessions. Revisit
+# once a real deploy target sets the env var. https_only=False to match today's plain-HTTP local
+# run path; set True once the app is served over TLS. same_site="lax" is stated explicitly
+# (rather than left to Starlette's default) so the CSRF posture on these state-changing POSTs is
+# a recorded decision, not an implicit one (W2_review.md MINOR-3) — a real per-request CSRF
+# token is still the pre-deploy gate item tracked in docs/phase_decisions/W2.md.
+_SESSION_SECRET = os.environ.get("ONRAMP_SESSION_SECRET") or secrets.token_hex(32)
+app.add_middleware(
+    SessionMiddleware, secret_key=_SESSION_SECRET, session_cookie="onramp_session",
+    https_only=False, same_site="lax",
+)
+
+def _nav_context(request: Request) -> dict:
+    """Merged into every TemplateResponse (base.html's nav needs it everywhere) — one place to
+    compute it rather than every route remembering to pass logged_in itself (rule 05 reuse)."""
+    return {"logged_in": is_authenticated(request)}
+
+
+_templates = Jinja2Templates(
+    directory=str(_WEB_DIR / "templates"), context_processors=[_nav_context],
+)
 _log = logging.getLogger(__name__)
 
 
@@ -66,20 +99,81 @@ def grid(request: Request) -> HTMLResponse:
             context={"correlation_id": correlation_id},
             status_code=503,
         )
+    # Public page, no auth required (nothing tenant-specific is shown) — the nav's "Your data" /
+    # "Log in" link (via _nav_context) is cosmetic only here, never a content gate.
     return _templates.TemplateResponse(request=request, name="grid.html", context=data)
 
 
-@app.get("/upload", response_class=HTMLResponse)
-def upload_form(request: Request) -> HTMLResponse:
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request) -> HTMLResponse:
+    return _templates.TemplateResponse(request=request, name="login.html", context={"error": None})
+
+
+@app.post("/login", response_class=HTMLResponse, response_model=None)
+def login_submit(
+    request: Request, username: str = Form(...), password: str = Form(...)
+) -> HTMLResponse | RedirectResponse:
+    if not verify_credentials(username, password):
+        return _templates.TemplateResponse(
+            request=request, name="login.html",
+            context={"error": "Incorrect username or password."}, status_code=401,
+        )
+    request.session[SESSION_KEY] = RESTAURANT_ID
+    return RedirectResponse(url="/your-data", status_code=303)
+
+
+@app.post("/logout")
+def logout(request: Request) -> RedirectResponse:
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=303)
+
+
+@app.get("/your-data", response_class=HTMLResponse, response_model=None)
+def your_data(request: Request) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    summary = build_your_data_summary()
+    return _templates.TemplateResponse(
+        request=request, name="your_data.html", context={"summary": summary},
+    )
+
+
+@app.get("/your-data/export/{leg}", response_model=None)
+def your_data_export(request: Request, leg: str) -> PlainTextResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    exporters = {"bom": ("bom.csv", export_bom_csv), "sales": ("sales_export.csv", export_sales_csv)}
+    match = exporters.get(leg)
+    if match is None:
+        correlation_id = uuid4().hex[:8]
+        _log.warning("your-data export requested unknown leg %r (correlation_id=%s)", leg, correlation_id)
+        return PlainTextResponse("Unknown export.", status_code=404)
+    filename, export_fn = match
+    try:
+        csv_text = export_fn()
+    except FileNotFoundError:
+        return PlainTextResponse("No data captured yet.", status_code=404)
+    return PlainTextResponse(
+        csv_text, media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/upload", response_class=HTMLResponse, response_model=None)
+def upload_form(request: Request) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
     return _templates.TemplateResponse(request=request, name="upload.html", context={"errors": []})
 
 
-@app.post("/upload", response_class=HTMLResponse)
+@app.post("/upload", response_class=HTMLResponse, response_model=None)
 async def upload_submit(
     request: Request,
     sales_file: UploadFile = File(...),
     bom_file: UploadFile = File(...),
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
     # Hostile until validated (rule 07): size-check before we even try to decode/parse either file.
     sales_bytes = await sales_file.read(MAX_UPLOAD_BYTES + 1)
     bom_bytes = await bom_file.read(MAX_UPLOAD_BYTES + 1)
@@ -111,12 +205,14 @@ async def upload_submit(
     return _templates.TemplateResponse(request=request, name="confirm.html", context=context)
 
 
-@app.post("/confirm", response_class=HTMLResponse)
+@app.post("/confirm", response_class=HTMLResponse, response_model=None)
 def confirm_submit(
     request: Request,
     sales_csv_b64: str = Form(...),
     bom_csv_b64: str = Form(...),
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
     try:
         sales_bytes = b64decode(sales_csv_b64, validate=True)
         bom_bytes = b64decode(bom_csv_b64, validate=True)
