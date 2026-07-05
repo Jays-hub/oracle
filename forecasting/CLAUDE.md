@@ -105,8 +105,10 @@ contract) · `strategic_context` (why this wedge, the closed lanes, the 5-part t
 (the shared-store / common-DB decision log).
 
 ## Current status
-**P0–P2 built** (P0 2026-06-29; P1+P2 committed 2026-06-30 but not logged at the time — backfilled
-here and in `docs/progress_log.md`).
+**P0–P4 built** (P0 2026-06-29; P1+P2 committed 2026-06-30 but not logged at the time — backfilled
+here and in `docs/progress_log.md`; P3 2026-07-02; P4 2026-07-04). This section had gone stale after
+P3 (still read "P3 is next" after P3 shipped) — corrected here alongside the P4 entry; the running,
+authoritative history is always `docs/progress_log.md`, not this snapshot.
 - **P0 — config-gated.** `config/items.yaml` (Co/Cu/prep_type/lead_time for all 11 items) +
   `forecasting/src/evaluate/objective.py` (`dollar_loss`, `critical_ratio`, `total_realized_cost`) +
   `forecasting/src/config.py` (validated `load_items()` head-chef gate). The dollar measuring stick
@@ -129,10 +131,28 @@ here and in `docs/progress_log.md`).
   (an earlier P2 choice) moved observed demand further from truth, not closer, because a comp tags a
   real fulfilled order — the kitchen still made and served the dish. See
   `docs/phase_decisions/P2_review.md` for the full remediation record.
-- **Suite: 213 tests, 213 pass** (full repo via `make test`; +4 from `test_point.py`, added alongside
-  `point_floor.py`/`cleaning_check.py` to close the P2 review's BLOCKER-1). The former red test
-  (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not an
-  implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
-  callout.
-**P3 is next:** censored-demand unconstraining.
+- **P3 — censored-demand unconstraining.** `forecasting/src/models/unconstrain.py` recovers true demand
+  on sold-out item-days (Tobit-flavored: tail-conditional expectation `E[D | D > cap]` via a NegBin/
+  Poisson method-of-moments fit, not a plain historical mean). Dollar-gated "done when" committed via
+  `forecasting/src/evaluate/unconstrain_floor.py`: on popular (ever-censored) items, scored on one common
+  oracle-anchored ruler, unconstrained-target training beats clean-target training by **+$1,499.91**.
+  `forecasting/src/evaluate/unconstrain_check.py` verifies recovered demand tracks the hidden ground
+  truth on observably-censored days (MAE 5.076 → 3.090). See `docs/phase_decisions/P3.md` +
+  `P3_review.md` for the full remediation record.
+- **P4 — distribution + the newsvendor turn (the product in miniature).**
+  `forecasting/src/models/quantile.py` (`QuantileGBMModel` — one LightGBM quantile regressor per level,
+  global across items, non-crossing enforced by post-hoc rearrangement);
+  `forecasting/src/decision/newsvendor.py` (`critical_ratio`, `prep_quantity` = `F⁻¹(q*)`,
+  `expected_waste`/`expected_stockout` as CDF integrals); `forecasting/src/evaluate/calibration.py`
+  (empirical coverage + PIT vs. the hidden ground truth, plus an independent MAPIE conformalized-
+  quantile-regression cross-check); `forecasting/src/evaluate/newsvendor_floor.py` (the dollar gate).
+  Both "done when" conditions met on real data: calibration PASS (coverage tracks nominal at all 19
+  fitted levels; MAPIE CQR coverage 0.786 at a 0.80 target) and the dollar gate PASS — quantile+
+  newsvendor **$117,536.08** vs. point-model-as-mean **$133,121.17**, a **$15,585.09** improvement
+  (~11.7%). See `docs/phase_decisions/P4.md` for the full design record.
+- **Suite: 316 tests, 316 pass** (full repo via `make test`; lint clean, both import-linter contracts
+  kept). The former red test (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a
+  test-arithmetic bug, not an implementation bug — fixed 2026-06-30, see
+  `forecasting/docs/construction_roadmap.md` Phase 2 callout.
+**P5 is next:** exogenous signal fusion (weather, events, forward reservation depth).
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.

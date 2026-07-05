@@ -37,12 +37,15 @@ scipy>=1.11           # was already lightgbm's transitive dependency; now also u
                       # forecasting/src/models/unconstrain.py (P3) for the NegBin/Poisson
                       # method-of-moments fit + truncated tail expectation
 
+# ── Forecasting engine P4: distribution + the newsvendor turn (2026-07-04) ──
+scikit-learn>=1.4     # mapie's dependency; also the sklearn Estimator API
+                      # lightgbm.LGBMRegressor (forecasting/src/models/quantile.py) implements
+mapie>=1.4            # conformalized quantile regression (forecasting/src/evaluate/calibration.py)
+
 # ── Added later, when their phase arrives — NOT installed now (Anti-Drift) ──
 # pandera>=0.18       # alternative to pydantic for the seam schemas in schemas/
 #
-# --- forecasting engine (P3+) ---
-# scikit-learn
+# --- forecasting engine (P5+) ---
 # statsmodels  sktime # classical baselines, rolling-origin CV
-# mapie               # conformal prediction (engine P4)
 # pymc  numpyro       # hierarchical / pooling models (engine P6+)
 # mlflow              # run tracking + dollar-cost logging (rules 03/04)

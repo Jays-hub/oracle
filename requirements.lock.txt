@@ -14,12 +14,16 @@ httpx2==2.5.0
 idna==3.18
 import-linter==2.12
 iniconfig==2.3.0
+itsdangerous==2.2.0
 Jinja2==3.1.6
-lightgbm==4.6.0
+joblib @ file:///home/conda/feedstock_root/build_artifacts/joblib_1765794027227/work
+lightgbm @ file:///Users/runner/miniforge3/conda-bld/bld/rattler-build_lightgbm_1779761859/work
+MAPIE==1.4.1
 markdown-it-py==4.2.0
 MarkupSafe==3.0.3
 mdurl==0.1.2
-numpy==2.5.0
+narwhals @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_narwhals_1780672242/work
+numpy @ file:///Users/runner/miniforge3/conda-bld/bld/rattler-build_numpy_1782112554/work/dist/numpy-2.5.0-cp312-cp312-macosx_11_0_arm64.whl#sha256=4d35253f56b0c3d16473950c19e3fc64d85ff36af8ee54a8b6f0deabbc102291
 packaging==26.0
 pandas==3.0.3
 pluggy==1.6.0
@@ -34,10 +38,12 @@ python-multipart==0.0.32
 PyYAML==6.0.3
 rich==15.0.0
 ruff==0.15.18
-scipy==1.18.0
+scikit-learn @ file:///Users/runner/miniforge3/conda-bld/bld/rattler-build_scikit-learn_1780401354/work/dist/scikit_learn-1.9.0-cp312-cp312-macosx_11_0_arm64.whl#sha256=db57e2c34aa78e1c281637857d685c904255f3fefc5ad67369d5994f558ceb3b
+scipy @ file:///Users/runner/miniforge3/conda-bld/scipy-split_1781912202945/work/dist/scipy-1.18.0-cp312-cp312-macosx_11_0_arm64.whl#sha256=9c7828ad45103cde1b0196c257ba7faf68e89b41198d3ff49a9c13acae224932
 setuptools==82.0.1
 six==1.17.0
 starlette==1.3.1
+threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1741878222898/work
 truststore==0.10.4
 typing-inspection==0.4.2
 typing_extensions==4.15.0
