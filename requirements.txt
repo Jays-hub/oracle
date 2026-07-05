@@ -26,6 +26,9 @@ httpx2>=2.5          # TestClient dependency (Starlette 1.x prefers httpx2 over 
 # ── Web layer: on-ramp website W1 (self-serve capture funnel, 2026-07-02) ──
 python-multipart>=0.0.9  # FastAPI UploadFile/Form parsing (POST /upload, POST /confirm)
 
+# ── Web layer: on-ramp website W2 (account + persistence, 2026-07-04) ──
+itsdangerous>=2.1        # required by Starlette's SessionMiddleware (login session cookie)
+
 # ── Forecasting engine P0: the decision frame (2026-06-29) ──
 numpy>=1.26          # the dollar objective math (forecasting/src/evaluate/objective.py)
 PyYAML>=6.0          # load + validate config/items.yaml (forecasting/src/config.py)

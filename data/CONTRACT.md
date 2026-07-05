@@ -79,6 +79,20 @@ Contract (`.claude/rules/00-process.md`) when it lands.
   a stable `item_id` across the seam so the join is never name-based; that is a seam-contract change
   recorded here for when it's built.
 
+- **Physical multi-tenant partitioning of `data/raw/` (W2, not built).** `data/raw/` remains a flat,
+  unpartitioned directory (one implicit tenant) after the on-ramp's W2 "account + persistence" phase.
+  W2 added session-based login gating the web app's data-bearing routes, but the on-disk seam layout
+  is unchanged — no `restaurant_id` column in `schemas/seam.py`, no per-tenant subdirectory. This
+  matches `.claude/rules/05-fullstack-architecture.md`'s "essentially single-tenant tool" framing and
+  `onramp/plate_cost/docs/website_vision.md` §9 ("not a mandate to build a multi-tenant platform
+  now") — there is exactly one tenant's data in the store today, so isolation is enforced at the auth
+  layer (every data route requires a valid session), not by partitioning files that would also
+  require a coordinated change to `forecasting/src/data/loader.py` and `forecasting/src/simulate/
+  generator.py` (both hard-code a flat `data/raw/`). **Decision, deferred:** when a second real
+  tenant's data needs to coexist, add a `restaurant_id` to the seam (either a column on `BomRow`/
+  `SalesExportRow` or a per-tenant subdirectory under `data/raw/`) as a gated seam-contract change
+  touching both peers — not a unilateral on-ramp-side change. See `docs/phase_decisions/W2.md`.
+
 ## Enforcement status
 
 - **DuckDB-over-Parquet query layer: BUILT (2026-06-25).** The `data/raw/` files are now Parquet
