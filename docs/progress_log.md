@@ -10,6 +10,55 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-04 — P4 built: distribution + the newsvendor turn `[built]`
+
+Built `forecasting/docs/construction_roadmap.md`'s Phase 4 slice: a calibrated predictive distribution
+per item (quantile regression), converted to a prep quantity via each item's newsvendor critical ratio,
+plus waste/stockout as integrals of that distribution — "the product in miniature." Full reasoning, load-
+bearing assumptions, and design decisions: `docs/phase_decisions/P4.md`. Not marked done here — per
+`00-process.md`, that happens when `/review-phase P4` closes on the code.
+
+- **New module `forecasting/src/models/quantile.py`** — `QuantileGBMModel`: one LightGBM quantile
+  regressor (`objective="quantile"`, sklearn API) per requested level, global across items, mirroring
+  `point.py`'s `GlobalLGBMModel` structure (same `FeaturePipeline`, same item_id-as-native-categorical
+  boundary). Non-crossing enforced via post-hoc rearrangement (sort each row's predictions across the
+  quantile axis) per rule 03. Uses the sklearn API (not `point.py`'s raw `Dataset`/`lgb.train()`)
+  specifically because `evaluate/calibration.py`'s MAPIE wrapper requires it.
+- **New module `forecasting/src/decision/newsvendor.py`** — pure policy math, zero model/data
+  dependencies: `critical_ratio` (a deliberate local reimplementation of `objective.py`'s function of the
+  same name — `decision/` is structurally forbidden from importing `evaluate/`, and extending the one
+  existing import-linter carve-out for a one-line formula was judged a bigger change than duplicating it),
+  `required_quantile_levels` (unions a standard grid with every item's own critical ratio, per rule 03's
+  explicit "[0.10, 0.25, 0.50, 0.75, 0.90, q*]" requirement), `quantile_curve`/`prep_quantity` (the
+  `F⁻¹(q*)` read-off, exact at each item's own critical ratio, interpolated elsewhere), and
+  `expected_waste`/`expected_stockout` (trapezoidal integrals over the piecewise-linear quantile curve —
+  hand-verified against the closed-form Uniform(0,100) newsvendor identities in `test_newsvendor.py`).
+- **New module `forecasting/src/evaluate/calibration.py`** — the calibration checkpoint: empirical
+  coverage per fitted quantile level + PIT values against `data/_truth/truth_demand.csv` (one of
+  evaluate/'s sanctioned oracle readers), plus an INDEPENDENT MAPIE conformalized-quantile-regression
+  (CQR) cross-check — fits its own from-scratch pair of models rather than reusing `QuantileGBMModel`'s
+  fitted estimators, so a bug in the production model can't hide from the very check meant to catch it.
+- **New module `forecasting/src/evaluate/newsvendor_floor.py`** — the dollar gate: `_NewsvendorAdapter`
+  wraps `QuantileGBMModel` + the newsvendor read-off behind the existing `BaseBaseline` contract, so it
+  drops into `RollingOriginBacktest` unchanged, scored against the Phase-2/3 point model used as the mean.
+  Both arms train on the identical `unconstrain_demand(clean_demand())` target, so (unlike P3's
+  `unconstrain_floor.py`) no oracle-anchored common ruler was needed — the harness's own shared `test_df`
+  per fold already is one.
+- **Verified against real generated data, not just synthetic fixtures:**
+  - **Dollar gate PASS:** quantile+newsvendor **$117,536.08** vs. point-model-as-mean **$133,121.17** — a
+    **$15,585.09** improvement (~11.7%), positive in all 4 folds. The point-as-mean total reproduces
+    `forecasting/CLAUDE.md`'s previously-logged P2 point-model number exactly.
+  - **Calibration PASS:** empirical coverage tracks nominal at all 19 fitted quantile levels (worst
+    deviation ~0.09); PIT mean 0.499, std 0.323 (targets 0.5/0.289); independent MAPIE CQR check at
+    confidence_level=0.80 gives empirical coverage 0.786.
+- **New dependency:** `mapie` (conformal prediction) + `scikit-learn` (mapie's dependency; also the
+  sklearn Estimator API `lightgbm.LGBMRegressor` implements) — both were commented-out placeholders in
+  `requirements.txt` since P0, now promoted to real, installed dependencies. `requirements.lock.txt`
+  regenerated.
+- **Suite: 316 tests, 316 pass** (`make check`: lint clean, both import-linter contracts kept). Up from
+  271 — net +45 across `test_newsvendor.py` (22), `test_quantile.py` (10), `test_calibration.py` (8),
+  `test_newsvendor_floor.py` (5).
+
 ## 2026-07-04 — W2 review closed: 1 MAJOR + 4 MINOR findings addressed `[built]`
 
 Closed the adversarial review of W2 (`docs/phase_decisions/W2_review.md`, verdict "Yes,
