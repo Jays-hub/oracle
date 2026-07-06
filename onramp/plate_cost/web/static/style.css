@@ -189,6 +189,13 @@ main {
 }
 .detail-row dt { color: var(--text-muted); }
 .detail-row dd { font-weight: 500; }
+.delta-figure { font-weight: 700; color: var(--money); }  /* the "this is money" accent — rule 06 */
+.detail-note {
+  display: block;
+  font-weight: 400;
+  font-size: .8em;
+  color: var(--text-muted);
+}
 
 /* ── food cost tier badges ── */
 .tier {

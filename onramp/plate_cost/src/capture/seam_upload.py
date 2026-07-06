@@ -28,10 +28,15 @@ import pandas as pd
 from pydantic import ValidationError
 
 from ..report.grid import normalize_name
+# The seam directory has exactly ONE definition, in src/store.py (the read side); this re-exports
+# it rather than computing an independent copy, so the read and write paths can never drift apart
+# and a test only ever needs to patch one name (W3_review.md LOW-1 — previously this module
+# computed its own RAW_DIR via a separate parents[N] call that happened to agree with store.py's
+# in production but required patching both independently in tests).
+from ..store import RAW_DIR as RAW_DIR  # explicit re-export (`as RAW_DIR`) for test_seam_upload.py
 
 # capture/seam_upload.py -> parents: [capture, src, plate_cost, onramp, repo-root]
 _REPO_ROOT = Path(__file__).resolve().parents[4]
-RAW_DIR = _REPO_ROOT / "data" / "raw"
 
 # schemas/ is platform-owned (data/CONTRACT.md), imported by both peers, and lives outside this
 # package's import path — same sys.path bootstrap as src/run.py, needed here too since this
@@ -39,11 +44,6 @@ RAW_DIR = _REPO_ROOT / "data" / "raw"
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from schemas import BomRow, SalesExportRow  # noqa: E402  (import after the sys.path bootstrap)
-
-# Fail loudly at import time, mirroring src/store.py's structural invariant on the read side.
-assert RAW_DIR.parts[-2:] == ("data", "raw"), (
-    f"seam_upload path invariant violated: expected .../data/raw, got {RAW_DIR}"
-)
 
 # A ~15-25 item recipe sitdown produces a CSV of a few KB; 700 KB is generous headroom while still
 # rejecting a runaway or wrong-file upload before it reaches the parser (rule 07: hostile input).

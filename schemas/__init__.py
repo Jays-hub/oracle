@@ -3,6 +3,6 @@
 Platform-owned: imported by both peers, owned by neither. See ``seam.py`` for the row models
 and the rationale behind this module.
 """
-from .seam import BomRow, SalesExportRow
+from .seam import BomRow, PriceObservationRow, SalesExportRow
 
-__all__ = ["BomRow", "SalesExportRow"]
+__all__ = ["BomRow", "PriceObservationRow", "SalesExportRow"]
