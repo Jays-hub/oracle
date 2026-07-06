@@ -38,7 +38,7 @@ legs. Files (`.csv` or `.parquet`):
 |---|---|---|
 | `sales_export.csv` (a.k.a. `pos_sales.*`) | **sales history** | onboarding (POS export) → later POS feed |
 | `bom.csv` (RecipeLine rows) | **BOM** | the one-time recipe sitdown |
-| `price_observations.csv` | **invoice / price history** | invoice ingestion (Phase 2), ongoing |
+| `price_observations.csv` | **invoice / price history** | **built (W3, 2026-07-05)** — a digital-feed CSV upload (`src/capture/invoice_upload.py`); each confirmed invoice APPENDS rows (never a full replace, unlike the other two legs), so history accumulates |
 
 The **fourth** leg — `eightysix_log.csv` (the 86/stockout log, the censored-demand signal) — is
 **not** captured by the on-ramp. It is a separate, deliberately tiny habit (tap a dish when it 86s).
@@ -58,18 +58,22 @@ export replaces the simulated one, the `../schemas/` definitions are the validat
 Recorded decisions about future seam evolution, not yet built. Each clears the Comprehension
 Contract (`.claude/rules/00-process.md`) when it lands.
 
-- **Co provenance — a derived food-cost leg (review issue #3).** Today the engine's overage cost
-  `Co` (the food cost of a wasted portion) is hand-entered in `config/items.yaml` as a simulation
-  placeholder. But `Co` *is* the plate cost the on-ramp already computes — and the seam currently
-  carries **no prices**: `bom.parquet` has quantities/yields/units, `sales_export.parquet` has
-  counts, and neither carries ingredient unit prices or menu prices, so the engine **cannot
-  reconstruct a plate cost from `data/raw/` today**. **Decision:** when real tenant data flows, the
-  on-ramp writes its computed per-dish food cost as a new **derived seam leg** (a `food_cost` column
-  or file under `data/raw/`), so `Co` flows *from the on-ramp's computation* and is never re-typed —
-  one source of truth, consistent with "one recipe-confirmation act feeds two products." This adds a
-  `../schemas/` definition and a row to the legs table above; it is a gated step, deferred to the
-  on-ramp's invoice/handoff phase. Until then, `config/items.yaml` `Co` is an honestly-labeled
-  placeholder, not a second source of truth to reconcile.
+- **Co provenance — a derived food-cost leg (review issue #3). Still NOT built, even after W3.**
+  Today the engine's overage cost `Co` (the food cost of a wasted portion) is hand-entered in
+  `config/items.yaml` as a simulation placeholder. `Co` *is* the plate cost the on-ramp already
+  computes — but the seam still carries **no menu prices**: W3 (2026-07-05) added ingredient unit
+  prices (`price_observations.csv`, above), yet `bom.parquet` still has only quantities/yields/units
+  and `sales_export.parquet` only counts — no dish's *menu price* crosses the seam anywhere, so the
+  engine **still cannot reconstruct a plate cost (let alone a margin) from `data/raw/` today**. This
+  is why W3's own `/insights` opportunities surface reports an ingredient-cost delta only, never a
+  margin or food-cost-tier claim (`docs/phase_decisions/W3.md`). **Decision (unchanged):** when real
+  tenant data flows, the on-ramp writes its computed per-dish food cost as a new **derived seam leg**
+  (a `food_cost` column or file under `data/raw/`), so `Co` flows *from the on-ramp's computation*
+  and is never re-typed — one source of truth, consistent with "one recipe-confirmation act feeds
+  two products." This adds a `../schemas/` definition and a row to the legs table above; it is a
+  gated step, still deferred to a later on-ramp phase (menu-price capture hasn't been built either).
+  Until then, `config/items.yaml` `Co` is an honestly-labeled placeholder, not a second source of
+  truth to reconcile.
 
 - **Stable `item_id` across the seam (review issue #4, durable fix).** The only key shared by
   `config/items.yaml` and `data/raw/` today is the display name (`name` ↔ `dish_name`) — a

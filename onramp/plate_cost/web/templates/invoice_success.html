@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Saved{% endblock %}
+
+{# This page confirms the operator's own data was saved — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Saved</h1>
+  <p class="page-meta">{{ summary.row_count }} price{{ "s" if summary.row_count != 1 else "" }} across
+  {{ summary.ingredient_count }} ingredient{{ "s" if summary.ingredient_count != 1 else "" }}
+  ({{ summary.period_start }} – {{ summary.period_end }}) are now on record.</p>
+</section>
+
+<section class="confirm-summary">
+  <p>Once enough price history has built up, week-over-week moves show up on
+  <a href="/insights">Insights</a>.</p>
+  <p><a href="/invoice/upload">Upload another invoice</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+
+{# This page shows the operator's own findings — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Insights</h1>
+  <p class="page-meta">Plain-language, dollar-quantified findings from your price history —
+  an action, not a chart.</p>
+</section>
+
+{% if not summary.has_data %}
+<section class="confirm-summary">
+  <p>Nothing to show yet — you'll need both a recipe sheet and at least one invoice on record.</p>
+  <p>
+    <a href="/upload">Connect your data</a> &nbsp;·&nbsp;
+    <a href="/invoice/upload">Upload an invoice</a>
+  </p>
+</section>
+{% elif not summary.opportunities %}
+<section class="confirm-summary">
+  <p>No ingredient has moved 10% or more since we have enough history to compare
+  ({{ summary.trend_count }} ingredient{{ "s" if summary.trend_count != 1 else "" }} tracked so far).
+  Check back after your next invoice.</p>
+</section>
+{% else %}
+{% for o in summary.opportunities %}
+<section class="confirm-summary opportunity-card">
+  <h2>{{ o.headline }}</h2>
+  <p class="page-meta">Delta is this move's direct cost impact; the ~before/~after figures hold
+  every other ingredient in the dish at today's price, so they're an estimate, not what the dish
+  actually cost back then.</p>
+  <dl class="dish-details">
+    {% for d in o.affected_dishes %}
+    <div class="detail-row">
+      <dt>{{ d.dish_name }}</dt>
+      <dd><span class="delta-figure">{{ "+" if d.delta >= 0 else "" }}${{ "%.2f" | format(d.delta) }}</span>
+        <span class="detail-note">(est. ~${{ "%.2f" | format(d.prior_cost) }} &rarr;
+        ~${{ "%.2f" | format(d.new_cost) }}, other ingredients held at today's price)</span></dd>
+    </div>
+    {% endfor %}
+  </dl>
+  <p class="page-meta">Ingredient cost only — this doesn't yet know your menu prices, so it can't
+  show margin or food-cost tier.</p>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+<p>Costs rounded to nearest $0.25 · Based on your own uploaded recipe sheet and invoice history</p>
+{% endblock %}
