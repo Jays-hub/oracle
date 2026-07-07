@@ -178,3 +178,57 @@ class RollingOriginBacktest:
                 "silently; see audit #8.)"
             )
         return pd.DataFrame(result_rows)
+
+
+def min_train_weeks_reaching_tail(
+    dates: pd.Series | pd.DatetimeIndex, n_folds: int, test_weeks: int
+) -> int:
+    """The min_train_weeks that anchors RollingOriginBacktest's test folds at the
+    END of `dates` instead of its default fixed-at-the-start anchor.
+
+    RollingOriginBacktest.splits() always starts every fold's training window at
+    all_dates[0] and expands forward from there, so with small min_train_weeks the
+    test folds land near the series START — fine for a stationary-enough series,
+    but on this project's ~2.5-year simulated history it leaves the go-forward/
+    censored window at the very END (where P3's unconstraining and P4's newsvendor
+    read-off actually matter) never scored (P3_review.md BLOCKER-1's root cause;
+    P4_review.md MAJOR-1's exact repeat one phase later). Pass this function's
+    result as `min_train_weeks` when constructing RollingOriginBacktest, then wrap
+    its .splits() output in splits_with_full_tail_coverage() below.
+
+    RollingOriginBacktest.splits() itself is NOT changed by this — its own default
+    behavior (used by baseline_floor.py/point_floor.py, whose already-logged
+    numbers are cited in docs/progress_log.md and forecasting/CLAUDE.md) stays
+    exactly as-is; this is an opt-in helper a gate script uses BEFORE constructing
+    its own instance, not a new anchor mode on the class (see
+    docs/phase_decisions/P3.md, "fix RollingOriginBacktest fold placement for this
+    gate only, don't touch the shared harness" — same reasoning applies here).
+    """
+    ts = pd.to_datetime(pd.Series(list(dates)))
+    total_days = (ts.max() - ts.min()).days + 1
+    test_span_days = n_folds * test_weeks * 7
+    return max(1, (total_days - test_span_days) // 7)
+
+
+def splits_with_full_tail_coverage(
+    bt: RollingOriginBacktest, all_dates: pd.DatetimeIndex
+) -> Iterator[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
+    """Wrap RollingOriginBacktest.splits() so the LAST fold's test window reaches
+    `all_dates`'s true final date, without touching any other fold's boundaries or
+    the last fold's own start.
+
+    splits() sizes every test window at exactly test_weeks*7 days; when the
+    available history isn't an exact multiple of that (true here, paired with
+    min_train_weeks_reaching_tail() above), the last fold's nominal end falls a
+    few days short of the series' true final date, silently excluding the most
+    recent days from every fold (P3_review.md MINOR-1). Companion to
+    min_train_weeks_reaching_tail(); use both together to anchor a gate at the end
+    of a series without changing RollingOriginBacktest's own default splits().
+    """
+    folds = list(bt.splits(all_dates))
+    last_max = all_dates.max()
+    for idx, (train_dates, test_dates) in enumerate(folds):
+        if idx == len(folds) - 1 and test_dates.max() < last_max:
+            extra = all_dates[(all_dates > test_dates.max()) & (all_dates <= last_max)]
+            test_dates = test_dates.union(extra)
+        yield train_dates, test_dates

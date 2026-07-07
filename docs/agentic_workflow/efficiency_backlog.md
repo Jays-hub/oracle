@@ -22,11 +22,33 @@ it. A fix is done only when it is:
 
 ## Open
 
-- [ ] **20. Run the loop once for real (third audit's BLOCKER).** Two halves. *(a) Review half:*
-      first real `Pn_review.md` via `/review-phase` — produced 2026-07-02 (P2 re-review). *(b)
-      Comprehension half:* **Jay runs `/learn` once** and a `docs/mastery.md` level actually moves.
-      The agent cannot close (b) — only the tutor grading Jay's live answers writes the ledger;
-      anything else would fabricate comprehension (`00-process.md`). Strike when both halves exist.
+**The autonomous-builder guardrail program** (added 2026-07-07). Full spec + planted-test + sequencing
+per item in `autonomous_builder_build_plan_2026-07-07.md`; direction recorded in `current_state.md`
+(2026-07-07 `[decided] [plan]`). Each item still owes its own strike + `current_state.md` entry when built.
+
+- [ ] **G1. Close the `_truth` firewall to `Read`/`Grep`/`Glob`** (audit BLOCKER-1). ~S. *Do first.*
+- [ ] **G2. Enforced dollar gate** — phase fails if it doesn't beat all 3 baselines in realized cost. M.
+- [ ] **G3. Executable "done when"** — per-phase acceptance predicate as a required test. M.
+- [ ] **G4. Cold re-review of the fix diff** (unfreeze deliverable #3; closes audit MAJOR-3). M.
+- [ ] **G5. Test-adequacy** — planted-mutant check (no heavy dep — mind the conda-lock trap). M.
+- [ ] **G6. Facts-are-artifacts** — records quote generated metrics, agents never type numbers. M.
+- [ ] **G7. Stop-condition** — escalate, never override (the unattended-safety keystone). M.
+- [ ] **G8. Two-reviewer quorum on high blast radius** (unfreeze deliverable #4). M.
+- [ ] **C1. `/run-phase` conductor** + structural per-subagent model assignment (folds in #6). L.
+
+Milestones: **M1** = G1+G6+G2+G3 (leakproof + honest) · **M2** = G4+G5+G8 (trusted fixes) · **M3** = C1 ·
+**M4** = G7 (unattended). Do not advance an autonomy stage past an un-proven guard.
+
+## Done — 2026-07-07
+
+- [x] **20. Run the loop once for real (third audit's BLOCKER).** Both halves now exist. *(a) Review
+      half:* first real `Pn_review.md` via `/review-phase` — produced 2026-07-02 (P2 re-review). *(b)
+      Comprehension half:* Jay's `/learn` sessions on 2026-07-06 and 2026-07-07 moved real
+      `docs/mastery.md` levels off L0 (topics 1/3/9 → L2, 7/10/13 → L1 on the 6th; topic 2 → L1 on the
+      7th). The tutor — not the agent — wrote every grade, as `00-process.md` requires. *Follow-on the
+      same feedback surfaced:* the comprehension track was assessment-only, so the acquisition beat
+      (`/explain` + `concept-explainer` + `docs/glossary.md`) and level-tiered quizzes were added —
+      recorded in `current_state.md` (2026-07-07).
 
 ## Done — third-audit response (2026-07-02)
 

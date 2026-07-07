@@ -5,6 +5,70 @@ broken. Companion to `efficiency_backlog.md` (what to fix next). Scope + access 
 
 ---
 
+## 2026-07-07 — Direction set: build toward a fully automated builder, guardrail-first `[decided] [plan]`
+
+**Decision (Jay).** Mastery is decoupled and lives on the `/learn` track; the **build track** is to become
+a **fully automated building system with minimal user input**, gated on **rigorous, self-proving
+guardrails** (no drift, bad practice, or hallucination). This overrides the "autonomy fights mastery"
+caution — deliberately, on the owner's call — because mastery is served elsewhere.
+
+**Produced this session (analysis + plan; no `.claude/**` change yet):**
+- `toolbox_audit_2026-07-07.md` — the final cold audit (Fable 5). Verdict: apparatus is a working
+  instrument, one live **BLOCKER** (the `_truth` firewall covers `Bash` only, not `Read`/`Grep`/`Glob`).
+- `orchestration_analysis_2026-07-07.md` — where the workflow sits on an orchestration-maturity ladder
+  (L2), and why "one agent builds+reviews+greenlights" is the wrong target (kills adversarial independence).
+- `guardrail_architecture_2026-07-07.md` — the principle (verify by mechanism, not prose), guardrail
+  catalog G1–G8, autonomy ladder A0–A4, honest limits.
+- `autonomous_builder_build_plan_2026-07-07.md` — the sequenced executable plan (G1–G8 + conductor C1),
+  milestones M1–M4, each packet with its planted-violation test. **Unfreezes deliverables #3/#4/#6** when
+  built (the automation goal is the "need" their freeze was waiting on).
+
+**Next action (not yet done):** M1, starting with **G1** (close the `_truth` `Read`/`Grep` hole) — the
+smallest packet, a confirmed live hole, and the template for the self-proving guard pattern the rest reuse.
+Each packet, when built, gets its own dated entry + `efficiency_backlog.md` item per convention.
+
+---
+
+## 2026-07-07 — Acquisition track added: `/explain` + `concept-explainer` + a glossary, and level-tiered quizzes `[built] [verify]`
+
+**Why.** Jay's feedback after his 2nd `/learn`: the tutor's questions are good but pitched above his
+level, and the *vocabulary* is the wall. Diagnosis — the comprehension track was **assessment-only**:
+it tested retrieval and taught only the post-miss gap, with no *acquisition* beat that delivers a
+concept top-down *before* he's expected to retrieve it. Jay chose the full-track-plus-glossary option.
+
+**Built (five parts):**
+- **`/explain` command** (`.claude/commands/explain.md`) + **`concept-explainer` subagent**
+  (`.claude/agents/concept-explainer.md`, Opus, read-only). Teaches top-down: dollar goal (Marco /
+  `Co` vs `Cu`) → every term defined inline → mechanism walked in the real code with one worked number
+  → why-here-why-now + the dollar failure mode → the reasoning path to a stuck quiz question. The
+  learn-first companion to `/learn` (`/explain` to acquire, `/learn` to verify it stuck).
+- **Teaching is separated from grading by construction.** The explainer's only writable file is
+  `docs/glossary.md`; it can never reach `docs/mastery.md` or code — new `_ALLOWED_ARTIFACTS` entry in
+  `.claude/hooks/enforce_agent_write_scope.py`. So a mastery level always means Jay retrieved it *cold*,
+  never that he was just told the answer. **+5 planted tests** (`tests/test_agent_write_scope_hook.py`,
+  **33 total, all green**): glossary write allowed; ledger write, source write, and a redirect into the
+  ledger all denied.
+- **`docs/glossary.md`** — a durable plain-language term bank, seeded ~29 terms from the P0–P2 ledger
+  (Co/Cu, newsvendor, `q*`, quantile/CDF, censored demand, leakage/`.shift(1)`, Poisson/Tweedie,
+  raw/_truth firewall …). The explainer appends as it teaches; it is the file's only writer.
+- **The tutor now tiers question scaffolding to the topic's `Level`** (`comprehension-tutor.md` Mode A
+  step 5): L0/L1 define the term in the prompt + a scaffolded opener; L2 less; L3+ full rigor. The
+  *why* stays under test at every level — only the vocabulary barrier is removed. A vocab-blocked
+  "don't know" is a no-show routed to `/explain`, not a penalty (Mode B).
+
+**Doctrine.** `/explain` is a user-invoked tool like `/learn` (not a guard, so "auto-invoked" doesn't
+apply to the command). The *guard* it introduces — the explainer cannot write the ledger — is
+**auto-invoked** (fires on every tool call), **self-proving** (the 5 planted tests), and **recorded**
+(this entry). ✓ all three.
+
+**Known limit (same shape as M2's).** The hook allow-list is plain Python and is live now (33 tests
+pass). But the harness snapshots the subagent registry + slash-command list at session start, so
+`/explain` and the `concept-explainer` agent are guaranteed-live **from the next session** — the
+mechanism and its tests are proven this session. (`/explain` did register as a skill mid-session here,
+but treat next-session as the safe point for the agent spawn.)
+
+---
+
 ## 2026-07-02 — Third audit landed + full remediation; the review loop ran for real (first `Pn_review.md`) `[built] [verify]`
 
 **The audit.** `/audit-toolbox` ran cold (Opus); artifact: `toolbox_audit_2026-07-01.md`. Verdict:

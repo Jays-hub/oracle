@@ -38,6 +38,10 @@ _ALLOWED_ARTIFACTS = {
     "web-reviewer": (re.compile(r"docs/phase_decisions/W\d+[a-z]?_review\.md"),),
     "comprehension-tutor": (re.compile(r"docs/mastery\.md"),),
     "toolbox-auditor": (re.compile(r"docs/agentic_workflow/toolbox_audit_[\w-]+\.md"),),
+    # The explainer TEACHES; it may append terms to the glossary but must never reach
+    # the grading ledger (docs/mastery.md) or code -- teaching stays structurally
+    # separate from assessment, so a mastery level always means Jay retrieved it cold.
+    "concept-explainer": (re.compile(r"docs/glossary\.md"),),
 }
 
 _WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
