@@ -12,6 +12,8 @@
     <nav class="site-nav">
       {% if logged_in %}
         <a href="/your-data">Your data</a>
+        <a href="/invoice/upload">Upload invoice</a>
+        <a href="/insights">Insights</a>
         <form method="post" action="/logout" class="logout-form"><button type="submit">Log out</button></form>
       {% else %}
         <a href="/login">Log in</a>

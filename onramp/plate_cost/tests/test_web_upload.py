@@ -1,10 +1,11 @@
 """Tests for the W1 capture-funnel web routes (GET/POST /upload, POST /confirm).
 
-Every test that writes monkeypatches web.app._RAW_DIR to a tmp_path — never the real data/raw/ —
-mirroring test_store.py's isolation pattern. Covers: the happy path end-to-end (and that it
-actually lands schema-valid Parquet), validation errors surfaced without a crash, the cross-file
-mismatch warning, the size-limit boundary, and that /confirm re-validates rather than trusting the
-round-tripped hidden fields.
+Every test that writes monkeypatches src.store.RAW_DIR to a tmp_path — the single canonical seam
+directory both the read and write paths reference (W3_review.md LOW-1 collapsed the previous
+write-side web.app._RAW_DIR copy into this one shared constant) — never the real data/raw/.
+Covers: the happy path end-to-end (and that it actually lands schema-valid Parquet), validation
+errors surfaced without a crash, the cross-file mismatch warning, the size-limit boundary, and that
+/confirm re-validates rather than trusting the round-tripped hidden fields.
 
 W2 added a login gate in front of these routes (test_web_auth.py owns that behavior). These tests
 are about upload/confirm logic, not auth, so an autouse fixture bypasses the gate here — mirrors
@@ -16,6 +17,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
+import src.store as store_mod
 import web.app as appmod
 from schemas import BomRow, SalesExportRow
 from web.app import app
@@ -68,7 +70,7 @@ def test_capture_funnel_pages_never_show_the_sample_data_banner(tmp_path, monkey
     not your restaurant's numbers" banner must never appear on a page showing the operator's OWN
     uploaded data — the confirm and success pages show real dish names and covers pulled straight
     from the chef's files, and the banner directly contradicted that."""
-    monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_form_resp = _client.get("/upload")
     upload_resp = _post_upload()
@@ -130,7 +132,7 @@ def test_upload_cross_file_mismatch_is_surfaced_as_a_warning():
 def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
     """The end-to-end path: upload -> confirm actually lands Parquet that satisfies the seam
     schema, in an isolated tmp_path (never the real data/raw/)."""
-    monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_resp = _post_upload()
     sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
@@ -150,16 +152,17 @@ def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
 
 
 def test_confirm_never_touches_real_raw_dir_when_isolated(tmp_path, monkeypatch):
-    """Sanity check on the test isolation itself: confirming against a monkeypatched _RAW_DIR
+    """Sanity check on the test isolation itself: confirming against a monkeypatched RAW_DIR
     must not also write the real seam (guards against a future refactor re-introducing a
     hard-coded path that bypasses the isolation).
 
     data/raw/ is gitignored, so a fresh checkout (e.g. CI) has no bom.parquet at all — this must
     hold whether or not the real file happens to exist locally from a prior `python -m src.run`."""
-    monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
-    real_bom = appmod.RAW_DIR / "bom.parquet"
+    real_bom = store_mod.RAW_DIR / "bom.parquet"  # captured BEFORE patching — the real, unpatched path
     existed_before = real_bom.exists()
     mtime_before = real_bom.stat().st_mtime if existed_before else None
+
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_resp = _post_upload()
     sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
@@ -174,7 +177,7 @@ def test_confirm_rejects_tampered_payload_never_trusts_the_hidden_field(tmp_path
     """Rule 07: /confirm must re-validate, not blindly trust a round-tripped hidden field. Craft
     a base64 payload that decodes to CSV content failing schema validation and confirm it is
     rejected rather than written."""
-    monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
     from base64 import b64encode
 
     tampered_sales = b64encode(
@@ -202,7 +205,7 @@ def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_pa
     """/confirm is directly POST-able and must not rely on /upload having already size-checked.
     Regression for the review finding that /confirm had no size policy of its own and could only
     be incidentally rejected by Starlette's unrelated per-field cap."""
-    monkeypatch.setattr(appmod, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
     monkeypatch.setattr(appmod, "MAX_UPLOAD_BYTES", 10)
     from base64 import b64encode
 

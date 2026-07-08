@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Confirm your invoice{% endblock %}
+
+{# This page shows the operator's own uploaded data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Here's what we found</h1>
+  <p class="page-meta">Nothing has been saved yet — review, then confirm.</p>
+</section>
+
+<section class="confirm-summary">
+  <dl class="dish-details">
+    <div class="detail-row"><dt>Rows</dt><dd>{{ summary.row_count }}</dd></div>
+    <div class="detail-row"><dt>Ingredients</dt><dd>{{ summary.ingredient_count }}</dd></div>
+    <div class="detail-row"><dt>Period</dt><dd>{{ summary.period_start }} – {{ summary.period_end }}</dd></div>
+  </dl>
+</section>
+
+{% if unmatched %}
+<section class="skipped-notice" role="alert">
+  <strong>Check these ingredient names before confirming — they didn't match anything in your
+  recipe sheet:</strong>
+  <ul>{% for name in unmatched %}<li>{{ name }}</li>{% endfor %}</ul>
+  <p>This isn't necessarily wrong — it can also mean the ingredient isn't in a recipe yet, or your
+  recipe sheet hasn't been uploaded. We'll still save these prices either way.</p>
+</section>
+{% endif %}
+
+<form method="post" action="/invoice/confirm">
+  <input type="hidden" name="invoice_csv_b64" value="{{ invoice_csv_b64 }}">
+  <button type="submit" class="btn-primary">Confirm and save</button>
+</form>
+<p class="page-meta"><a href="/invoice/upload">Start over</a></p>
+{% endblock %}
+
+{% block footer %}
+<p>Confirming adds these rows to your price history — it never replaces prior invoices.</p>
+{% endblock %}

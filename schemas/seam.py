@@ -8,8 +8,9 @@ to disk and read back, per ``../data/CONTRACT.md``.
 
 Owned by neither peer; imported by both (the on-ramp validates on **write**, the engine will
 validate on **read**). Thin by design — only the files that actually cross the seam today are
-defined here (``bom.csv``, ``sales_export.csv``). ``price_observations.csv`` and
-``eightysix_log.csv`` get schemas when they first cross (Anti-Drift; see ``README.md``).
+defined here (``bom.csv``, ``sales_export.csv``, ``price_observations.csv`` — added in W3 when the
+on-ramp's invoice-ingestion leg first crossed). ``eightysix_log.csv`` still gets a schema only
+when it first crosses (Anti-Drift; see ``README.md``).
 
 Gate-4 capture (2026-06-25, Jay): the schema is "a data-quality gate that prevents malformed
 data from entering." Say-it-to-a-chef: "the head chef that checks every dish before it goes
@@ -50,3 +51,21 @@ class SalesExportRow(BaseModel):
                 f"period_end ({self.period_end}) is before period_start ({self.period_start})"
             )
         return self
+
+
+class PriceObservationRow(BaseModel):
+    """One row of ``data/raw/price_observations.csv`` — the invoice/price-history leg.
+
+    Denormalized like ``BomRow``: ``ingredient_id`` is name-derived (``normalize_name()``), not a
+    UUID — the CLI-internal ``onramp/plate_cost/src/pricing/models.py::PriceObservation`` keys on
+    a UUID, but that model never crosses the seam. This row is the on-disk shape; it deliberately
+    joins to ``BomRow.ingredient_id`` on the same name-key convention rather than inventing a
+    second ID scheme, so a price observation can be matched to a recipe ingredient without a
+    separate entity-resolution table.
+    """
+
+    ingredient_id: str = Field(min_length=1)
+    ingredient_name: str = Field(min_length=1)
+    unit_price: float = Field(gt=0.0)
+    source_invoice: str | None = None
+    observed_date: date

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Upload an invoice{% endblock %}
+
+{# This page captures the operator's own data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Upload an invoice</h1>
+  <p class="page-meta">Upload a CSV of invoice line items — we'll show you exactly what we found
+  before anything is saved.</p>
+</section>
+
+{% if errors %}
+<section class="skipped-notice" role="alert">
+  <strong>{{ errors | length }} problem{{ "s" if errors | length != 1 else "" }} found — nothing
+  was saved:</strong>
+  <ul>
+    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<form method="post" action="/invoice/upload" enctype="multipart/form-data" class="upload-form">
+  <div class="upload-field">
+    <label for="invoice_file">Invoice line items (CSV)</label>
+    <p class="field-hint">Columns: <code>ingredient_name, unit_price, source_invoice, observed_date</code></p>
+    <input type="file" id="invoice_file" name="invoice_file" accept=".csv,text/csv" required>
+  </div>
+  <button type="submit" class="btn-primary">Review my data</button>
+</form>
+{% endblock %}
+
+{% block footer %}
+<p>Nothing is saved until you confirm on the next screen. Price history accumulates — a new
+invoice adds to what you've already uploaded, it never replaces it.</p>
+{% endblock %}

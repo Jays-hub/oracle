@@ -10,6 +10,57 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-06 — W3 hardening: fixed all `W3_review.md` findings `[built]`
+
+`/review-phase W3`'s verdict was **"No — not yet"** on one MAJOR (a bare 500 on `GET /insights`);
+all findings — the MAJOR plus four MINORs and one LOW — are fixed in this pass, closing out the
+review. `docs/phase_decisions/W3.md`/`W3_review.md` are left as the frozen build-time/review-time
+record (same convention as the 2026-06-29 post-P0 hardening entries below); this entry is the
+remediation record.
+
+- **MAJOR-1 — `GET /insights` bare 500 on a non-convertible unit pair.** `BomRow` doesn't restrict
+  `recipe_unit`/`canonical_unit` to the convertible set, so a stray pair (e.g. `each` -> `g`) made
+  `src/bom/units.py::convert` raise straight through the route. Two-layer fix: `dish_ingredient_cost`
+  (`src/insights/opportunities.py`) now catches that `ValueError` and drops the dish the same way it
+  already drops one with a missing price (not a fabricated partial cost); `GET /insights`
+  (`web/app.py`) also gained the same try/except -> `error.html` + correlation id + 503 every
+  sibling route already has, as defense-in-depth.
+- **MINOR-2 — headline hardcoded "this week" regardless of the real gap.** `price_trend`
+  (`src/pricing/trends.py`) now carries `current_observed_date`/`prior_observed_date` through to
+  `Opportunity.days_span`; the headline says "this week" only when the gap is plausibly one
+  (<=10 days), else states the real span ("over the last 46 days").
+- **MINOR-3 — prior/new dish costs read as historical fact, not the ceteris-paribus estimate they
+  are.** `insights.html` now leads with the delta (`.delta-figure`, the money accent) and labels the
+  absolute figures "est. ... other ingredients held at today's price," with a one-line caption on
+  the card explaining why.
+- **MINOR-4 — "N dishes affected" silently undercounted when a dish had an unpriced/unconvertible
+  sibling ingredient.** `Opportunity` gained `uncosted_dish_count`; the headline now states the true
+  total dishes the BOM says use the ingredient, with a "(k not yet fully priced)" note when the
+  costed count is smaller, instead of quietly reporting only the costed subset.
+- **MINOR-5 — concurrent-writer lost update on `price_observations.parquet`.** The read-modify-write
+  in `write_price_observations_atomic` (`src/capture/invoice_upload.py`) is now serialized by a
+  per-file `fcntl.flock` advisory lock (POSIX-only; fine for this repo's Darwin-dev/ubuntu-CI
+  reality) around the whole read-combine-write-rename sequence, not just the final rename.
+- **LOW-1 — two independent `_RAW_DIR` constants (read vs. write) that had to be monkeypatched
+  separately.** `src/store.py`'s `RAW_DIR` is now the ONE canonical definition; `seam_upload.py`
+  re-exports it (`from ..store import RAW_DIR as RAW_DIR`) instead of computing its own copy, and
+  `web/app.py`'s write routes call `store.RAW_DIR` directly instead of keeping a module-level alias.
+  One test (`test_invoice_upload_flags_ingredient_not_in_bom`) that previously needed two
+  independent patches to stay isolated now needs one.
+- **LOW-2 (provenance drill-down), LOW-3 (POS-absorption gate skip), LOW-4 (tenant scoping)** are
+  unchanged — the review itself judged these acceptable to defer (to W4, to the still-pending
+  competitive check, and to the existing W2 multi-tenant deferral, respectively); nothing here
+  removes them from `W3.md`'s Explicitly Deferred table.
+- **Tests: 406 pass, up from 400** — 6 new (`test_dish_ingredient_cost_excludes_dish_with_
+  unconvertible_units`, `test_opportunity_headline_shows_real_span_when_older_than_a_week`,
+  `test_opportunity_headline_notes_uncosted_dishes`, `test_insights_survives_non_convertible_unit_
+  without_crashing`, `test_insights_unexpected_failure_returns_legible_error`,
+  `test_write_price_observations_atomic_serializes_concurrent_writers` — the last one verified
+  against a real regression: with the lock temporarily neutralized, the same test reproduces the
+  lost update it guards against). `ruff check .`: clean. `lint-imports`: 2 contracts kept, 0 broken.
+
+---
+
 ## 2026-07-05 — P4 review remediation: dollar gate never scored the go-forward window — corrected result PASSES, thinner than reported `[built]`
 
 `/review-phase P4` (`docs/phase_decisions/P4_review.md`) found the P4 dollar gate's reported
@@ -53,6 +104,48 @@ MAJOR, 4 MINOR, 1 NIT); full evidence and reasoning: `docs/phase_decisions/P4.md
   superseded `_train_test_tail_split`). `make check`: lint clean, both import-linter contracts kept.
 - P4 is now done: build closed 2026-07-04 (entry below), review closed on this entry — per
   `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-05 — W3 built: insight & price (invoice capture, price trends, opportunities surface) `[built]`
+
+Built `onramp/plate_cost/docs/website_vision.md` §8's W3 slice: a digital-feed invoice upload that
+appends to a new, accumulating `price_observations.csv` seam leg, week-over-week price-trend
+detection, and an "opportunities" surface reporting dollar-quantified findings from significant
+ingredient price moves. Full reasoning, load-bearing assumptions, and design decisions:
+`docs/phase_decisions/W3.md`. Not marked done here — per `00-process.md`, that happens when
+`/review-phase W3` closes on the code.
+
+- **Gate note:** `plate_cost/CLAUDE.md`'s POS-absorption competitive check (the gate in front of
+  invoice ingestion) remains unresolved anywhere in the repo. Jay explicitly directed building this
+  phase anyway ("skip the gate, build W3 as scoped") after the gate was surfaced — a recorded
+  business decision, not a silent bypass. See `W3.md`'s Load-Bearing Assumptions.
+- **New seam schema `PriceObservationRow`** (`schemas/seam.py`) — the invoice/price-history leg
+  `data/CONTRACT.md` had already named but left unbuilt. Denormalized like `BomRow`: `ingredient_id`
+  is name-derived (`normalize_name()`), not the CLI-internal UUID `PriceObservation` model uses, so a
+  price observation joins to a recipe ingredient without a separate entity-resolution table.
+- **New module `src/capture/invoice_upload.py`** — the digital-feed half of Phase 2's "invoice
+  capture (photo + OCR, **or digital vendor feed**)"; deliberately does not touch `src/ingestion/`,
+  which stays reserved (and untouched) for the heavier OCR + learned-mapping path behind the same
+  gate. Reuses `seam_upload.py`'s parse/stage helpers rather than forking a copy. Unlike BOM/sales'
+  full-replace model, writes **accumulate**: each confirmed invoice appends rows, de-duplicated and
+  idempotent on `(ingredient_id, observed_date, unit_price, source_invoice)`.
+- **New module `src/pricing/trends.py`** — pure pandas price-trend detection over the seam shape
+  (`latest_price_per_ingredient`, `price_trend`, `significant_moves`), independent of
+  `src/pricing/compute.py`'s UUID-keyed CLI models.
+- **New module `src/insights/opportunities.py`** — the "opportunities" surface: dollar-quantified
+  findings per significant price move, ranked by total dollar impact across affected dishes.
+  **Deliberately reports an ingredient-cost delta only, never a margin/food-cost-tier claim** — the
+  seam still carries no `menu_price` (the "Co provenance" forward note in `data/CONTRACT.md`, still
+  not built), the same constraint that already kept `/` (W0) and `/your-data` (W2) from showing a
+  costed view of real captured data.
+- **Web layer:** `GET/POST /invoice/upload` + `POST /invoice/confirm` (the upload/confirm funnel,
+  mirroring W1's shape) and `GET /insights` (the findings page), all login-gated; added to
+  `test_web_auth.py`'s protected-routes list. `src/store.py` gained `read_price_observations()`.
+- **Suite: 400 tests, 400 pass** (`make check`: lint clean, both import-linter contracts kept). Up
+  from 342 — net +58 across `test_invoice_upload.py` (15), `test_trends.py` (11),
+  `test_opportunities.py` (9), `test_web_invoice.py` (12), `test_web_insights.py` (6), plus additions
+  to `test_store.py` (2) and 3 new parametrized cases in `test_web_auth.py`'s protected-routes list.
 
 ---
 

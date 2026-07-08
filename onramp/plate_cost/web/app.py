@@ -15,6 +15,14 @@ isolate there. /your-data is the first real caller of src/store.py from the web 
 the operator's own captured seam legs back and offers a one-click CSV export
 (docs/phase_decisions/W2.md).
 
+W3: GET/POST /invoice/upload + POST /invoice/confirm are the digital-feed invoice capture funnel
+(a chef uploads a CSV of invoice line items, reviews a summary + any unmatched ingredient names,
+then confirms, appending PriceObservationRow rows to the accumulating data/raw/
+price_observations.parquet leg via src/capture/invoice_upload.py). GET /insights reads that leg
+plus the BOM back and surfaces dollar-quantified price-move findings (src/pricing/trends.py,
+src/insights/opportunities.py) — deliberately without a margin/tier claim, since the seam still
+carries no menu_price (docs/phase_decisions/W3.md).
+
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
 validated input, atomic seam writes, backend-enforced tenant isolation.)
@@ -33,10 +41,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
+from src import store
 from src.auth.credentials import verify_credentials
+from src.capture.invoice_upload import (
+    cross_reference_ingredients,
+    parse_invoice_csv,
+    write_price_observations_atomic,
+)
 from src.capture.seam_upload import (
     MAX_UPLOAD_BYTES,
-    RAW_DIR,
     cross_reference_dishes,
     parse_bom_csv,
     parse_sales_csv,
@@ -45,11 +58,12 @@ from src.capture.seam_upload import (
 
 from .auth import RESTAURANT_ID, SESSION_KEY, is_authenticated, require_login
 from .compute import build_grid_data
+from .insights import build_insights_summary
+from .invoice import build_invoice_summary
 from .upload import build_summary
 from .your_data import build_your_data_summary, export_bom_csv, export_sales_csv
 
 _WEB_DIR = Path(__file__).resolve().parent
-_RAW_DIR = RAW_DIR
 
 app = FastAPI(title="Plate Cost · On-Ramp", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
@@ -249,7 +263,7 @@ def confirm_submit(
         )
 
     try:
-        write_seam_atomic(bom_result.rows, sales_result.rows, _RAW_DIR)
+        write_seam_atomic(bom_result.rows, sales_result.rows, store.RAW_DIR)
     except Exception:
         correlation_id = uuid4().hex[:8]
         _log.exception("seam write failed (correlation_id=%s)", correlation_id)
@@ -260,6 +274,119 @@ def confirm_submit(
 
     summary = build_summary(bom_result.rows, sales_result.rows)
     return _templates.TemplateResponse(request=request, name="success.html", context={"summary": summary})
+
+
+@app.get("/invoice/upload", response_class=HTMLResponse, response_model=None)
+def invoice_upload_form(request: Request) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    return _templates.TemplateResponse(
+        request=request, name="invoice_upload.html", context={"errors": []},
+    )
+
+
+@app.post("/invoice/upload", response_class=HTMLResponse, response_model=None)
+async def invoice_upload_submit(
+    request: Request, invoice_file: UploadFile = File(...),
+) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    invoice_bytes = await invoice_file.read(MAX_UPLOAD_BYTES + 1)
+
+    errors = _invoice_size_errors(invoice_bytes)
+    if errors:
+        return _templates.TemplateResponse(
+            request=request, name="invoice_upload.html", context={"errors": errors}, status_code=422,
+        )
+
+    result = parse_invoice_csv(invoice_bytes)
+    if result.errors:
+        return _templates.TemplateResponse(
+            request=request, name="invoice_upload.html", context={"errors": result.errors}, status_code=422,
+        )
+
+    unmatched = cross_reference_ingredients(result.rows, _known_ingredient_ids())
+    context = {
+        "summary": build_invoice_summary(result.rows),
+        "unmatched": unmatched,
+        "invoice_csv_b64": _b64(invoice_bytes),
+    }
+    return _templates.TemplateResponse(request=request, name="invoice_confirm.html", context=context)
+
+
+@app.post("/invoice/confirm", response_class=HTMLResponse, response_model=None)
+def invoice_confirm_submit(
+    request: Request, invoice_csv_b64: str = Form(...),
+) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    try:
+        invoice_bytes = b64decode(invoice_csv_b64, validate=True)
+    except binascii.Error:
+        correlation_id = uuid4().hex[:8]
+        _log.warning("invoice confirm payload was not valid base64 (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=400,
+        )
+
+    # /invoice/confirm is directly POST-able — re-apply the same size + parse checks /invoice/
+    # upload ran rather than trusting the round-tripped hidden field (mirrors /confirm above).
+    errors = _invoice_size_errors(invoice_bytes)
+    if errors:
+        return _templates.TemplateResponse(
+            request=request, name="invoice_upload.html", context={"errors": errors}, status_code=422,
+        )
+
+    result = parse_invoice_csv(invoice_bytes)
+    if result.errors:
+        correlation_id = uuid4().hex[:8]
+        _log.warning(
+            "invoice confirm re-validation failed (correlation_id=%s): %s",
+            correlation_id, result.errors,
+        )
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=400,
+        )
+
+    try:
+        write_price_observations_atomic(result.rows, store.RAW_DIR)
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("price observation write failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+
+    summary = build_invoice_summary(result.rows)
+    return _templates.TemplateResponse(
+        request=request, name="invoice_success.html", context={"summary": summary},
+    )
+
+
+@app.get("/insights", response_class=HTMLResponse, response_model=None)
+def insights(request: Request) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request):
+        return redirect
+    try:
+        summary = build_insights_summary()
+    except Exception:
+        # Fail legibly (rules 06/07), mirroring the grid route: a calm page + correlation id, never
+        # a bare 500. dish_ingredient_cost already degrades a non-convertible unit to "not costed"
+        # (W3_review.md MAJOR-1), so this is defense-in-depth for anything else that goes wrong.
+        correlation_id = uuid4().hex[:8]
+        _log.exception("insights render failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+    return _templates.TemplateResponse(
+        request=request, name="insights.html", context={"summary": summary},
+    )
 
 
 def _b64(raw: bytes) -> str:
@@ -275,3 +402,23 @@ def _size_errors(sales_bytes: bytes, bom_bytes: bytes) -> list[str]:
     if len(bom_bytes) > MAX_UPLOAD_BYTES:
         errors.append(f"Recipe file is too large (max {MAX_UPLOAD_BYTES // 1000} KB).")
     return errors
+
+
+def _invoice_size_errors(raw: bytes) -> list[str]:
+    """Same size policy as ``_size_errors``, for the single-file invoice upload."""
+    if len(raw) > MAX_UPLOAD_BYTES:
+        return [f"Invoice file is too large (max {MAX_UPLOAD_BYTES // 1000} KB)."]
+    return []
+
+
+def _known_ingredient_ids() -> set[str]:
+    """Ingredient ids already in the captured BOM, for the invoice cross-reference warning.
+
+    An empty set (no BOM captured yet) is a valid, non-error state — every invoice ingredient
+    simply shows as unmatched, which is honest: there's nothing to match against yet.
+    """
+    try:
+        bom_df = store.read_bom()
+    except FileNotFoundError:
+        return set()
+    return set(bom_df["ingredient_id"])

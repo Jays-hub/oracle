@@ -100,6 +100,9 @@ def test_login_fails_closed_when_credential_unconfigured(monkeypatch):
         ("post", "/confirm", {"data": {"sales_csv_b64": "x", "bom_csv_b64": "x"}}),
         ("get", "/your-data/export/bom", {}),
         ("get", "/your-data/export/sales", {}),
+        ("get", "/invoice/upload", {}),
+        ("post", "/invoice/confirm", {"data": {"invoice_csv_b64": "x"}}),
+        ("get", "/insights", {}),
     ],
 )
 def test_protected_routes_redirect_unauthenticated_requests_to_login(method, path, kwargs):
@@ -130,7 +133,7 @@ def test_logout_clears_session(monkeypatch):
 
 
 def test_your_data_shows_empty_state_when_nothing_captured(monkeypatch, tmp_path):
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)  # empty dir — nothing captured yet
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)  # empty dir — nothing captured yet
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data")
     assert resp.status_code == 200
@@ -139,7 +142,7 @@ def test_your_data_shows_empty_state_when_nothing_captured(monkeypatch, tmp_path
 
 def test_your_data_shows_real_captured_summary(monkeypatch, tmp_path):
     _seed_raw_dir(tmp_path)
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)
 
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data")
@@ -149,7 +152,7 @@ def test_your_data_shows_real_captured_summary(monkeypatch, tmp_path):
 
 def test_export_bom_returns_csv_of_the_real_captured_data(monkeypatch, tmp_path):
     _seed_raw_dir(tmp_path)
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)
 
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data/export/bom")
@@ -161,7 +164,7 @@ def test_export_bom_returns_csv_of_the_real_captured_data(monkeypatch, tmp_path)
 
 def test_export_sales_returns_csv_of_the_real_captured_data(monkeypatch, tmp_path):
     _seed_raw_dir(tmp_path)
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)
 
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data/export/sales")
@@ -175,7 +178,7 @@ def test_your_data_period_renders_as_plain_date_not_timestamp(monkeypatch, tmp_p
     show a plain date ("2026-06-01"), not a machine timestamp ("2026-06-01 00:00:00") on this
     trust surface (W2_review.md MINOR-2)."""
     _seed_raw_dir(tmp_path)
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)
 
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data")
@@ -191,7 +194,7 @@ def test_export_unknown_leg_returns_404(monkeypatch):
 
 
 def test_export_missing_data_returns_404_not_a_crash(monkeypatch, tmp_path):
-    monkeypatch.setattr(store, "_RAW_DIR", tmp_path)  # empty dir
+    monkeypatch.setattr(store, "RAW_DIR", tmp_path)  # empty dir
     client = _logged_in_client(monkeypatch)
     resp = client.get("/your-data/export/bom")
     assert resp.status_code == 404
