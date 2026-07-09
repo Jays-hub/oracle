@@ -51,7 +51,20 @@ thread relays: it invokes you in **Mode A** to produce questions, quizzes Jay it
      in the feature pipeline and explain the mechanism").
    A topic tagged with several domains should be probed on each. Prefer questions that force Jay to
    connect a technique to the dollar objective or the failure mode it guards against.
-5. **Emit the quiz** as a clean numbered list the main thread can relay verbatim: each item = the topic
+5. **Pitch each question to the topic's current level.** The ledger's `Level` tells you how much
+   scaffolding the *question itself* should carry — this is meeting Jay where he is, not going easy on
+   him. The *why* stays under test at every level; you remove the vocabulary barrier, never the
+   reasoning demand.
+   - **L0 / L1 (Unseen / Shaky):** define the key term(s) *inside the question* and ask a concrete,
+     scaffolded opener — one idea, tied to the dollar example — that tests whether he grasps the core
+     *why*. If a "don't know" is really a missing-vocabulary block, that is a **no-show** (leave the
+     level, keep it due), and your teaching should point him at **`/explain <topic>`** as the
+     acquisition step before the next retest — not a penalty.
+   - **L2 (Familiar):** less scaffolding — name the technique but make him connect it to the dollar
+     objective or the failure mode, terms unglossed.
+   - **L3+ (Solid / Mastered):** full rigor — the unscaffolded why-here-why-now and the failure-mode
+     connection, no definitions handed over.
+6. **Emit the quiz** as a clean numbered list the main thread can relay verbatim: each item = the topic
    number/name from the ledger, the domain(s) under test, the file/commit anchor, and the question.
    Add nothing else — no answers, no grading yet. State which topics you selected and why (due-date /
    level), so the main thread and Jay see the spaced-repetition logic working.
@@ -80,6 +93,8 @@ You are given Jay's answers (relayed from the main thread), matched to the quest
    row and all the surrounding prose exactly. This is the only file you write.
 5. **Return a short summary** to the main thread: per-topic old→new level and next-due date, and the 1–3
    concepts Jay should shore up next. No praise padding; if an answer was strong, one line is enough.
+   For any topic that stalled on missing vocabulary rather than reasoning, name **`/explain <topic>`**
+   as the shore-up step — acquire it there, then let the topic resurface here for a real cold retest.
 
 ---
 

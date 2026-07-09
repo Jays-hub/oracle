@@ -61,6 +61,52 @@ remediation record.
 
 ---
 
+## 2026-07-05 — P4 review remediation: dollar gate never scored the go-forward window — corrected result PASSES, thinner than reported `[built]`
+
+`/review-phase P4` (`docs/phase_decisions/P4_review.md`) found the P4 dollar gate's reported
+$15,585.09/11.7% win was computed on a gate that never touched the go-forward/censored window at all —
+the exact same fold-placement bug P3's own review found one phase earlier. Closed all 6 findings (1
+MAJOR, 4 MINOR, 1 NIT); full evidence and reasoning: `docs/phase_decisions/P4.md` "Remediation" section
+(this entry is the log pointer).
+
+- **MAJOR-1 — the dollar gate's 4 folds all sat in spring 2022, never the 2024 go-forward/censored
+  window.** `RollingOriginBacktest.run()` anchors every fold at the series START; on this ~2.5-year
+  series that clustered all 4 folds far from the only window where P3's unconstraining does anything.
+  Fixed via two new free functions in `backtest.py` — `min_train_weeks_reaching_tail` +
+  `splits_with_full_tail_coverage` — the same fix `unconstrain_floor.py` already uses for the identical
+  problem, applied here without touching `RollingOriginBacktest`'s own default behavior (so
+  `point_floor.py`/`baseline_floor.py`'s already-logged numbers don't move). `newsvendor_floor.py` now
+  runs its own manual per-fold loop against the end-anchored splits instead of calling
+  `RollingOriginBacktest.run()` directly.
+- **MINOR-3 — made_to_order items were getting a dish-count prep quantity.** Rule 04-deployment.md is
+  explicit that the newsvendor-on-dishes math never applies to made_to_order items (they route to
+  ingredient pars in Phase 7). New `decision.newsvendor.route_batch_items()` filters to the 7
+  `prep_type=batch` items; `newsvendor_floor.py` now trains on the full 11-item signal but predicts/
+  reports on batch items only.
+- **MINOR-5 + MINOR-2 — calibration was a single tail holdout, pooled across items, with an unremarked
+  upper-tail under-coverage.** `calibration.py` now refits across the same 4 end-anchored rolling-origin
+  folds the dollar gate uses, adds a per-item underage-at-q* breakdown (rule 03), and `main()` prints an
+  explicit caveat when upper quantile levels under-cover.
+- **MINOR-4 — `expected_stockout`'s top-anchor truncation bias was undocumented.** Docstring now states
+  the bias direction/magnitude explicitly; no math change (no operator-facing surface exists yet).
+- **NIT — `critical_ratio` duplication.** Reviewer agreed with the original call; no action.
+- **Corrected result: quantile+newsvendor $85,312.82 vs. point-model-as-mean $85,923.40 — the dollar
+  gate PASSES, but by $610.58 (~0.7%), not the original $15,585.09 (~11.7%), and the newsvendor arm now
+  wins only 2 of 4 folds (loses folds 2–3).** This is scored on batch items only, over folds that now
+  correctly reach the series' true end (2024-06-30). Read honestly: the win is real but thin, not the
+  decisive, all-folds-positive result originally reported — that result was never actually testing this
+  window or this item set. Calibration still PASSES (worst pooled deviation ~0.105; MAPIE CQR 0.748 at a
+  0.80 target); the new per-item breakdown surfaced real spread the old pooled number hid —
+  `house_burger` and `ribeye_steak_12oz` both run meaningfully hotter (more real underage) than their own
+  critical ratio predicts.
+- **New regression tests: 316 → 353 (+37)** across `test_backtest.py` (+6), `test_newsvendor.py` (+3),
+  `test_newsvendor_floor.py` (+1), `test_calibration.py` (net +3 after removing 2 dead tests for the
+  superseded `_train_test_tail_split`). `make check`: lint clean, both import-linter contracts kept.
+- P4 is now done: build closed 2026-07-04 (entry below), review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
 ## 2026-07-05 — W3 built: insight & price (invoice capture, price trends, opportunities surface) `[built]`
 
 Built `onramp/plate_cost/docs/website_vision.md` §8's W3 slice: a digital-feed invoice upload that

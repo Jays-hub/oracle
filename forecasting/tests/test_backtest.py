@@ -7,7 +7,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from forecasting.src.evaluate.backtest import RollingOriginBacktest, leakage_canary
+from forecasting.src.evaluate.backtest import (
+    RollingOriginBacktest,
+    leakage_canary,
+    min_train_weeks_reaching_tail,
+    splits_with_full_tail_coverage,
+)
 from forecasting.src.models.baselines import (
     BaseBaseline,
     ChefGutBaseline,
@@ -90,6 +95,75 @@ def test_insufficient_data_raises():
     )
     with pytest.raises(ValueError, match="Not enough data"):
         list(bt.splits(tiny_dates))
+
+
+# ------------------------------------------------------------- end-anchored folds --
+
+def test_min_train_weeks_reaching_tail_reserves_the_requested_test_span():
+    """400 days, 4 folds x 2 weeks (14 days) = 56-day test span reserved -> the
+    returned min_train_weeks should occupy (roughly) the remaining ~344 days."""
+    dates = pd.date_range("2023-01-01", periods=400, freq="D")
+    min_train_weeks = min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=2)
+    assert min_train_weeks == (400 - 4 * 2 * 7) // 7
+
+
+def test_min_train_weeks_reaching_tail_never_below_one():
+    dates = pd.date_range("2023-01-01", periods=10, freq="D")
+    assert min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=8) == 1
+
+
+def test_end_anchored_folds_reach_the_series_final_date(demand_df):
+    """The whole point of the fix: with min_train_weeks computed to reach the
+    tail, the LAST fold's test window must end at (or be extended to) the
+    series' true final date -- unlike the plain start-anchored default, which
+    leaves the folds clustered near the series start on a long series."""
+    dates = pd.DatetimeIndex([pd.Timestamp(d) for d in demand_df["business_date"].unique()])
+    dates = pd.DatetimeIndex(sorted(dates))
+    min_train_weeks = min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=2)
+    bt = RollingOriginBacktest(n_folds=4, test_weeks=2, min_train_weeks=min_train_weeks)
+    folds = list(splits_with_full_tail_coverage(bt, dates))
+    assert len(folds) == 4
+    _, last_test = folds[-1]
+    assert last_test.max() == dates.max()
+
+
+def test_end_anchored_folds_do_not_touch_earlier_fold_boundaries(demand_df):
+    """splits_with_full_tail_coverage only ever extends the LAST fold; folds
+    0..n-2 must be byte-identical to the plain (unwrapped) splits() output."""
+    dates = pd.DatetimeIndex(sorted(
+        pd.Timestamp(d) for d in demand_df["business_date"].unique()
+    ))
+    min_train_weeks = min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=2)
+    bt = RollingOriginBacktest(n_folds=4, test_weeks=2, min_train_weeks=min_train_weeks)
+    plain_folds = list(bt.splits(dates))
+    covered_folds = list(splits_with_full_tail_coverage(bt, dates))
+    for (plain_train, plain_test), (cov_train, cov_test) in zip(plain_folds[:-1], covered_folds[:-1]):
+        assert plain_train.equals(cov_train)
+        assert plain_test.equals(cov_test)
+    # last fold: train untouched, test only ever grows
+    assert plain_folds[-1][0].equals(covered_folds[-1][0])
+    assert set(plain_folds[-1][1]).issubset(set(covered_folds[-1][1]))
+
+
+def test_end_anchored_folds_still_expand_training_window(demand_df):
+    dates = pd.DatetimeIndex(sorted(
+        pd.Timestamp(d) for d in demand_df["business_date"].unique()
+    ))
+    min_train_weeks = min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=2)
+    bt = RollingOriginBacktest(n_folds=4, test_weeks=2, min_train_weeks=min_train_weeks)
+    sizes = [len(tr) for tr, _ in splits_with_full_tail_coverage(bt, dates)]
+    for i in range(1, len(sizes)):
+        assert sizes[i] > sizes[i - 1]
+
+
+def test_end_anchored_folds_still_pass_leakage_check(demand_df):
+    dates = pd.DatetimeIndex(sorted(
+        pd.Timestamp(d) for d in demand_df["business_date"].unique()
+    ))
+    min_train_weeks = min_train_weeks_reaching_tail(dates, n_folds=4, test_weeks=2)
+    bt = RollingOriginBacktest(n_folds=4, test_weeks=2, min_train_weeks=min_train_weeks)
+    for train_dates, test_dates in splits_with_full_tail_coverage(bt, dates):
+        assert test_dates.min() > train_dates.max()
 
 
 # ------------------------------------------------------------------ leakage canary --

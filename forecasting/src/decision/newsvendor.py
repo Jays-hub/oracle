@@ -51,6 +51,25 @@ def critical_ratio(co: float, cu: float) -> float:
     return cu / (co + cu)
 
 
+def route_batch_items(items: dict) -> dict:
+    """Filter to `prep_type == "batch"` items — rule 04-deployment.md's Prep-Type
+    Routing: the dish-count newsvendor (critical_ratio/prep_quantity) applies to
+    batch items ONLY. `made_to_order` items route to ingredient par-level logic
+    (Phase 7) and must never receive a "make N portions" read-off (P4_review.md
+    MINOR-3 — the first build applied prep_quantity to all 11 configured items,
+    including the 4 made_to_order ones, which also carry the highest critical
+    ratios and so skewed the reported gate number).
+
+    Compares against the plain string "batch" (not `config.PrepType`) so this
+    module keeps its existing no-`config.py`-import convention (see module
+    docstring) — `config.PrepType` is a `str, Enum` subclass, so `eco.prep_type ==
+    "batch"` is true for a real `ItemEconomics.prep_type` without importing the
+    enum. `items`: item_id -> object exposing `.prep_type` (e.g.
+    `config.ItemEconomics`).
+    """
+    return {item_id: eco for item_id, eco in items.items() if eco.prep_type == "batch"}
+
+
 def required_quantile_levels(
     items: dict,
     standard_grid: tuple[float, ...] = (0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99),
@@ -148,6 +167,21 @@ def expected_stockout(quantile_forecasts: pd.DataFrame, prep_qty: float) -> floa
     docstring "Deriving waste/stockout" for the derivation. The top fitted
     quantile level is treated as the effective right tail (F ~= 1 there); 0 when
     prep_qty already reaches or exceeds it.
+
+    KNOWN DOWNWARD BIAS (P4_review.md MINOR-4, builder-acknowledged, not fixed —
+    no operator-facing surface reads this yet, see below): truncating F at the top
+    fitted level (0.99 by default) drops the true probability mass beyond it, so
+    the returned value is systematically an UNDER-estimate of the real expected
+    stockout — worst near the truncation boundary itself (measured in
+    test_newsvendor.py: ~1% relative error at Q=90 against a grid truncated at 99,
+    vs. <0.1% error at interior points), and negligible for an item whose critical
+    ratio sits well inside [0.05, 0.95] (true for all 11 real items today — the
+    widest is 0.8125). NOT used by the P4 dollar gate (only prep_quantity() feeds
+    it) — this only touches the "free waste/stockout byproduct" pitched to the
+    chef. Do not surface this number to an operator (Phase 8's prep sheet) without
+    either widening/re-anchoring the grid for that item's q* or documenting the
+    bias alongside the figure — see docs/phase_decisions/P4.md "Explicitly
+    Deferred".
     """
     xs, qs = quantile_curve(quantile_forecasts)
     x_max = xs[-1]

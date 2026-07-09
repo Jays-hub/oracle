@@ -143,16 +143,24 @@ authoritative history is always `docs/progress_log.md`, not this snapshot.
   `forecasting/src/models/quantile.py` (`QuantileGBMModel` — one LightGBM quantile regressor per level,
   global across items, non-crossing enforced by post-hoc rearrangement);
   `forecasting/src/decision/newsvendor.py` (`critical_ratio`, `prep_quantity` = `F⁻¹(q*)`,
-  `expected_waste`/`expected_stockout` as CDF integrals); `forecasting/src/evaluate/calibration.py`
-  (empirical coverage + PIT vs. the hidden ground truth, plus an independent MAPIE conformalized-
-  quantile-regression cross-check); `forecasting/src/evaluate/newsvendor_floor.py` (the dollar gate).
-  Both "done when" conditions met on real data: calibration PASS (coverage tracks nominal at all 19
-  fitted levels; MAPIE CQR coverage 0.786 at a 0.80 target) and the dollar gate PASS — quantile+
-  newsvendor **$117,536.08** vs. point-model-as-mean **$133,121.17**, a **$15,585.09** improvement
-  (~11.7%). See `docs/phase_decisions/P4.md` for the full design record.
-- **Suite: 316 tests, 316 pass** (full repo via `make test`; lint clean, both import-linter contracts
-  kept). The former red test (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a
-  test-arithmetic bug, not an implementation bug — fixed 2026-06-30, see
-  `forecasting/docs/construction_roadmap.md` Phase 2 callout.
+  `expected_waste`/`expected_stockout` as CDF integrals, `route_batch_items` for rule 04 prep-type
+  routing); `forecasting/src/evaluate/calibration.py` (empirical coverage + PIT vs. the hidden ground
+  truth over end-anchored rolling-origin folds, a per-item underage breakdown, plus an independent MAPIE
+  conformalized-quantile-regression cross-check); `forecasting/src/evaluate/newsvendor_floor.py` (the
+  dollar gate, batch items only). `/review-phase P4` (`docs/phase_decisions/P4_review.md`) found the
+  original dollar gate never scored the go-forward/censored window (MAJOR-1, the same root cause as
+  P3's own BLOCKER-1) and applied the dish-count read-off to made_to_order items (MINOR-3); both fixed —
+  full remediation record in `docs/phase_decisions/P4.md` "Remediation." Both "done when" conditions
+  hold on the corrected, real-data run: calibration PASS (worst pooled deviation ~0.105, inside
+  tolerance; MAPIE CQR coverage 0.748 at a 0.80 target) and the dollar gate PASS — quantile+newsvendor
+  **$85,312.82** vs. point-model-as-mean **$85,923.40**, a **$610.58** improvement (~0.7%), scored on
+  the 7 batch items over folds now reaching the series' true end (2024-06-30). This is a materially
+  thinner and less consistent win than the phase's original (mis-scoped) $15,585.09/11.7% headline —
+  the newsvendor arm wins 2 of 4 folds and loses 2 — read honestly, not oversold going into Phase 5.
+- **Suite: 353 tests, 353 pass** (full repo via `make test`; lint clean, both import-linter contracts
+  kept). Up from 316 post-P4-review (+37, see `docs/phase_decisions/P4.md` "Remediation"). The former
+  red test (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not
+  an implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
+  callout.
 **P5 is next:** exogenous signal fusion (weather, events, forward reservation depth).
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.

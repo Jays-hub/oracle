@@ -16,8 +16,8 @@ import pandas as pd
 import pytest
 
 from forecasting.src.evaluate.calibration import (
-    _train_test_tail_split,
     empirical_coverage,
+    per_item_underage_at_critical_ratio,
     pit_values,
 )
 
@@ -132,24 +132,63 @@ def test_pit_values_are_reasonably_uniform_for_a_well_calibrated_model():
     assert pits.mean() == pytest.approx(0.5, abs=0.05)
 
 
-# ------------------------------------------------------------------ _train_test_tail_split --
+# ------------------------------------------------------------ per_item_underage_at_critical_ratio --
 
-def test_train_test_tail_split_reserves_exactly_the_requested_tail():
-    dates = pd.date_range("2024-01-01", "2024-04-30", freq="D")
-    demand_df = pd.DataFrame({
-        "business_date": dates, "item_id": "item_a", "service_period": "dinner", "demand": 1,
-    })
-    train_df, test_dates = _train_test_tail_split(demand_df, test_weeks=2)
+def test_per_item_underage_matches_hand_computed_fraction():
+    """item_a: co=10, cu=15 -> q*=0.6. Forecast at q=0.6 is 10 for both days;
+    truth 12 > 10 is an underage, truth 8 <= 10 is not -> empirical_underage=0.5."""
+    from forecasting.src.config import ItemEconomics, PrepType
 
-    assert len(test_dates) == 14
-    assert max(train_df["business_date"]) < min(test_dates)
-    assert set(train_df["business_date"]).isdisjoint(set(test_dates))
+    d1, d2 = datetime.date(2024, 1, 1), datetime.date(2024, 1, 2)
+    items = {"item_a": ItemEconomics(
+        id="item_a", name="Item A", prep_type=PrepType.BATCH, co=10.0, cu=15.0, lead_time_days=1,
+    )}
+    preds = pd.DataFrame([
+        _pred_row(d1, "item_a", "dinner", 0.6, 10.0),
+        _pred_row(d2, "item_a", "dinner", 0.6, 10.0),
+    ])
+    truth = pd.DataFrame([
+        _truth_row(d1, "item_a", "dinner", 8.0),   # 8 > 10 is False -> not underage
+        _truth_row(d2, "item_a", "dinner", 12.0),  # 12 > 10 is True -> underage
+    ])
+    result = per_item_underage_at_critical_ratio(preds, truth, items)
+    assert len(result) == 1
+    row = result.iloc[0]
+    assert row["item_id"] == "item_a"
+    assert row["q_star"] == pytest.approx(0.6)
+    assert row["nominal_underage"] == pytest.approx(0.4)
+    assert row["empirical_underage"] == pytest.approx(0.5)
+    assert row["n"] == 2
 
 
-def test_train_test_tail_split_raises_when_history_too_short():
-    dates = pd.date_range("2024-01-01", "2024-01-05", freq="D")
-    demand_df = pd.DataFrame({
-        "business_date": dates, "item_id": "item_a", "service_period": "dinner", "demand": 1,
-    })
-    with pytest.raises(ValueError, match="Not enough history"):
-        _train_test_tail_split(demand_df, test_weeks=4)
+def test_per_item_underage_one_row_per_item_with_a_fitted_q_star():
+    """An item whose critical ratio was never fit (no matching quantile level in
+    the forecasts) is skipped, not fabricated or interpolated."""
+    from forecasting.src.config import ItemEconomics, PrepType
+
+    d1 = datetime.date(2024, 1, 1)
+    items = {
+        "item_a": ItemEconomics(id="item_a", name="A", prep_type=PrepType.BATCH,
+                                 co=10.0, cu=15.0, lead_time_days=1),  # q*=0.6, fitted
+        "item_b": ItemEconomics(id="item_b", name="B", prep_type=PrepType.BATCH,
+                                 co=1.0, cu=1.0, lead_time_days=1),   # q*=0.5, NOT fitted below
+    }
+    preds = pd.DataFrame([_pred_row(d1, "item_a", "dinner", 0.6, 10.0)])
+    truth = pd.DataFrame([
+        _truth_row(d1, "item_a", "dinner", 8.0),
+        _truth_row(d1, "item_b", "dinner", 8.0),
+    ])
+    result = per_item_underage_at_critical_ratio(preds, truth, items)
+    assert set(result["item_id"]) == {"item_a"}
+
+
+def test_per_item_underage_raises_when_no_item_has_a_matching_row():
+    items_module = pytest.importorskip("forecasting.src.config")
+    items = {"item_a": items_module.ItemEconomics(
+        id="item_a", name="A", prep_type=items_module.PrepType.BATCH,
+        co=10.0, cu=15.0, lead_time_days=1,
+    )}
+    preds = pd.DataFrame([_pred_row(datetime.date(2024, 1, 1), "item_a", "dinner", 0.9, 10.0)])
+    truth = pd.DataFrame([_truth_row(datetime.date(2024, 1, 1), "item_a", "dinner", 8.0)])
+    with pytest.raises(RuntimeError, match="no item had an overlapping"):
+        per_item_underage_at_critical_ratio(preds, truth, items)

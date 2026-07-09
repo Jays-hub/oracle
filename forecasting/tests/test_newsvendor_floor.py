@@ -15,7 +15,11 @@ import pandas as pd
 import pytest
 
 from forecasting.src.config import ItemEconomics, PrepType
-from forecasting.src.decision.newsvendor import critical_ratio, required_quantile_levels
+from forecasting.src.decision.newsvendor import (
+    critical_ratio,
+    required_quantile_levels,
+    route_batch_items,
+)
 from forecasting.src.evaluate.backtest import RollingOriginBacktest
 from forecasting.src.evaluate.newsvendor_floor import _NewsvendorAdapter
 from forecasting.src.models.baselines import Lag7Baseline
@@ -46,6 +50,18 @@ def _items():
     eco_b = ItemEconomics(id="item_b", name="Item B", prep_type=PrepType.BATCH,
                            co=5.0, cu=30.0, lead_time_days=1)
     return {"item_a": eco_a, "item_b": eco_b}
+
+
+def _items_with_made_to_order():
+    """Like _items() but with a third, made_to_order item -- for the P4_review.md
+    MINOR-3 regression guard: route_batch_items() must strip it before it ever
+    reaches the adapter, so the dish-count read-off never fires for it."""
+    items = _items()
+    items["item_c"] = ItemEconomics(
+        id="item_c", name="Item C", prep_type=PrepType.MADE_TO_ORDER,
+        co=6.0, cu=22.0, lead_time_days=1,
+    )
+    return items
 
 
 # ------------------------------------------------------------------ fit/predict contract --
@@ -110,6 +126,32 @@ def test_forecast_is_the_items_own_critical_ratio_readoff():
             assert forecast >= median - 1e-6, (
                 f"{item_id}: critical-ratio read-off (r={r:.2f} > 0.5) should be >= the median"
             )
+
+
+# ------------------------------------------------------------------ prep_type routing (MINOR-3) --
+
+def test_made_to_order_item_never_gets_a_dish_count_readoff():
+    """P4_review.md MINOR-3 regression guard: an adapter constructed with
+    route_batch_items(items) -- newsvendor_floor.py's own convention -- must
+    never emit a prep_qty row for a made_to_order item, even though the model
+    itself was trained on demand for all three items."""
+    items = _items_with_made_to_order()
+    batch_items = route_batch_items(items)
+    assert set(batch_items) == {"item_a", "item_b"}  # item_c (made_to_order) stripped
+
+    train = _demand_df(n_days=40)
+    # Fit against demand for all three items (item_c must appear in the training
+    # signal even though it's never read off) by injecting a third item's rows.
+    extra_rows = train[train["item_id"] == "item_a"].copy()
+    extra_rows["item_id"] = "item_c"
+    train = pd.concat([train, extra_rows], ignore_index=True)
+
+    adapter = _NewsvendorAdapter(batch_items, required_quantile_levels(batch_items), n_estimators=10).fit(train)
+    preds = adapter.predict(
+        [datetime.date(2024, 2, 12)], ["item_a", "item_b", "item_c"], ["lunch"]
+    )
+    assert "item_c" not in set(preds["item_id"])
+    assert set(preds["item_id"]) == {"item_a", "item_b"}
 
 
 # ------------------------------------------------------------------ backtest integration --

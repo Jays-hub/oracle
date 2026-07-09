@@ -20,6 +20,7 @@ from forecasting.src.decision.newsvendor import (
     prep_quantity,
     quantile_curve,
     required_quantile_levels,
+    route_batch_items,
 )
 
 
@@ -61,6 +62,45 @@ def test_required_quantile_levels_includes_standard_grid_and_each_items_ratio():
     assert 0.6 in levels  # item a's own critical ratio, not on the standard grid
     assert levels == sorted(levels)
     assert len(levels) == len(set(levels))  # de-duplicated (item b's 0.5 already in standard)
+
+
+# ------------------------------------------------------------------ route_batch_items --
+
+def test_route_batch_items_keeps_only_batch():
+    class _Eco:
+        def __init__(self, prep_type):
+            self.prep_type = prep_type
+
+    items = {
+        "braise": _Eco("batch"),
+        "risotto": _Eco("made_to_order"),
+        "burger": _Eco("batch"),
+    }
+    batch = route_batch_items(items)
+    assert set(batch) == {"braise", "burger"}
+
+
+def test_route_batch_items_matches_real_config_prep_type_enum():
+    """route_batch_items must also work against a REAL config.ItemEconomics
+    (prep_type is a config.PrepType, a `str, Enum` subclass, not a plain str) --
+    guards the duck-typed `== "batch"` comparison against the actual type used
+    everywhere else in the engine, not just a bespoke test double."""
+    from forecasting.src.config import ItemEconomics, PrepType
+
+    items = {
+        "a": ItemEconomics(id="a", name="A", prep_type=PrepType.BATCH, co=1.0, cu=1.0, lead_time_days=1),
+        "b": ItemEconomics(id="b", name="B", prep_type=PrepType.MADE_TO_ORDER, co=1.0, cu=1.0, lead_time_days=1),
+    }
+    assert set(route_batch_items(items)) == {"a"}
+
+
+def test_route_batch_items_empty_when_none_are_batch():
+    class _Eco:
+        def __init__(self, prep_type):
+            self.prep_type = prep_type
+
+    items = {"risotto": _Eco("made_to_order")}
+    assert route_batch_items(items) == {}
 
 
 # ------------------------------------------------------------------ quantile_curve --

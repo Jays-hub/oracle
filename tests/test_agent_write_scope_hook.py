@@ -104,6 +104,23 @@ def test_auditor_denied_current_state():
     assert _decision(out) == "deny"
 
 
+def test_explainer_allowed_glossary():
+    out = _write("concept-explainer", "docs/glossary.md")
+    assert out == {}
+
+
+def test_explainer_denied_mastery_ledger():
+    """The teacher may not touch the grader's ledger: teaching is separate from
+    assessment by construction, so a mastery level always means a cold retrieval."""
+    out = _write("concept-explainer", "docs/mastery.md")
+    assert _decision(out) == "deny"
+
+
+def test_explainer_denied_writing_source():
+    out = _write("concept-explainer", "forecasting/src/models/point.py", tool="Edit")
+    assert _decision(out) == "deny"
+
+
 def test_scratchpad_and_tmp_writes_stay_allowed():
     """The guarantee protects the repo tree; scratch space outside it is fine."""
     out = _write("phase-reviewer", "/tmp/scratch/review_notes.md")
@@ -198,3 +215,15 @@ def test_bash_allows_plain_reads():
 def test_bash_main_thread_unrestricted():
     out = _run_hook({"tool_name": "Bash", "tool_input": {"command": "rm -rf forecasting/src/models"}})
     assert out == {}
+
+
+def test_bash_allows_explainer_appending_glossary():
+    """The explainer's one legal write via Bash: appending terms to its glossary."""
+    out = _bash("concept-explainer", "cat /tmp/new_terms.md >> docs/glossary.md")
+    assert out == {}
+
+
+def test_bash_denies_explainer_redirect_into_ledger():
+    """A redirect into the grading ledger is the escape this scope must close."""
+    out = _bash("concept-explainer", "echo '| 2 | ... | L4 |' >> docs/mastery.md")
+    assert _decision(out) == "deny"
