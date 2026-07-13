@@ -118,9 +118,13 @@ schemas in `../../schemas/`). **Storage: DuckDB-over-Parquet** — the decided s
 query layer over them. The on-ramp owns its own store helper (no import of the engine). Optional:
 pytesseract / cloud OCR for Phase 2 invoice capture. No ML frameworks — this module has no models.
 
-**Web stack (planned — the on-ramp's client-facing face).** A clean, simple website + a thin backend
+**Web stack (built W0–W3; production map approved).** A clean, simple website + a thin backend
 over the pure `src/` compute, writing the seam through `../../schemas/`. Vision:
-`docs/website_vision.md`. Governance: the full-stack rules `../../.claude/rules/05–07`
-(paths → `onramp/**`). Build thin and phased; the durable parts (capture funnel, storage,
-transparency) outlast the provisional plate-cost views. The compute in `src/` stays
-framework-agnostic — a web layer must never become the only way to run a plate-cost.
+`docs/website_vision.md`. **PoC → production execution map (W5–W10: designated app database, real
+identity, hosting, the public face, seam tenancy): `docs/website_production_overview.md`** (approved 2026-07-13 —
+sanctioned on-ramp-function investment, not drift). Governance: the full-stack rules
+`../../.claude/rules/05–07` (paths → `onramp/**`). Build thin and phased; the durable parts
+(capture funnel, storage, identity, transparency) outlast the provisional plate-cost views. The
+compute in `src/` stays framework-agnostic — a web layer must never become the only way to run a
+plate-cost. The application database is on-ramp-private (SQLite → Postgres via
+`ONRAMP_DATABASE_URL`) and separate from the seam: user data never crosses into `data/raw/`.

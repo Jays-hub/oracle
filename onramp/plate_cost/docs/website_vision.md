@@ -187,6 +187,13 @@ A map from today's CLI-grade Phase-0 tool to the full vision. Each phase is a se
 | **W3** | Insight & price | Invoice ingestion (post-gate), price-trend alerts, the opportunities surface. | Mixed |
 | **W4** | Transparency + bridge | The full "your data" transparency view and the forecasting "what's next" panel. | Durable framing, provisional content |
 
+> **The map now extends past W4.** W0–W3 are built and reviewed; the approved execution map from
+> this proof of concept to a full production service — a designated application database, real
+> identity, hosting, the public storefront + design/accessibility pass, seam-level tenancy
+> (phases W5–W10) — is
+> [website_production_overview.md](website_production_overview.md) (2026-07-13). This section stays
+> as the original thin-first record; the production overview governs the phases beyond it.
+
 **W0 is the honest next slice** — it reuses the `src/` compute chain already built and produces the
 client-showable artifact with the least new code. (W0 *reads* the on-ramp's source inputs, not the
 seam: the `data/raw/` export carries only BOM + sales, which can't reconstruct margins — reading the
