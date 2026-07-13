@@ -11,6 +11,29 @@
   open format we store it in.</p>
 </section>
 
+{# The firewall story is trust content, not a data view — shown whether or not anything has
+   been captured yet (rule 06: "transparency is a first-class surface, not fine print"). Plain
+   <h2>, no .page-meta muting (W4_review.md NIT-1) — a trust heading is a title, not fine print. #}
+<section class="confirm-summary">
+  <h2>What we never touch</h2>
+  <p class="page-meta">Two separate things exist behind the scenes: <strong>your data</strong> —
+  exactly what you've uploaded (sales history, recipe sheet, invoice prices) — and a completely
+  separate internal testing lab we use to grade our own forecasting method against a simulated,
+  made-up restaurant. Your numbers never enter that lab, and it never shapes what you see here.
+  This isn't a policy promise: an automated check in our build fails loudly if any code ever
+  tries to cross that line.</p>
+  <p class="page-meta">Today there is one login gate in front of every page that shows your
+  data. Physically separating each restaurant's files on disk is on our roadmap, not yet built —
+  we'd rather say that plainly than imply more isolation exists than actually does.</p>
+</section>
+
+{# Three legs, three independent existence flags. Gating everything below on a single combined
+   ``has_data`` (BOM+sales only) collapsed the "only invoices captured" state into a false
+   "nothing captured" message while the firewall text above kept claiming otherwise
+   (W4_review.md MAJOR-1). The outer gate now fires if ANY leg is present or erroring — the
+   ledger and export section render per-leg from here down, never as one all-or-nothing block. #}
+{% if summary.has_data or summary.has_price_data or summary.price_leg_error %}
+
 {% if summary.has_data %}
 <section class="confirm-summary">
   <dl class="dish-details">
@@ -21,25 +44,75 @@
     <div class="detail-row"><dt>Period</dt><dd>{{ summary.period_start }} – {{ summary.period_end }}</dd></div>
   </dl>
 </section>
+{% endif %}
 
 <section class="confirm-summary">
-  <h2 class="page-meta"><strong>What we hold, and why</strong></h2>
+  <h2>What we hold, and why</h2>
   <dl class="dish-details">
-    <div class="detail-row"><dt>Recipe sheet (BOM)</dt><dd>Powers your plate costs</dd></div>
-    <div class="detail-row"><dt>Sales export</dt><dd>Powers your covers and, soon, your prep forecast</dd></div>
+    <div class="detail-row">
+      <dt>Recipe sheet (BOM)</dt>
+      {% if summary.has_data %}
+      <dd>Powers your plate costs — {{ summary.bom_row_count }}
+        recipe line{{ "s" if summary.bom_row_count != 1 else "" }}</dd>
+      {% else %}
+      <dd>Not connected yet — <a href="/upload">connect your data</a> to add your recipe sheet</dd>
+      {% endif %}
+    </div>
+    <div class="detail-row">
+      <dt>Sales export</dt>
+      {% if summary.has_data %}
+      <dd>Powers your covers and, soon, your prep forecast —
+        {{ summary.sales_row_count }} row{{ "s" if summary.sales_row_count != 1 else "" }}</dd>
+      {% else %}
+      <dd>Not connected yet — <a href="/upload">connect your data</a> to add your sales history</dd>
+      {% endif %}
+    </div>
+    <div class="detail-row">
+      <dt>Invoice / price history</dt>
+      {% if summary.has_price_data %}
+      <dd>Powers your price-move insights — {{ summary.price_observation_count }}
+        observation{{ "s" if summary.price_observation_count != 1 else "" }} across
+        {{ summary.priced_ingredient_count }}
+        ingredient{{ "s" if summary.priced_ingredient_count != 1 else "" }}</dd>
+      {% elif summary.price_leg_error %}
+      <dd>Temporarily unavailable — we couldn't read your invoice history just now. Try again
+        shortly; if this persists, let us know.</dd>
+      {% else %}
+      <dd>Not connected yet — <a href="/invoice/upload">upload an invoice</a> to start tracking
+        price moves</dd>
+      {% endif %}
+    </div>
   </dl>
-  <p class="page-meta">We never touch anything beyond what you uploaded — no other restaurant's
-  data, no hidden scoring data, no forecasting internals.</p>
 </section>
 
+{% if summary.has_data or summary.has_price_data %}
 <section class="confirm-summary">
   <p><strong>Export your data</strong> — the same open CSV format the seam uses, no lock-in:</p>
   <p>
+    {% if summary.has_data %}
     <a href="/your-data/export/bom">Download recipe sheet (CSV)</a>
     &nbsp;·&nbsp;
     <a href="/your-data/export/sales">Download sales export (CSV)</a>
+    {% endif %}
+    {% if summary.has_data and summary.has_price_data %}&nbsp;·&nbsp;{% endif %}
+    {% if summary.has_price_data %}
+    <a href="/your-data/export/prices">Download invoice history (CSV)</a>
+    {% endif %}
   </p>
 </section>
+{% endif %}
+
+{% if summary.has_data %}
+<section class="confirm-summary">
+  <h2>What this unlocks next</h2>
+  <p>You've already given us the sales history and recipes a prep-demand forecast needs. We're
+  building the engine that turns this into a daily prep sheet — how much of each dish to make —
+  weighing the real cost of over-prepping against running out, not just an accuracy score.</p>
+  <p class="page-meta">That engine exists and is validated against simulated test data today; it
+  hasn't run on your restaurant's numbers yet, and nothing on this page changes until it does.</p>
+</section>
+{% endif %}
+
 {% else %}
 <section class="confirm-summary">
   <p>Nothing captured yet.</p>

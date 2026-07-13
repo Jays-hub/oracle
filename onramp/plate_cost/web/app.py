@@ -23,6 +23,14 @@ plus the BOM back and surfaces dollar-quantified price-move findings (src/pricin
 src/insights/opportunities.py) — deliberately without a margin/tier claim, since the seam still
 carries no menu_price (docs/phase_decisions/W3.md).
 
+W4: /your-data deepens into the full transparency view — all three captured legs (BOM, sales,
+invoice/price history) enumerated with why each is held, a plain-English explanation of the
+engine's hidden-oracle firewall and today's one-tenant honesty, and CSV export now covers the
+price-history leg too (missing since W2, since that leg didn't exist until W3). The same page
+also carries the new "what this unlocks next" bridge panel — a static, honestly-scoped
+description of the forecasting engine's prep-quantity capability, never citing simulation-only
+dollar figures as this operator's numbers (docs/phase_decisions/W4.md).
+
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
 validated input, atomic seam writes, backend-enforced tenant isolation.)
@@ -61,7 +69,12 @@ from .compute import build_grid_data
 from .insights import build_insights_summary
 from .invoice import build_invoice_summary
 from .upload import build_summary
-from .your_data import build_your_data_summary, export_bom_csv, export_sales_csv
+from .your_data import (
+    build_your_data_summary,
+    export_bom_csv,
+    export_price_observations_csv,
+    export_sales_csv,
+)
 
 _WEB_DIR = Path(__file__).resolve().parent
 
@@ -146,7 +159,21 @@ def logout(request: Request) -> RedirectResponse:
 def your_data(request: Request) -> HTMLResponse | RedirectResponse:
     if redirect := require_login(request):
         return redirect
-    summary = build_your_data_summary()
+    # Same calm-fallback shape as grid()/insights() (W4_review.md MINOR-1): build_your_data_
+    # summary() degrades an unreadable *price* leg on its own (src/web/your_data.py's
+    # _price_leg_stats()), but this still catches anything unexpected in the BOM/sales path
+    # itself, so the trust page never bare-500s.
+    try:
+        summary = build_your_data_summary()
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("your-data render failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={"correlation_id": correlation_id},
+            status_code=503,
+        )
     return _templates.TemplateResponse(
         request=request, name="your_data.html", context={"summary": summary},
     )
@@ -156,7 +183,11 @@ def your_data(request: Request) -> HTMLResponse | RedirectResponse:
 def your_data_export(request: Request, leg: str) -> PlainTextResponse | RedirectResponse:
     if redirect := require_login(request):
         return redirect
-    exporters = {"bom": ("bom.csv", export_bom_csv), "sales": ("sales_export.csv", export_sales_csv)}
+    exporters = {
+        "bom": ("bom.csv", export_bom_csv),
+        "sales": ("sales_export.csv", export_sales_csv),
+        "prices": ("price_observations.csv", export_price_observations_csv),
+    }
     match = exporters.get(leg)
     if match is None:
         correlation_id = uuid4().hex[:8]
@@ -167,6 +198,14 @@ def your_data_export(request: Request, leg: str) -> PlainTextResponse | Redirect
         csv_text = export_fn()
     except FileNotFoundError:
         return PlainTextResponse("No data captured yet.", status_code=404)
+    except Exception:
+        # A present-but-corrupt/unreadable file is a different failure than "never captured" —
+        # never let it fall through to a bare 500 (W4_review.md MINOR-1, same fix as the route).
+        correlation_id = uuid4().hex[:8]
+        _log.exception("your-data export failed for leg %r (correlation_id=%s)", leg, correlation_id)
+        return PlainTextResponse(
+            f"Temporarily unable to export this data (ref {correlation_id}).", status_code=503,
+        )
     return PlainTextResponse(
         csv_text, media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
