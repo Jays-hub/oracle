@@ -26,14 +26,25 @@ barrier, not the ideas underneath them.
 - **Censored demand** — When a dish sells out, the sales figure is capped at how much you prepped, so
   you never saw true demand. A `sold == capacity` day is a *stockout*, not real demand, and must be
   corrected before modeling.
+- **Chef's gut proxy (`ChefGutBaseline`)** — The 28-day same-weekday rolling mean rounded to the nearest
+  5 — a stand-in for how a chef actually eyeballs prep ("call it 15, not 14.3"). One of the three
+  baselines that make up the dollar floor.
 - **Critical ratio (`q*`)** — The single fraction `Cu / (Co + Cu)` that says how far up the range of
   possible demand to prep. It is a target *probability*, not an amount of food. With `Cu=6.5, Co=1.5`,
   `q* = 0.8125`.
 - **Croston's method** — A baseline built for items that sell in occasional bursts with many zero days
-  (intermittent demand), where a plain average misleads.
+  (intermittent demand), where a plain average misleads. Present as a class in `baselines.py` but *not*
+  wired into the computed dollar floor (which runs lag7 / rolling28 / chef_gut).
+- **Dollar floor (baseline floor)** — The realized dollar cost of the naive baselines on the real
+  (`data/raw/`) data — the number a fancy model must beat to justify itself. Best baseline here:
+  `rolling28` at $147,584.42 (clean). Computed in `evaluate/baseline_floor.py`; never computed on
+  `_truth` (that would inflate the target and let a mediocre model look like a winner).
 - **Dollar objective (realized cost)** — The one number this project optimizes:
   `Σ(Co·overage + Cu·underage)` — total dollars lost to waste plus dollars lost to stockouts. "Done"
   means beating the prior baseline on *this*, never on accuracy.
+- **Forecast bias (mean signed error)** — The average of forecast minus actual across days. Persistently
+  negative = chronic under-prep (running out); persistently positive = chronic over-prep (waste). The
+  point-forecast baselines run negative on purpose, because `Cu > Co` for every item.
 - **GBM — gradient-boosted machine** — The prediction model used here: many small decision trees added
   up, each correcting the last one's mistakes. Strong on messy tabular data like daily dish sales.
 - **Ground truth (`_truth`)** — The *real* demand the simulator secretly knows. Used only to score
@@ -52,6 +63,9 @@ barrier, not the ideas underneath them.
 - **MAPE / RMSE** — Standard *accuracy* error scores. This project deliberately does **not** optimize
   them: two forecasts with identical RMSE can lose very different dollars, and dollars are what we
   score.
+- **Marginal analysis (stopping rule)** — Deciding a quantity one unit at a time: prep the next portion
+  only while its expected save `Cu·(1−F)` beats its expected waste `Co·F`. Stopping where they balance
+  gives `F(Q*) = Cu/(Co+Cu)` — the derivation that proves the critical ratio is optimal.
 - **Menu-era tagging** — Marking which stretch of history used which menu/recipe, so old,
   no-longer-relevant sales don't pollute the model. Done before the point model runs.
 - **Newsvendor model** — The classic "how much perishable stock to prep for uncertain demand" problem.
@@ -78,9 +92,15 @@ barrier, not the ideas underneath them.
   time order is the whole point.
 - **Seasonal-naive** — A baseline that forecasts "same as the equivalent day last cycle" (e.g. last
   Monday). Simple, and surprisingly hard to beat.
+- **Service level** — The plain name for the target probability you prep to: the fraction of days you
+  intend to have enough. The critical ratio `q*` is the *cost-optimal* service level; `q* = 0.75` means
+  "aim to have enough 3 days in 4, accept running short the 4th."
 - **`.shift(1)`** — The pandas operation that slides a column down one row, so "today's" feature is
   actually yesterday's value — the guard against a row cheating with its own same-day demand.
 - **Tweedie objective** — A count-friendly loss (like Poisson) that also handles overdispersion and
   lots of zero days. The P3+ upgrade for when Poisson isn't flexible enough.
 - **Underage cost (`Cu`)** — The dollars lost per portion of demand you *couldn't* fill (a stockout:
   lost sale, unhappy customer). The "too little" side of the trade-off.
+- **WAPE — weighted absolute percentage error** — A point-accuracy diagnostic (sum of absolute errors
+  over sum of actuals) the backtest reports alongside dollar cost. Like MAPE/RMSE it is a diagnostic
+  only — never the ship decision; dollars are.
