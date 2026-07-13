@@ -10,6 +10,85 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-13 — W4 hardening: fixed all `W4_review.md` findings `[built]`
+
+`/review-web W4`'s verdict was **"Yes, with one MAJOR to fix first"** — the transparency page
+contradicted itself in a reachable state. All findings — the MAJOR plus one MINOR and one LOW (both
+NITs also addressed) — are fixed in this pass, closing out the review. `docs/phase_decisions/W4.md`/
+`W4_review.md` are left as the frozen build-time/review-time record (same convention as the
+2026-07-06 W3 hardening entry); this entry is the remediation record.
+
+- **MAJOR-1 — "only invoices captured" rendered a self-contradicting trust page.** The price-leg
+  ledger row, counts, and export link were all nested inside `{% if summary.has_data %}` (BOM+sales
+  only), so an operator who'd uploaded invoices but not yet BOM/sales saw "Nothing captured yet" while
+  the always-shown firewall paragraph above it claimed we held their invoice prices — and the operator
+  couldn't export the data they *had* given us. `your_data.html`'s outer gate is now
+  `{% if summary.has_data or summary.has_price_data or summary.price_leg_error %}`, with each of the
+  three legs (BOM, sales, price history) rendering its own connected/not-connected state
+  independently in the ledger and its own conditional export link — no leg's presence is any longer
+  collapsed into a single combined flag. The bridge panel stays gated on `has_data` specifically
+  (its copy is a claim about sales history + recipes, which invoices alone don't satisfy).
+- **MINOR-1 — no calm-fallback wrapper on `/your-data`; a corrupt price leg could 500 the whole
+  trust page.** Went beyond the reviewer's minimal suggestion: `_price_leg_stats()`
+  (`web/your_data.py`) now catches any read failure beyond `FileNotFoundError` and returns a new
+  explicit `price_leg_error` state — the page shows "Temporarily unavailable" for that one leg,
+  honestly distinct from "not connected yet," while BOM/sales and the rest of the page render
+  normally. `your_data()` and `your_data_export()` (`web/app.py`) also gained the same
+  try/except → calm error (503 + correlation id / legible message) every sibling route already
+  has, as defense-in-depth for anything unexpected in the BOM/sales path.
+- **LOW-1 — the `_truth` boundary grep was `.py`-only, and W4 was the first phase to put firewall
+  prose in a template.** `tests/test_module_boundaries.py` now also scans `onramp/**/*.{html,css,js}`
+  (`_web_asset_files()`), deliberately excluding docs/markdown since governance files legitimately
+  name the hidden-oracle path in prose to describe the rule itself.
+- **NITs — trust-section `<h2>`s no longer use the muted `.page-meta` utility** (titles read as
+  titles, not fine print, matching `insights.html`'s bare-`<h2>` convention); **bridge-panel copy**
+  now reads "validated against simulated test data" rather than the more confident "validated on test
+  data," matching the platform's own standing caveat on simulation figures.
+- **Tests: 434 pass, up from 429** — 5 new (`test_your_data_shows_price_leg_and_export_when_only_
+  invoices_captured` reproduces MAJOR-1 and proves the fix; `test_your_data_degrades_price_leg_
+  without_crashing_when_price_file_corrupt` and `test_export_prices_returns_503_not_a_crash_when_
+  price_file_corrupt` reproduce MINOR-1 on both the page and export routes; `test_your_data_returns_
+  calm_503_when_bom_read_fails_unexpectedly` covers the route-level wrapper; `test_web_asset_scan_
+  would_catch_a_truth_reference_planted_in_a_template` proves LOW-1's new glob actually catches a
+  planted violation in a synthetic tree). `ruff check`: clean. `lint-imports`: 2 contracts kept, 0
+  broken. Boundary test green (4 checks, `.py` + web-asset scan).
+- W4 is now done: build closed above (entry below), review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-13 — W4 built: transparency + bridge (`/your-data` deepened) `[built]`
+
+Built `website_vision.md` §8's W4 slice: `/your-data` deepens from W2's counts-only state into the
+full transparency view, plus the new forecasting "what's next" bridge panel. Both landed as sections
+on the existing page rather than a new route — a design judgment call, flagged for review. Full
+reasoning, load-bearing assumptions, and design decisions: `docs/phase_decisions/W4.md`. Not marked
+done here — per `00-process.md`, that happens when `/review-web W4` closes on the code.
+
+- **Three-leg ledger.** `/your-data` now enumerates all three captured seam legs — BOM, sales, and
+  the invoice/price-history leg W3 added but W2's page never picked up. `web/your_data.py` gained
+  `_price_leg_stats()` (row/ingredient counts, read independently of whether BOM/sales exist — the
+  invoice funnel has its own timing) and `export_price_observations_csv()`; CSV export
+  (`/your-data/export/{leg}`) gained a `"prices"` leg, closing a real gap (export previously covered
+  only 2 of 3 captured legs).
+- **The firewall, in plain English.** A new "What we never touch" section explains the raw-data vs.
+  hidden-testing-lab split and today's one-tenant honesty (login-gated, not yet physically
+  partitioned — W9), shown unconditionally since it's static trust content, not gated on captured
+  data (rule 06: transparency is a first-class surface).
+- **The "what this unlocks next" bridge panel.** Describes the engine's prep-quantity mechanism
+  honestly, without citing any of the simulation-only dollar figures as this operator's numbers and
+  stating plainly the engine hasn't run on real data yet — the same anti-overclaiming discipline
+  `/insights` already applies to price-move estimates.
+- **Mid-build catch:** the structural boundary check greps for the literal `_truth` substring in
+  comments too, not just code paths — an early docstring draft ("raw/`_truth` firewall") tripped it;
+  reworded to "hidden-oracle firewall" language throughout.
+- **Tests: 429 pass, up from 422** — 7 new/changed in `test_web_auth.py` (price-leg ledger + export
+  coverage, the firewall/bridge-panel presence checks, the auth-redirect parametrize list extended
+  for the new export leg) plus repointing one test whose "unknown leg" example became a real leg.
+  `ruff check`: clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test green.
+
+---
+
 ## 2026-07-13 — On-ramp website: PoC → production execution map approved `[decided]`
 
 Jay directed that the on-ramp website graduate from the W0–W3 proof of concept to a fully fledged

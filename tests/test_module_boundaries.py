@@ -24,6 +24,22 @@ def _py_files(root: Path) -> list[Path]:
     return [p for p in root.rglob("*.py") if "__pycache__" not in p.parts]
 
 
+# Extensions that actually reach the browser or execute at runtime — the surface a firewall
+# guarantee has to cover. Deliberately excludes docs/markdown: governance files (CLAUDE.md,
+# CONTRACT.md) legitimately *name* the hidden-oracle path in prose to describe the rule; a test
+# about the rule must not fail on the file that documents it (W4_review.md LOW-1).
+_WEB_ASSET_SUFFIXES = (".html", ".css", ".js")
+
+
+def _web_asset_files(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+    return [
+        p for p in root.rglob("*")
+        if p.suffix in _WEB_ASSET_SUFFIXES and "__pycache__" not in p.parts
+    ]
+
+
 def _imported_roots(py_file: Path) -> set[str]:
     """Top-level module names absolutely-imported by a file (e.g. 'forecasting', 'schemas')."""
     tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
@@ -56,12 +72,30 @@ def test_forecasting_never_imports_onramp():
 
 
 def test_onramp_never_references_truth_path():
+    root = _REPO_ROOT / "onramp"
     offenders = [
         str(f.relative_to(_REPO_ROOT))
-        for f in _py_files(_REPO_ROOT / "onramp")
+        for f in _py_files(root) + _web_asset_files(root)
         if "_truth" in f.read_text(encoding="utf-8")
     ]
     assert not offenders, f"onramp/ must never touch the hidden oracle (data/_truth/): {offenders}"
+
+
+def test_web_asset_scan_would_catch_a_truth_reference_planted_in_a_template(tmp_path):
+    """W4_review.md LOW-1 regression: before this fix the boundary scan covered *.py only, so a
+    _truth reference in a template/CSS/JS file would pass CI unnoticed — exactly the gap W4
+    opened by putting firewall prose in an .html template for the first time. Proves
+    _web_asset_files() actually surfaces a planted violation in a synthetic tree, without
+    touching the real (clean) onramp/ tree."""
+    (tmp_path / "templates").mkdir()
+    offender = tmp_path / "templates" / "leaky.html"
+    offender.write_text("{# never do this: data/_truth/oracle.parquet #}")
+    (tmp_path / "clean.css").write_text("body { color: black; }")
+    (tmp_path / "clean.py").write_text("print('not scanned by this glob')")
+
+    found = _web_asset_files(tmp_path)
+    assert offender in found
+    assert any("_truth" in f.read_text(encoding="utf-8") for f in found)
 
 
 _ENGINE_MODEL_PATH_DIRS = ("data", "features", "models", "decision", "report")
