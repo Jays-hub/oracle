@@ -24,6 +24,7 @@ and the new client-website vision has room to grow without bloating the spec.
 | [data_model.md](data_model.md) | The five-entity data model and the core plate-cost / margin computation. |
 | [seam_and_precision.md](seam_and_precision.md) | The data boundary with the forecasting engine (the seam) and the precision discipline (never false precision). |
 | [website_vision.md](website_vision.md) | **The client-facing website** — the above-and-beyond vision for showing operators what we do with their data and what we find in it. A north star; the build stays phased and thin. |
+| [website_production_overview.md](website_production_overview.md) | **PoC → production service** — the approved execution map (2026-07-13) from the W0–W3 proof of concept to a hosted website with a designated application database maintaining real user data. Extends the vision's §8 roadmap with W5–W10 (app DB, identity, costed views, hosting, the public face, seam tenancy, account completeness) and the two-store architecture. |
 
 > The authoritative, full Phase 0→4 build detail lives in `../CLAUDE.md` ("Build phases"). The
 > `phases` section below is the condensed data-leg view; CLAUDE.md governs the build.

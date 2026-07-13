@@ -10,6 +10,36 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-13 — On-ramp website: PoC → production execution map approved `[decided]`
+
+Jay directed that the on-ramp website graduate from the W0–W3 proof of concept to a fully fledged
+service with a **designated application database maintaining real user data**, and named it
+explicitly *not drift* — it is investment in the durable on-ramp function (capture funnel, storage,
+identity, trust) the platform charter already sanctions. The decision record is
+**`onramp/plate_cost/docs/website_production_overview.md`** (new); this entry links it rather than
+restating it (per this log's convention). In brief:
+
+- **Two-store architecture recorded:** a new on-ramp-private **app DB** (SQLAlchemy + Alembic,
+  SQLite first via `ONRAMP_DATABASE_URL`, Postgres decision scheduled at the hosting phase — the
+  "server-class DB" moment rules 05 / `common_base_reconciliation.md` §6.6 deferred) for users,
+  restaurants, credentials, sessions, staged uploads, menu prices, audit log. The seam
+  (`data/raw/**`, DuckDB-over-Parquet) is unchanged in role: still the only engine input, still the
+  firewall. Laws: user data never crosses the seam; a leg isn't captured until it's in `data/raw/`
+  through `schemas/`; derived values (the future `food_cost` leg) cross through the same gate.
+- **Phase ladder extended W5–W10** (W4 transparency + bridge unchanged from `website_vision.md` §8):
+  W5 app DB + real identity → W6 menu-price capture + costed views over the tenant's own data +
+  the derived `food_cost` seam leg (closes the `Co`-provenance forward note) → W7 hosting +
+  security hardening (trigger: first remote user; closes the W0/W2 pre-deploy bundle) → W8 the
+  public face (storefront + the vision-§5 / rule-06 design & accessibility pass; same trigger as
+  W7, built back-to-back with it) → W9 seam-level multi-tenancy (trigger: second real tenant;
+  cross-peer `data/CONTRACT.md` change) → W10 team/roles/deletion/billing. Each is a separate
+  gated phase with its own `/review-web`.
+- **Docs touched:** `website_production_overview.md` (new), pointers added in
+  `plate_cost_overview.md`, `website_vision.md` §8, and `onramp/plate_cost/CLAUDE.md` (web-stack
+  paragraph). No code changed; nothing is built yet — W4/W5 are the next build slices.
+
+---
+
 ## 2026-07-06 — W3 hardening: fixed all `W3_review.md` findings `[built]`
 
 `/review-phase W3`'s verdict was **"No — not yet"** on one MAJOR (a bare 500 on `GET /insights`);
