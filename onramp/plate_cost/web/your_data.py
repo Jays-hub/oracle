@@ -28,6 +28,9 @@ class YourDataSummary(TypedDict):
     priced_ingredient_count: int
     has_price_data: bool
     price_leg_error: bool
+    food_cost_dish_count: int
+    has_food_cost_data: bool
+    food_cost_leg_error: bool
 
 
 def build_your_data_summary() -> YourDataSummary:
@@ -45,6 +48,7 @@ def build_your_data_summary() -> YourDataSummary:
     function only has to report the true per-leg state, never collapse three legs into one flag.
     """
     price_count, priced_ingredients, has_price_data, price_leg_error = _price_leg_stats()
+    food_cost_dish_count, has_food_cost_data, food_cost_leg_error = _food_cost_leg_stats()
 
     try:
         bom_df = store.read_bom()
@@ -62,6 +66,9 @@ def build_your_data_summary() -> YourDataSummary:
             "priced_ingredient_count": priced_ingredients,
             "has_price_data": has_price_data,
             "price_leg_error": price_leg_error,
+            "food_cost_dish_count": food_cost_dish_count,
+            "has_food_cost_data": has_food_cost_data,
+            "food_cost_leg_error": food_cost_leg_error,
         }
 
     return {
@@ -80,6 +87,9 @@ def build_your_data_summary() -> YourDataSummary:
         "priced_ingredient_count": priced_ingredients,
         "has_price_data": has_price_data,
         "price_leg_error": price_leg_error,
+        "food_cost_dish_count": food_cost_dish_count,
+        "has_food_cost_data": has_food_cost_data,
+        "food_cost_leg_error": food_cost_leg_error,
     }
 
 
@@ -105,6 +115,22 @@ def _price_leg_stats() -> tuple[int, int, bool, bool]:
     return len(price_df), price_df["ingredient_id"].nunique(), True, False
 
 
+def _food_cost_leg_stats() -> tuple[int, bool, bool]:
+    """Dish count, presence, and error state for the derived food-cost leg (W6) -- the same
+    independent-per-leg, non-error-when-missing pattern ``_price_leg_stats`` established, so
+    ``/your-data`` discloses the new engine-bound leg menu_prices.html already points operators
+    at (W6_review.md MAJOR-1: the leg was written but never disclosed here). No menu price ever
+    appears in this leg or its export -- only the derived cost."""
+    try:
+        food_cost_df = store.read_food_cost()
+    except FileNotFoundError:
+        return 0, False, False
+    except Exception:
+        _log.exception("food_cost leg unreadable while building /your-data summary")
+        return 0, False, True
+    return len(food_cost_df), True, False
+
+
 def export_bom_csv() -> str:
     """The operator's own BOM leg as CSV — same open format the seam uses (rule: no lock-in)."""
     return store.read_bom().to_csv(index=False)
@@ -120,3 +146,9 @@ def export_price_observations_csv() -> str:
     set entirely, since that leg didn't exist until W3 added it and /your-data was never
     revisited until now)."""
     return store.read_price_observations().to_csv(index=False)
+
+
+def export_food_cost_csv() -> str:
+    """The derived per-dish food-cost leg as CSV (W6) — what menu_prices.html promises the
+    operator they can see under "what we send the forecasting engine" (W6_review.md MAJOR-1)."""
+    return store.read_food_cost().to_csv(index=False)

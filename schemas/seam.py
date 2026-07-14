@@ -9,8 +9,9 @@ to disk and read back, per ``../data/CONTRACT.md``.
 Owned by neither peer; imported by both (the on-ramp validates on **write**, the engine will
 validate on **read**). Thin by design — only the files that actually cross the seam today are
 defined here (``bom.csv``, ``sales_export.csv``, ``price_observations.csv`` — added in W3 when the
-on-ramp's invoice-ingestion leg first crossed). ``eightysix_log.csv`` still gets a schema only
-when it first crosses (Anti-Drift; see ``README.md``).
+on-ramp's invoice-ingestion leg first crossed; ``food_cost.csv`` — added in W6, the derived
+Co-provenance leg). ``eightysix_log.csv`` still gets a schema only when it first crosses
+(Anti-Drift; see ``README.md``).
 
 Gate-4 capture (2026-06-25, Jay): the schema is "a data-quality gate that prevents malformed
 data from entering." Say-it-to-a-chef: "the head chef that checks every dish before it goes
@@ -69,3 +70,26 @@ class PriceObservationRow(BaseModel):
     unit_price: float = Field(gt=0.0)
     source_invoice: str | None = None
     observed_date: date
+
+
+class FoodCostRow(BaseModel):
+    """One row of ``data/raw/food_cost.parquet`` — the derived per-dish ingredient-cost leg (W6).
+
+    Closes ``data/CONTRACT.md``'s "Co provenance" forward note: ``Co`` is the plate cost the
+    on-ramp already computes from ``BomRow`` + ``PriceObservationRow`` (the same formula
+    ``src/insights/opportunities.py::dish_ingredient_cost`` uses), written through the seam so a
+    later engine phase can read a real, on-ramp-computed cost instead of ``config/items.yaml``'s
+    hand-typed placeholder. ``dish_id`` matches ``BomRow.dish_id``'s convention
+    (``normalize_name(dish_name)``) so the two legs join without a separate id scheme.
+
+    Deliberately carries no ``menu_price``: menu price is user/operational catalog data (the
+    two-store laws, ``onramp/plate_cost/docs/website_production_overview.md`` §3) and never
+    crosses the seam — only this derived cost does. ``food_cost`` itself doesn't depend on
+    ``menu_price`` either; recomputing it is triggered by the on-ramp's menu-price-save action
+    (``src/costing/tenant_grid.py``), but the number itself is pure ingredient math.
+    """
+
+    dish_id: str = Field(min_length=1)
+    dish_name: str = Field(min_length=1)
+    food_cost: float = Field(gt=0.0)
+    computed_at: date

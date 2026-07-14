@@ -32,7 +32,7 @@
    "nothing captured" message while the firewall text above kept claiming otherwise
    (W4_review.md MAJOR-1). The outer gate now fires if ANY leg is present or erroring — the
    ledger and export section render per-leg from here down, never as one all-or-nothing block. #}
-{% if summary.has_data or summary.has_price_data or summary.price_leg_error %}
+{% if summary.has_data or summary.has_price_data or summary.price_leg_error or summary.has_food_cost_data or summary.food_cost_leg_error %}
 
 {% if summary.has_data %}
 <section class="confirm-summary">
@@ -82,10 +82,24 @@
         price moves</dd>
       {% endif %}
     </div>
+    <div class="detail-row">
+      <dt>Food cost we send the engine</dt>
+      {% if summary.has_food_cost_data %}
+      <dd>Per-dish ingredient cost derived from your recipes + prices — {{ summary.food_cost_dish_count }}
+        dish{{ "es" if summary.food_cost_dish_count != 1 else "" }}. Never includes your menu
+        price, which stays private to your account.</dd>
+      {% elif summary.food_cost_leg_error %}
+      <dd>Temporarily unavailable — we couldn't read this data just now. Try again shortly; if
+        this persists, let us know.</dd>
+      {% else %}
+      <dd>Not sent yet — <a href="/menu-prices">set a menu price</a> for a fully costed dish to
+        start sending this</dd>
+      {% endif %}
+    </div>
   </dl>
 </section>
 
-{% if summary.has_data or summary.has_price_data %}
+{% if summary.has_data or summary.has_price_data or summary.has_food_cost_data %}
 <section class="confirm-summary">
   <p><strong>Export your data</strong> — the same open CSV format the seam uses, no lock-in:</p>
   <p>
@@ -97,6 +111,10 @@
     {% if summary.has_data and summary.has_price_data %}&nbsp;·&nbsp;{% endif %}
     {% if summary.has_price_data %}
     <a href="/your-data/export/prices">Download invoice history (CSV)</a>
+    {% endif %}
+    {% if (summary.has_data or summary.has_price_data) and summary.has_food_cost_data %}&nbsp;·&nbsp;{% endif %}
+    {% if summary.has_food_cost_data %}
+    <a href="/your-data/export/food_cost">Download food cost sent to the engine (CSV)</a>
     {% endif %}
   </p>
 </section>

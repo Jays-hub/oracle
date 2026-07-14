@@ -113,6 +113,10 @@ def test_login_fails_for_unknown_account():
         ("get", "/invoice/upload", {}),
         ("post", "/invoice/confirm", {"data": {"staged_upload_id": "x"}}),
         ("get", "/insights", {}),
+        ("get", "/menu-prices", {}),
+        ("post", "/menu-prices", {"data": {"price__burger": "12.00"}}),
+        ("get", "/dishes", {}),
+        ("get", "/dishes/burger", {}),
     ],
 )
 def test_protected_routes_redirect_unauthenticated_requests_to_login(method, path, kwargs):

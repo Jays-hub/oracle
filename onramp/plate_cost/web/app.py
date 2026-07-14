@@ -40,6 +40,14 @@ sessions table, so a session is listable and revocable server-side, not just cli
 confirm pages carry only an opaque staged_upload_id. New: GET/POST /reset-password[/{token}]
 (docs/phase_decisions/W5.md).
 
+W6: the costed reveal over the tenant's own data. GET/POST /menu-prices is the one missing seam
+input — an operator sets a menu price per captured dish (src/costing/menu_prices.py, an app-DB-
+only catalog); saving also recomputes and writes the derived data/raw/food_cost.parquet leg
+(src/costing/tenant_grid.py), closing data/CONTRACT.md's "Co provenance" forward note. GET
+/dishes is the real-tenant popularity x margin grid (the same report/grid.py math the sample
+grid at GET / uses) and GET /dishes/{dish_id} is the line-by-line ingredient breakdown
+(docs/phase_decisions/W6.md).
+
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
 validated input, atomic seam writes, backend-enforced tenant isolation.)
@@ -55,6 +63,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session as DbSession
+from starlette.datastructures import FormData
 
 from src import store
 from src.auth.service import (
@@ -81,12 +90,19 @@ from src.capture.staging import stage_upload, take_staged_upload
 
 from .auth import SESSION_COOKIE, current_identity, get_db, is_authenticated, require_login
 from .compute import build_grid_data
+from .dishes import build_dish_detail, build_dishes_summary
 from .insights import build_insights_summary
 from .invoice import build_invoice_summary
+from .menu_prices import (
+    build_menu_prices_form,
+    recompute_and_write_food_cost,
+    save_menu_prices_and_recompute_food_cost,
+)
 from .upload import build_summary
 from .your_data import (
     build_your_data_summary,
     export_bom_csv,
+    export_food_cost_csv,
     export_price_observations_csv,
     export_sales_csv,
 )
@@ -242,6 +258,7 @@ def your_data_export(request: Request, leg: str, db: DbSession = Depends(get_db)
         "bom": ("bom.csv", export_bom_csv),
         "sales": ("sales_export.csv", export_sales_csv),
         "prices": ("price_observations.csv", export_price_observations_csv),
+        "food_cost": ("food_cost.csv", export_food_cost_csv),
     }
     match = exporters.get(leg)
     if match is None:
@@ -488,6 +505,23 @@ def invoice_confirm_submit(
             status_code=503,
         )
 
+    # A new invoice can change Co for every dish it prices — recompute the derived food_cost
+    # seam leg here too, not just on menu-price save, so it never goes stale after a price-only
+    # invoice upload (W6_review.md MINOR-3). Best-effort: no consumer reads this leg yet, so a
+    # failure here must never fail the invoice confirmation the operator actually came for.
+    try:
+        bom_df = store.read_bom()
+    except FileNotFoundError:
+        bom_df = None
+    if bom_df is not None:
+        try:
+            recompute_and_write_food_cost(bom_df)
+        except Exception:
+            _log.exception(
+                "food_cost recompute after invoice confirm failed (correlation_id=%s)",
+                uuid4().hex[:8],
+            )
+
     summary = build_invoice_summary(result.rows)
     return _templates.TemplateResponse(
         request=request, name="invoice_success.html", context={"summary": summary},
@@ -515,6 +549,132 @@ def insights(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse 
     return _templates.TemplateResponse(
         request=request, name="insights.html", context={"summary": summary},
     )
+
+
+@app.get("/menu-prices", response_class=HTMLResponse, response_model=None)
+def menu_prices_form(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+    try:
+        rows = build_menu_prices_form(db, identity.restaurant_id)
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("menu-prices form render failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+    return _templates.TemplateResponse(
+        request=request, name="menu_prices.html", context={"rows": rows, "errors": []},
+    )
+
+
+@app.post("/menu-prices", response_class=HTMLResponse, response_model=None)
+async def menu_prices_submit(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+
+    form = await request.form()
+    try:
+        dish_names = store.read_bom().drop_duplicates("dish_id").set_index("dish_id")["dish_name"].to_dict()
+    except FileNotFoundError:
+        dish_names = {}
+    prices_by_dish_id, errors = _parse_menu_price_form(form, dish_names)
+    if errors:
+        rows = build_menu_prices_form(db, identity.restaurant_id)
+        return _templates.TemplateResponse(
+            request=request, name="menu_prices.html", context={"rows": rows, "errors": errors},
+            status_code=422,
+        )
+
+    try:
+        save_menu_prices_and_recompute_food_cost(db, identity.restaurant_id, prices_by_dish_id)
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("menu-price save failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+    return RedirectResponse(url="/dishes", status_code=303)
+
+
+@app.get("/dishes", response_class=HTMLResponse, response_model=None)
+def dishes_grid(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+    try:
+        summary = build_dishes_summary(db, identity.restaurant_id)
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("dishes grid render failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+    return _templates.TemplateResponse(
+        request=request, name="dishes.html", context={"summary": summary},
+    )
+
+
+@app.get("/dishes/{dish_id}", response_class=HTMLResponse, response_model=None)
+def dish_detail_page(
+    request: Request, dish_id: str, db: DbSession = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+    try:
+        detail = build_dish_detail(db, identity.restaurant_id, dish_id)
+    except Exception:
+        correlation_id = uuid4().hex[:8]
+        _log.exception("dish detail render failed (correlation_id=%s)", correlation_id)
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=503,
+        )
+    if not detail["found"]:
+        return _templates.TemplateResponse(
+            request=request, name="dish_not_found.html", context={"dish_id": dish_id},
+            status_code=404,
+        )
+    return _templates.TemplateResponse(
+        request=request, name="dish_detail.html", context={"detail": detail},
+    )
+
+
+def _parse_menu_price_form(
+    form: FormData, dish_names: dict[str, str]
+) -> tuple[dict[str, float], list[str]]:
+    """Form fields are named ``price__<seam dish_id>`` (menu_prices.html) — a blank value leaves
+    that dish's price unset (not an error, since a chef may only want to price some dishes today),
+    but a non-blank, non-positive value is rejected and named (rule 07: hostile input, name which
+    field failed). ``dish_names`` (the current BOM's ``{seam dish_id: display name}``) lets the
+    error message speak the chef's language ("Caesar Salad") instead of the internal
+    ``normalize_name()`` key ("caesar salad") — falls back to the raw key for a dish_id the
+    current BOM no longer recognizes (W6_review.md NIT)."""
+    prices_by_dish_id: dict[str, float] = {}
+    errors: list[str] = []
+    for key, value in form.multi_items():
+        if not key.startswith("price__"):
+            continue
+        dish_id = key[len("price__"):]
+        raw = (value or "").strip()
+        if not raw:
+            continue
+        try:
+            price = float(raw)
+            if price <= 0:
+                raise ValueError
+        except ValueError:
+            label = dish_names.get(dish_id, dish_id)
+            errors.append(f"{label}: menu price must be a positive number.")
+            continue
+        prices_by_dish_id[dish_id] = price
+    return prices_by_dish_id, errors
 
 
 def _b64(raw: bytes) -> str:

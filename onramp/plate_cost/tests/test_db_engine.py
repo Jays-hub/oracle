@@ -27,7 +27,7 @@ from src.db.models import Base, Membership
 _PLATE_COST_DIR = Path(__file__).resolve().parents[1]
 
 _EXPECTED_TABLES = {
-    "restaurants", "users", "memberships", "credentials", "sessions", "staged_uploads",
+    "restaurants", "users", "memberships", "credentials", "sessions", "staged_uploads", "dishes",
 }
 
 

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Your dishes{% endblock %}
+
+{# This page shows the operator's own captured data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Your dishes</h1>
+  <p class="page-meta">Popularity × Margin, from your own recipes, sales, and prices.</p>
+</section>
+
+{% if not summary.has_data %}
+<section class="confirm-summary">
+  <p>No recipe sheet captured yet.</p>
+  <p><a href="/upload">Connect your data</a> to get started.</p>
+</section>
+{% else %}
+
+{% if summary.unpriced %}
+<section class="skipped-notice" role="alert">
+  <strong>{{ summary.unpriced | length }} dish{{ "es" if summary.unpriced | length != 1 else "" }}
+  not shown below:</strong>
+  <ul>
+    {% for u in summary.unpriced %}
+    <li>{{ u.dish_name }} — {{ u.reason }}
+      {% if u.reason == "No menu price set yet." %}<a href="/menu-prices">Set a price</a>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if not summary.rows %}
+<section class="confirm-summary">
+  <p>Nothing to show yet — <a href="/menu-prices">set a menu price</a> for at least one fully
+  costed dish.</p>
+</section>
+{% else %}
+{% set quadrants = ["Star", "Plowhorse", "Puzzle", "Dog"] %}
+{% for quadrant in quadrants %}
+  {% set items = summary.rows | selectattr("quadrant", "equalto", quadrant) | list %}
+  {% if items %}
+  <section class="quadrant quadrant--{{ quadrant | lower }}">
+    <div class="quadrant-header">
+      <h2>{{ quadrant }}s</h2>
+      <span class="quadrant-action">{{ summary.quadrant_actions[quadrant] }}</span>
+    </div>
+    <div class="dish-grid">
+      {% for dish in items %}
+      <article class="dish-card">
+        <h3 class="dish-name"><a href="/dishes/{{ dish.dish_id }}">{{ dish.name }}</a></h3>
+        <div class="dish-margin">
+          <span class="margin-label">Margin</span>
+          <span class="margin-amount">${{ "%.2f" | format(dish.margin_display) }}</span>
+        </div>
+        <dl class="dish-details">
+          <div class="detail-row">
+            <dt>Menu</dt>
+            <dd>${{ "%.2f" | format(dish.menu_price) }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>~Cost</dt>
+            <dd>${{ "%.2f" | format(dish.cost_display) }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Food cost</dt>
+            <dd>{{ "%.0f" | format(dish.food_cost_pct * 100) }}% <span class="tier tier--{{ dish.food_cost_tier }}">{{ dish.food_cost_tier }}</span></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Covers</dt>
+            <dd>{{ dish.covers }}</dd>
+          </div>
+        </dl>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+<p>Costs rounded to nearest $0.25 · Margin = Menu − ~Cost · Figures are directional estimates</p>
+{% endblock %}

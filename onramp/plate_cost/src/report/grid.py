@@ -29,7 +29,11 @@ QUADRANT_ACTIONS = {
 
 @dataclass
 class DishResult:
-    dish_id: UUID
+    # UUID for the sample-data/CLI path (src/bom/models.py::Dish); a seam-derived string
+    # (normalize_name(dish_name), schemas/seam.py::BomRow's convention) for the real-tenant path
+    # (src/costing/tenant_grid.py) — two id universes share this dataclass (rule 05 reuse) since
+    # build_grid()'s quadrant/tiering math is identical either way.
+    dish_id: UUID | str
     name: str
     menu_price: float
     cost: float
@@ -47,12 +51,21 @@ def food_cost_tier(food_cost_pct: float) -> str:
     return "thin"
 
 
+def food_cost_pct_display(cost: float, menu_price: float) -> float:
+    """Food-cost % rounded to the nearest whole percent BEFORE it's used to pick a tier — the
+    web templates display this same rounded value (``"%.0f"|format(pct*100)``), so binning from
+    the unrounded fraction could show a number and a tier label that contradict each other at a
+    boundary (e.g. 24.80% displays "25%" but a raw-fraction bin would still call it "strong",
+    whose own rule is <25% — W6_review.md MINOR-4). Round once, then bin from that same number."""
+    return round(cost / menu_price * 100) / 100
+
+
 def round_to_quarter(value: float) -> float:
     return round(value * 4) / 4
 
 
 def build_grid(
-    dish_costs: dict[UUID, tuple],  # {dish_id: (Dish, cost_float)}
+    dish_costs: dict[UUID | str, tuple],  # {dish_id: (Dish, cost_float)}
     covers: dict[str, int],         # {dish_name: total covers over period}
 ) -> list[DishResult]:
     # Match on a canonical key so a stray space / case difference doesn't silently score 0 covers.

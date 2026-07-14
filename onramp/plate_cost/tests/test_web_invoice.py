@@ -217,6 +217,40 @@ def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_pa
     assert not (tmp_path / "price_observations.parquet").exists()
 
 
+def test_confirm_recomputes_food_cost_leg_when_bom_already_captured(tmp_path, monkeypatch):
+    """A new invoice changes ingredient cost -- food_cost.parquet must reflect the NEW price
+    without a trip back through /menu-prices first (W6_review.md MINOR-3: the leg must not go
+    stale after an invoice-driven price change)."""
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    pd.DataFrame([{
+        "dish_id": "burger", "dish_name": "Burger", "ingredient_id": "beef patty",
+        "ingredient_name": "beef patty", "qty": 6.0, "recipe_unit": "oz", "canonical_unit": "oz",
+        "yield_factor": 1.0,
+    }]).to_parquet(tmp_path / "bom.parquet", index=False, engine="pyarrow")
+
+    upload_resp = _post_invoice_upload()
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+    confirm_resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
+    assert confirm_resp.status_code == 200
+
+    df = pd.read_parquet(tmp_path / "food_cost.parquet")
+    assert df["dish_id"].iloc[0] == "burger"
+    assert df["food_cost"].iloc[0] == pytest.approx(6.0 * 3.50)  # beef patty @ $3.50/oz, yield 1.0
+
+
+def test_confirm_without_a_captured_bom_still_succeeds(tmp_path, monkeypatch):
+    """No recipe sheet captured yet -- the food_cost recompute has nothing to work from and must
+    be skipped cleanly, never blocking the invoice confirmation itself."""
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+
+    upload_resp = _post_invoice_upload()
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+    confirm_resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
+
+    assert confirm_resp.status_code == 200
+    assert not (tmp_path / "food_cost.parquet").exists()
+
+
 def test_invoice_pages_never_show_the_sample_data_banner(tmp_path, monkeypatch):
     """Mirrors test_web_upload.py's regression guard: pages showing the operator's OWN uploaded
     data must never carry the "sample data" banner."""

@@ -10,6 +10,103 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-14 — W6 hardening: fixed all `W6_review.md` findings `[built]`
+
+`/review-web W6`'s verdict was **"No"** — a BLOCKER: the grid and the dish-detail page showed a
+*different* plate cost and margin for the same dish, because two independently-rounded
+implementations of the same formula disagreed. Jay greenlit every finding. `docs/phase_decisions/
+W6.md`/`W6_review.md` are left as the frozen build-time/review-time record (same convention as the
+W5/W4 hardening entries); this entry is the remediation record.
+
+- **BLOCKER-1 + MAJOR-2 — grid/detail cost divergence, fixed at the root.** `web/dishes.py::
+  build_dish_detail` re-implemented the plate-cost formula a third time, rounding each ingredient
+  line to the $0.25 grid THEN summing — not distributive, so a multi-ingredient dish's total could
+  silently inflate (reproduced: a $0.32 real dish showed $0.00 summed-from-rounded-lines vs. $0.25
+  rounded once, on the aggregate). New `src/costing/tenant_grid.py::build_dish_line_items` is now
+  the one shared function both the grid (via `dish_ingredient_cost`) and the detail page draw
+  from: per-line costs at real cents (an honest audit trail), the displayed total rounded ONCE on
+  the raw aggregate — the two screens are now structurally guaranteed to agree for the same dish.
+- **MAJOR-1 — `/your-data` now discloses the `food_cost` leg.** W6 started writing
+  `data/raw/food_cost.parquet` to the engine but never updated the transparency page, so
+  `menu_prices.html`'s "see your data for what we send the forecasting engine" pointed at a page
+  that omitted it. Added `store.read_food_cost()`, a fourth ledger row (dish count only — never
+  the menu price itself), and a CSV export at `/your-data/export/food_cost`.
+- **MINOR — food-cost % could contradict its own tier label at the boundary.** The displayed
+  percent was rounded for display but the tier was binned from the unrounded fraction (e.g. "25%
+  (strong)" when the chef's own rule says <25% is strong, 25–35% is "ok"). New
+  `src/report/grid.py::food_cost_pct_display` rounds once; both the shown number and the tier bin
+  now read off that same rounded value.
+- **MINOR — the `food_cost` leg went stale after an invoice-driven price change.** Recompute was
+  tied only to the menu-price save action. Extracted `web/menu_prices.py::
+  recompute_and_write_food_cost`, now called from both the menu-price save and
+  `invoice_confirm_submit` (best-effort/non-blocking on the invoice path — no consumer reads this
+  leg yet, so a recompute failure must never fail the invoice confirmation itself). `data/
+  CONTRACT.md`'s Co-provenance note updated to name both triggers.
+- **LOW — a stale `food_cost.parquet` was never cleared when zero dishes were costable.** New
+  `clear_food_cost()` removes the file instead of silently leaving a prior snapshot when a
+  recompute yields no rows.
+- **MINOR — a dish rename could silently collapse two catalog rows to one price.**
+  `Dish` is unique on the exact name, joined to the seam by the normalized name — a collision now
+  resolves deterministically to the most-recently-updated price
+  (`menu_prices_by_seam_key` orders the query by `updated_at`), not an arbitrary query order.
+- **NIT — validation errors now name the dish, not its internal seam key** ("Caesar Salad: ..."
+  instead of "caesar salad: ..."). **NIT — `build_grid`'s stale `UUID`-only type hint widened** to
+  `UUID | str`, matching what the tenant path actually passes.
+- **Tests: 531 pass, up from 521** — 10 new: 5 in `test_costing_tenant_grid.py` (`build_dish_
+  line_items` reconciles with the grid / shows real-cent per-line precision / degrades honestly on
+  a missing price, plus `clear_food_cost` removes-existing and no-op cases); 1 multi-ingredient
+  reconciliation test in `test_web_dishes.py` (the fixture the bug actually breaks — the prior
+  single-ingredient test structurally couldn't catch it); 2 in `test_web_invoice.py` (recompute on
+  confirm, and a no-BOM-yet no-op); 1 in `test_web_menu_prices.py` (stale-file clearing); 1 in
+  `test_costing_menu_prices.py` (normalize-collision resolution). `ruff check .`: clean.
+  `lint-imports`: 2 contracts kept, 0 broken.
+- W6 is now done: build closed in the entry below, review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-14 — W6 built: the costed reveal over the tenant's own data `[built]`
+
+Built `website_production_overview.md` §4's W6 slice: menu-price capture into the app DB (the one
+seam input the PoC never asked for), the real-tenant popularity×margin grid and dish detail
+replacing `/your-data`'s counts-only view, and the derived `food_cost` seam leg that closes
+`data/CONTRACT.md`'s long-open "Co provenance" forward note. Full reasoning, load-bearing
+assumptions, and design decisions: `docs/phase_decisions/W6.md`. Not marked done here — per
+`00-process.md`, that happens when `/review-phase W6` closes on the code.
+
+- **New app-DB table `dishes`** (`onramp/plate_cost/src/db/models.py::Dish`,
+  `migrations/versions/0002_add_dishes_table.py`) — the operator-maintained menu-price catalog,
+  keyed `(restaurant_id, dish_name)`. Menu price itself never crosses the seam (the two-store
+  laws); its UUID primary key is the "stable `item_id` introduced app-side"
+  `website_production_overview.md` §6 calls for — carrying it into the seam schemas is W9's job.
+- **New seam schema `FoodCostRow`** (`schemas/seam.py`) — `dish_id, dish_name, food_cost,
+  computed_at`. Deliberately carries no `menu_price` (user/operational data stays app-DB-only);
+  the cost math itself doesn't need one either — `Co` is pure ingredient cost.
+- **New package `src/costing/`** — `menu_prices.py` (DB-aware catalog upsert/read, no FastAPI
+  import) and `tenant_grid.py` (pure compute: `build_tenant_grid` reuses W3's
+  `dish_ingredient_cost` + the existing `report/grid.py::build_grid` rather than forking a third
+  cost-summing implementation; `build_food_cost_rows` + `write_food_cost_atomic` derive and
+  full-replace-write the new leg, reusing `seam_upload._stage_parquet`'s atomic-write primitive).
+- **Web layer:** `GET/POST /menu-prices` (save a price; also recomputes + writes
+  `data/raw/food_cost.parquet` — "one recipe-confirmation act feeds two products," now also true
+  of one menu-price save) and `GET /dishes` + `GET /dishes/{dish_id}` (the real-tenant grid and
+  line-by-line ingredient breakdown), all login-gated, calm-fallback error handling matching every
+  sibling route. A dish missing a price or a costable ingredient is named as unpriced, never
+  dropped silently.
+- **Deliberately deferred:** `/insights` (W3) does NOT gain a margin/food-cost-tier claim this
+  phase, even though menu prices now exist — W3's own regression tests structurally guard against
+  exactly that (`hasattr`-based, not just behavioral), and lifting them correctly deserves its own
+  scoped review rather than riding inside this already-large phase. See `W6.md` Explicitly
+  Deferred for the full list (engine-side `Co` consumption, `store.read_food_cost()`, menu-price
+  history — none built this phase).
+- **Tests: 521 pass, up from 473** — 48 new across `test_costing_menu_prices.py` (8),
+  `test_costing_tenant_grid.py` (10), `test_web_menu_prices.py` (10), `test_web_dishes.py` (10),
+  `test_seam_schemas.py` (+6 `FoodCostRow` cases), plus `test_db_engine.py`'s expected-table set
+  and `test_web_auth.py`'s protected-routes list extended (+4 parametrized cases). `ruff check .`:
+  clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test green.
+
+---
+
 ## 2026-07-14 — W5 hardening: fixed all `W5_review.md` findings `[built]`
 
 `/review-web W5`'s verdict was **"No (not yet)"** — a BLOCKER: real multi-restaurant account
