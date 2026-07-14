@@ -4,13 +4,15 @@ Every test that writes monkeypatches src.store.RAW_DIR to a tmp_path — the sin
 directory both the read and write paths reference (W3_review.md LOW-1) — never the real
 data/raw/. Covers: the happy path end-to-end (accumulating, not replacing), validation errors
 surfaced without a crash, the BOM cross-reference warning, the size-limit boundary, and that
-/invoice/confirm re-validates rather than trusting the round-tripped hidden field.
+/invoice/confirm re-validates rather than trusting the staged payload.
 
-Auth is bypassed here the same way test_web_upload.py bypasses it — test_web_auth.py owns the
-"every protected route redirects" behavior (this file's routes were added to its parametrized list).
+Auth/identity are bypassed here the same way test_web_upload.py bypasses them —
+test_web_auth.py owns the "every protected route redirects" behavior (this file's routes are in
+its parametrized list).
 """
 import re
 from base64 import b64encode
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -19,14 +21,22 @@ from fastapi.testclient import TestClient
 import src.store as store_mod
 import web.app as appmod
 from schemas import PriceObservationRow
+from src.auth.service import Identity
+from src.db.models import StagedUpload
 from web.app import app
 
 _client = TestClient(app)
 
+_FAKE_IDENTITY = Identity(
+    session_id="s1", user_id="u1", email="chef@example.com",
+    restaurant_id="r1", restaurant_name="Test Kitchen",
+)
+
 
 @pytest.fixture(autouse=True)
 def _bypass_login(monkeypatch):
-    monkeypatch.setattr(appmod, "require_login", lambda request: None)
+    monkeypatch.setattr(appmod, "require_login", lambda request, db: None)
+    monkeypatch.setattr(appmod, "current_identity", lambda request, db: _FAKE_IDENTITY)
 
 
 _VALID_INVOICE = (
@@ -42,10 +52,30 @@ def _post_invoice_upload(invoice=_VALID_INVOICE):
     )
 
 
-def _extract_hidden_field(html: str) -> str:
-    m = re.search(r'name="invoice_csv_b64" value="([^"]*)"', html)
-    assert m, "invoice confirm page is missing the round-trip hidden field"
+def _extract_staged_upload_id(html: str) -> str:
+    m = re.search(r'name="staged_upload_id" value="([^"]*)"', html)
+    assert m, "invoice confirm page is missing the staged_upload_id hidden field"
     return m.group(1)
+
+
+def _stage_invoice_row_directly(db_sessionmaker, payload: dict[str, str]) -> str:
+    """Seeds a staged_uploads row directly, bypassing /invoice/upload — used to prove
+    /invoice/confirm re-validates whatever it finds staged rather than trusting it."""
+    db = db_sessionmaker()
+    try:
+        row = StagedUpload(
+            user_id=_FAKE_IDENTITY.user_id,
+            restaurant_id=_FAKE_IDENTITY.restaurant_id,
+            kind="invoice",
+            payload=payload,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row.id
+    finally:
+        db.close()
 
 
 def test_invoice_upload_form_returns_200():
@@ -104,8 +134,8 @@ def test_confirm_writes_schema_valid_seam_file(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_resp = _post_invoice_upload()
-    invoice_b64 = _extract_hidden_field(upload_resp.text)
-    confirm_resp = _client.post("/invoice/confirm", data={"invoice_csv_b64": invoice_b64})
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+    confirm_resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
 
     assert confirm_resp.status_code == 200
     assert "Saved" in confirm_resp.text
@@ -120,7 +150,7 @@ def test_confirm_accumulates_across_separate_invoices(tmp_path, monkeypatch):
 
     first_upload = _post_invoice_upload()
     _client.post(
-        "/invoice/confirm", data={"invoice_csv_b64": _extract_hidden_field(first_upload.text)},
+        "/invoice/confirm", data={"staged_upload_id": _extract_staged_upload_id(first_upload.text)},
     )
 
     second_invoice = (
@@ -129,38 +159,59 @@ def test_confirm_accumulates_across_separate_invoices(tmp_path, monkeypatch):
     )
     second_upload = _post_invoice_upload(invoice=second_invoice)
     _client.post(
-        "/invoice/confirm", data={"invoice_csv_b64": _extract_hidden_field(second_upload.text)},
+        "/invoice/confirm", data={"staged_upload_id": _extract_staged_upload_id(second_upload.text)},
     )
 
     df = pd.read_parquet(tmp_path / "price_observations.parquet")
     assert len(df) == 3  # 2 from the first invoice + 1 new, never replaced
 
 
-def test_confirm_rejects_tampered_payload_never_trusts_the_hidden_field(tmp_path, monkeypatch):
+def test_confirm_is_single_use(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    tampered = b64encode(
-        b"ingredient_name,unit_price,source_invoice,observed_date\nbeef,-999,INV-1,2026-06-01\n"
-    ).decode("ascii")
 
-    resp = _client.post("/invoice/confirm", data={"invoice_csv_b64": tampered})
+    upload_resp = _post_invoice_upload()
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+
+    first = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
+    second = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
+
+    assert first.status_code == 200
+    assert second.status_code == 400
+
+
+def test_confirm_rejects_tampered_staged_payload_never_trusts_it(tmp_path, monkeypatch, db_sessionmaker):
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    tampered = b"ingredient_name,unit_price,source_invoice,observed_date\nbeef,-999,INV-1,2026-06-01\n"
+    staged_id = _stage_invoice_row_directly(
+        db_sessionmaker, {"invoice_csv_b64": b64encode(tampered).decode("ascii")},
+    )
+
+    resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 400
     assert not (tmp_path / "price_observations.parquet").exists()
 
 
-def test_confirm_rejects_invalid_base64():
-    resp = _client.post("/invoice/confirm", data={"invoice_csv_b64": "not-valid-base64!!!"})
+def test_confirm_rejects_malformed_base64_in_staged_payload(db_sessionmaker):
+    staged_id = _stage_invoice_row_directly(db_sessionmaker, {"invoice_csv_b64": "not-valid-base64!!!"})
+    resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 400
     assert "Traceback" not in resp.text
 
 
-def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_path, monkeypatch):
+def test_confirm_rejects_unknown_staged_upload_id():
+    resp = _client.post("/invoice/confirm", data={"staged_upload_id": "not-a-real-id"})
+    assert resp.status_code == 400
+    assert "Traceback" not in resp.text
+
+
+def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_path, monkeypatch, db_sessionmaker):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    staged_id = _stage_invoice_row_directly(
+        db_sessionmaker, {"invoice_csv_b64": b64encode(_VALID_INVOICE).decode("ascii")},
+    )
     monkeypatch.setattr(appmod, "MAX_UPLOAD_BYTES", 10)
 
-    resp = _client.post(
-        "/invoice/confirm",
-        data={"invoice_csv_b64": b64encode(_VALID_INVOICE).decode("ascii")},
-    )
+    resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 422
     assert "too large" in resp.text.lower()
     assert not (tmp_path / "price_observations.parquet").exists()
@@ -173,7 +224,7 @@ def test_invoice_pages_never_show_the_sample_data_banner(tmp_path, monkeypatch):
     upload_form_resp = _client.get("/invoice/upload")
     upload_resp = _post_invoice_upload()
     confirm_resp = _client.post(
-        "/invoice/confirm", data={"invoice_csv_b64": _extract_hidden_field(upload_resp.text)},
+        "/invoice/confirm", data={"staged_upload_id": _extract_staged_upload_id(upload_resp.text)},
     )
     for resp in (upload_form_resp, upload_resp, confirm_resp):
         assert "sample-banner" not in resp.text

@@ -27,7 +27,14 @@ httpx2>=2.5          # TestClient dependency (Starlette 1.x prefers httpx2 over 
 python-multipart>=0.0.9  # FastAPI UploadFile/Form parsing (POST /upload, POST /confirm)
 
 # ── Web layer: on-ramp website W2 (account + persistence, 2026-07-04) ──
-itsdangerous>=2.1        # required by Starlette's SessionMiddleware (login session cookie)
+# itsdangerous (Starlette's SessionMiddleware) retired in W5 — DB-backed, revocable sessions
+# (an opaque cookie token hashed and looked up in the app DB) replace the itsdangerous-signed
+# client cookie entirely; nothing in this repo imports itsdangerous anymore.
+
+# ── Web layer: on-ramp website W5 (the designated app DB + real identity, 2026-07-13) ──
+SQLAlchemy>=2.0      # the on-ramp-private app DB ORM (users, restaurants, sessions, staged uploads)
+alembic>=1.13        # schema migrations for the app DB (onramp/plate_cost/migrations/)
+argon2-cffi>=23.1    # slow-KDF password hashing, replacing W2's single-credential SHA-256 placeholder
 
 # ── Forecasting engine P0: the decision frame (2026-06-29) ──
 numpy>=1.26          # the dollar objective math (forecasting/src/evaluate/objective.py)

@@ -29,7 +29,7 @@
 {% endif %}
 
 <form method="post" action="/invoice/confirm">
-  <input type="hidden" name="invoice_csv_b64" value="{{ invoice_csv_b64 }}">
+  <input type="hidden" name="staged_upload_id" value="{{ staged_upload_id }}">
   <button type="submit" class="btn-primary">Confirm and save</button>
 </form>
 <p class="page-meta"><a href="/invoice/upload">Start over</a></p>

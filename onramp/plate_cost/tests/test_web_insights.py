@@ -18,7 +18,7 @@ _client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def _bypass_login(monkeypatch):
-    monkeypatch.setattr(appmod, "require_login", lambda request: None)
+    monkeypatch.setattr(appmod, "require_login", lambda request, db: None)
 
 
 def _write_bom(raw_dir):

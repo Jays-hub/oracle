@@ -6,7 +6,7 @@
 CONDA_ENV := restaurant-dev
 RUN := conda run -n $(CONDA_ENV)
 
-.PHONY: test lint check import-lint
+.PHONY: test lint check import-lint migrate
 
 test:
 	$(RUN) python -m pytest -q
@@ -18,3 +18,10 @@ import-lint:
 	$(RUN) lint-imports
 
 check: lint import-lint test
+
+# Applies the on-ramp app-DB migrations (W5) to whatever ONRAMP_DATABASE_URL points at (a
+# local gitignored SQLite file by default). cd'd into onramp/plate_cost/ because alembic.ini's
+# script_location is relative to that directory (matches how `python -m web` is also run from
+# there).
+migrate:
+	cd onramp/plate_cost && $(RUN) alembic upgrade head

@@ -1,8 +1,8 @@
 """On-ramp web layer.
 
 W0: GET / renders the popularity × margin grid from the on-ramp's source inputs (the same src/
-chain as run.py). W0 reads source data, not the seam: data/raw/ carries only the BOM + sales legs,
-which can't reconstruct margins (see web/compute.py for the why). No writes, no auth.
+chain as run.py). W0 reads source data, not the seam: data/raw/ carries only the BOM + sales
+legs, which can't reconstruct margins (see web/compute.py for the why). No writes, no auth.
 
 W1: GET/POST /upload + POST /confirm are the self-serve capture funnel — a chef uploads a sales
 export and a recipe sheet, reviews a summary, then confirms, which writes the two seam legs to
@@ -31,26 +31,40 @@ also carries the new "what this unlocks next" bridge panel — a static, honestl
 description of the forecasting engine's prep-quantity capability, never citing simulation-only
 dollar figures as this operator's numbers (docs/phase_decisions/W4.md).
 
+W5: the designated app DB + real identity. Login/logout now authenticate a real DB-backed
+User/Credential/Session (src/auth/service.py) instead of W2's single env-configured operator
+credential; the session cookie carries only an opaque token looked up (hashed) against the
+sessions table, so a session is listable and revocable server-side, not just client-signed.
+/upload and /invoice/upload now stage their parsed payload in the staged_uploads table
+(src/capture/staging.py) instead of round-tripping it through hidden base64 form fields — the
+confirm pages carry only an opaque staged_upload_id. New: GET/POST /reset-password[/{token}]
+(docs/phase_decisions/W5.md).
+
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
 validated input, atomic seam writes, backend-enforced tenant isolation.)
 """
 import binascii
 import logging
-import os
-import secrets
 from base64 import b64decode, b64encode
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, File, Form, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy.orm import Session as DbSession
 
 from src import store
-from src.auth.credentials import verify_credentials
+from src.auth.service import (
+    SESSION_TTL,
+    authenticate,
+    create_session,
+    request_password_reset,
+    reset_password,
+    revoke_session,
+)
 from src.capture.invoice_upload import (
     cross_reference_ingredients,
     parse_invoice_csv,
@@ -63,8 +77,9 @@ from src.capture.seam_upload import (
     parse_sales_csv,
     write_seam_atomic,
 )
+from src.capture.staging import stage_upload, take_staged_upload
 
-from .auth import RESTAURANT_ID, SESSION_KEY, is_authenticated, require_login
+from .auth import SESSION_COOKIE, current_identity, get_db, is_authenticated, require_login
 from .compute import build_grid_data
 from .insights import build_insights_summary
 from .invoice import build_invoice_summary
@@ -81,20 +96,6 @@ _WEB_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="Plate Cost · On-Ramp", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
 
-# Session signing key: ONRAMP_SESSION_SECRET in env for a real deploy (rule 07 — secrets in env,
-# never in code); a fresh random key per process otherwise, which is fine for today's reality —
-# a single dev/demo process (web/__main__.py binds 127.0.0.1) with no hosting story yet
-# (W0_review.md MINOR-1) — but means every process restart invalidates existing sessions. Revisit
-# once a real deploy target sets the env var. https_only=False to match today's plain-HTTP local
-# run path; set True once the app is served over TLS. same_site="lax" is stated explicitly
-# (rather than left to Starlette's default) so the CSRF posture on these state-changing POSTs is
-# a recorded decision, not an implicit one (W2_review.md MINOR-3) — a real per-request CSRF
-# token is still the pre-deploy gate item tracked in docs/phase_decisions/W2.md.
-_SESSION_SECRET = os.environ.get("ONRAMP_SESSION_SECRET") or secrets.token_hex(32)
-app.add_middleware(
-    SessionMiddleware, secret_key=_SESSION_SECRET, session_cookie="onramp_session",
-    https_only=False, same_site="lax",
-)
 
 def _nav_context(request: Request) -> dict:
     """Merged into every TemplateResponse (base.html's nav needs it everywhere) — one place to
@@ -138,26 +139,80 @@ def login_form(request: Request) -> HTMLResponse:
 
 @app.post("/login", response_class=HTMLResponse, response_model=None)
 def login_submit(
-    request: Request, username: str = Form(...), password: str = Form(...)
+    request: Request, email: str = Form(...), password: str = Form(...), db: DbSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    if not verify_credentials(username, password):
+    user = authenticate(db, email, password)
+    issued = create_session(db, user) if user is not None else None
+    if issued is None:
         return _templates.TemplateResponse(
             request=request, name="login.html",
-            context={"error": "Incorrect username or password."}, status_code=401,
+            context={"error": "Incorrect email or password."}, status_code=401,
         )
-    request.session[SESSION_KEY] = RESTAURANT_ID
-    return RedirectResponse(url="/your-data", status_code=303)
+    token, _row = issued
+    response = RedirectResponse(url="/your-data", status_code=303)
+    response.set_cookie(
+        key=SESSION_COOKIE, value=token, httponly=True, samesite="lax", secure=False,
+        max_age=int(SESSION_TTL.total_seconds()),
+    )
+    return response
 
 
 @app.post("/logout")
-def logout(request: Request) -> RedirectResponse:
-    request.session.clear()
-    return RedirectResponse(url="/", status_code=303)
+def logout(request: Request, db: DbSession = Depends(get_db)) -> RedirectResponse:
+    revoke_session(db, request.cookies.get(SESSION_COOKIE))
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@app.get("/reset-password", response_class=HTMLResponse)
+def reset_password_request_form(request: Request) -> HTMLResponse:
+    return _templates.TemplateResponse(
+        request=request, name="reset_password_request.html", context={"submitted": False},
+    )
+
+
+@app.post("/reset-password", response_class=HTMLResponse)
+def reset_password_request_submit(
+    request: Request, email: str = Form(...), db: DbSession = Depends(get_db),
+) -> HTMLResponse:
+    token = request_password_reset(db, email)
+    if token is not None:
+        # No email transport yet (W7) — an invite-only, localhost-only account model means the
+        # operator running this process can read the reset link straight off the server log
+        # (docs/phase_decisions/W5.md). Never put the token in the HTTP response itself.
+        _log.info("password reset requested for %s -> /reset-password/%s", email.strip().lower(), token)
+    # Identical response whether or not the account exists — this form must never confirm or
+    # deny that an email has an account (enumeration defense).
+    return _templates.TemplateResponse(
+        request=request, name="reset_password_request.html", context={"submitted": True},
+    )
+
+
+@app.get("/reset-password/{token}", response_class=HTMLResponse)
+def reset_password_form(request: Request, token: str) -> HTMLResponse:
+    return _templates.TemplateResponse(
+        request=request, name="reset_password_confirm.html", context={"token": token, "error": None},
+    )
+
+
+@app.post("/reset-password/{token}", response_class=HTMLResponse, response_model=None)
+def reset_password_submit(
+    request: Request, token: str, new_password: str = Form(...), db: DbSession = Depends(get_db),
+) -> HTMLResponse | RedirectResponse:
+    ok = reset_password(db, token, new_password)
+    if not ok:
+        return _templates.TemplateResponse(
+            request=request, name="reset_password_confirm.html",
+            context={"token": token, "error": "This reset link is invalid, expired, or the password was too short."},
+            status_code=400,
+        )
+    return RedirectResponse(url="/login", status_code=303)
 
 
 @app.get("/your-data", response_class=HTMLResponse, response_model=None)
-def your_data(request: Request) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
+def your_data(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request, db):
         return redirect
     # Same calm-fallback shape as grid()/insights() (W4_review.md MINOR-1): build_your_data_
     # summary() degrades an unreadable *price* leg on its own (src/web/your_data.py's
@@ -180,8 +235,8 @@ def your_data(request: Request) -> HTMLResponse | RedirectResponse:
 
 
 @app.get("/your-data/export/{leg}", response_model=None)
-def your_data_export(request: Request, leg: str) -> PlainTextResponse | RedirectResponse:
-    if redirect := require_login(request):
+def your_data_export(request: Request, leg: str, db: DbSession = Depends(get_db)) -> PlainTextResponse | RedirectResponse:
+    if redirect := require_login(request, db):
         return redirect
     exporters = {
         "bom": ("bom.csv", export_bom_csv),
@@ -213,8 +268,8 @@ def your_data_export(request: Request, leg: str) -> PlainTextResponse | Redirect
 
 
 @app.get("/upload", response_class=HTMLResponse, response_model=None)
-def upload_form(request: Request) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
+def upload_form(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request, db):
         return redirect
     return _templates.TemplateResponse(request=request, name="upload.html", context={"errors": []})
 
@@ -224,9 +279,11 @@ async def upload_submit(
     request: Request,
     sales_file: UploadFile = File(...),
     bom_file: UploadFile = File(...),
+    db: DbSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
-        return redirect
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
     # Hostile until validated (rule 07): size-check before we even try to decode/parse either file.
     sales_bytes = await sales_file.read(MAX_UPLOAD_BYTES + 1)
     bom_bytes = await bom_file.read(MAX_UPLOAD_BYTES + 1)
@@ -246,48 +303,62 @@ async def upload_submit(
         )
 
     only_in_bom, only_in_sales = cross_reference_dishes(bom_result.rows, sales_result.rows)
+    # W5: the parsed payload is staged server-side (src/capture/staging.py) instead of round-
+    # tripped through hidden base64 form fields — the confirm page's client only ever holds this
+    # row's opaque id, never the bytes themselves (docs/phase_decisions/W5.md).
+    staged_id = stage_upload(
+        db, identity.user_id, identity.restaurant_id, kind="bom_sales",
+        payload={"sales_csv_b64": _b64(sales_bytes), "bom_csv_b64": _b64(bom_bytes)},
+    )
     context = {
         "summary": build_summary(bom_result.rows, sales_result.rows),
         "only_in_bom": only_in_bom,
         "only_in_sales": only_in_sales,
-        # Round-tripped through the confirm page's hidden fields so /confirm can re-validate and
-        # write without any server-side session/staging state (rule 07: stateless handlers).
-        "sales_csv_b64": _b64(sales_bytes),
-        "bom_csv_b64": _b64(bom_bytes),
+        "staged_upload_id": staged_id,
     }
     return _templates.TemplateResponse(request=request, name="confirm.html", context=context)
 
 
 @app.post("/confirm", response_class=HTMLResponse, response_model=None)
 def confirm_submit(
-    request: Request,
-    sales_csv_b64: str = Form(...),
-    bom_csv_b64: str = Form(...),
+    request: Request, staged_upload_id: str = Form(...), db: DbSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
-        return redirect
-    try:
-        sales_bytes = b64decode(sales_csv_b64, validate=True)
-        bom_bytes = b64decode(bom_csv_b64, validate=True)
-    except binascii.Error:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+
+    payload = take_staged_upload(db, staged_upload_id, identity.user_id, kind="bom_sales")
+    if payload is None:
         correlation_id = uuid4().hex[:8]
-        _log.warning("confirm payload was not valid base64 (correlation_id=%s)", correlation_id)
+        _log.warning(
+            "confirm referenced an unknown/expired/consumed staged upload (correlation_id=%s)",
+            correlation_id,
+        )
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=400,
+        )
+    try:
+        sales_bytes = b64decode(payload["sales_csv_b64"], validate=True)
+        bom_bytes = b64decode(payload["bom_csv_b64"], validate=True)
+    except (binascii.Error, KeyError):
+        correlation_id = uuid4().hex[:8]
+        _log.warning("confirm staged payload was malformed (correlation_id=%s)", correlation_id)
         return _templates.TemplateResponse(
             request=request, name="error.html", context={"correlation_id": correlation_id},
             status_code=400,
         )
 
-    # /confirm is directly POST-able — never assume a boundary check done at /upload still holds
-    # here. Re-apply the same size policy rather than relying on Starlette's incidental per-field
-    # cap, which is a different (tighter, opaque-failure) ceiling than our own (rule 07).
+    # /confirm never assumes a boundary check done at /upload still holds — re-apply the same
+    # size policy and re-run the exact same parse/validation the /upload step ran, rather than
+    # trusting the staged payload blindly (rule 07). The staging table replaced *how* the payload
+    # gets from /upload to /confirm; it did not remove the need to re-validate it here.
     errors = _size_errors(sales_bytes, bom_bytes)
     if errors:
         return _templates.TemplateResponse(
             request=request, name="upload.html", context={"errors": errors}, status_code=422,
         )
 
-    # Never trust a round-tripped hidden field blindly — re-run the exact same validation the
-    # /upload step ran, rather than assuming the payload that came back is still what we sent out.
     sales_result = parse_sales_csv(sales_bytes)
     bom_result = parse_bom_csv(bom_bytes)
     if sales_result.errors or bom_result.errors:
@@ -316,8 +387,8 @@ def confirm_submit(
 
 
 @app.get("/invoice/upload", response_class=HTMLResponse, response_model=None)
-def invoice_upload_form(request: Request) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
+def invoice_upload_form(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request, db):
         return redirect
     return _templates.TemplateResponse(
         request=request, name="invoice_upload.html", context={"errors": []},
@@ -326,10 +397,11 @@ def invoice_upload_form(request: Request) -> HTMLResponse | RedirectResponse:
 
 @app.post("/invoice/upload", response_class=HTMLResponse, response_model=None)
 async def invoice_upload_submit(
-    request: Request, invoice_file: UploadFile = File(...),
+    request: Request, invoice_file: UploadFile = File(...), db: DbSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
-        return redirect
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
     invoice_bytes = await invoice_file.read(MAX_UPLOAD_BYTES + 1)
 
     errors = _invoice_size_errors(invoice_bytes)
@@ -345,32 +417,49 @@ async def invoice_upload_submit(
         )
 
     unmatched = cross_reference_ingredients(result.rows, _known_ingredient_ids())
+    staged_id = stage_upload(
+        db, identity.user_id, identity.restaurant_id, kind="invoice",
+        payload={"invoice_csv_b64": _b64(invoice_bytes)},
+    )
     context = {
         "summary": build_invoice_summary(result.rows),
         "unmatched": unmatched,
-        "invoice_csv_b64": _b64(invoice_bytes),
+        "staged_upload_id": staged_id,
     }
     return _templates.TemplateResponse(request=request, name="invoice_confirm.html", context=context)
 
 
 @app.post("/invoice/confirm", response_class=HTMLResponse, response_model=None)
 def invoice_confirm_submit(
-    request: Request, invoice_csv_b64: str = Form(...),
+    request: Request, staged_upload_id: str = Form(...), db: DbSession = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
-        return redirect
-    try:
-        invoice_bytes = b64decode(invoice_csv_b64, validate=True)
-    except binascii.Error:
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
+
+    payload = take_staged_upload(db, staged_upload_id, identity.user_id, kind="invoice")
+    if payload is None:
         correlation_id = uuid4().hex[:8]
-        _log.warning("invoice confirm payload was not valid base64 (correlation_id=%s)", correlation_id)
+        _log.warning(
+            "invoice confirm referenced an unknown/expired/consumed staged upload (correlation_id=%s)",
+            correlation_id,
+        )
+        return _templates.TemplateResponse(
+            request=request, name="error.html", context={"correlation_id": correlation_id},
+            status_code=400,
+        )
+    try:
+        invoice_bytes = b64decode(payload["invoice_csv_b64"], validate=True)
+    except (binascii.Error, KeyError):
+        correlation_id = uuid4().hex[:8]
+        _log.warning("invoice confirm staged payload was malformed (correlation_id=%s)", correlation_id)
         return _templates.TemplateResponse(
             request=request, name="error.html", context={"correlation_id": correlation_id},
             status_code=400,
         )
 
-    # /invoice/confirm is directly POST-able — re-apply the same size + parse checks /invoice/
-    # upload ran rather than trusting the round-tripped hidden field (mirrors /confirm above).
+    # /invoice/confirm is directly POST-able — re-apply the same size + parse checks
+    # /invoice/upload ran rather than trusting the staged payload (mirrors /confirm above).
     errors = _invoice_size_errors(invoice_bytes)
     if errors:
         return _templates.TemplateResponse(
@@ -406,8 +495,8 @@ def invoice_confirm_submit(
 
 
 @app.get("/insights", response_class=HTMLResponse, response_model=None)
-def insights(request: Request) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request):
+def insights(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
+    if redirect := require_login(request, db):
         return redirect
     try:
         summary = build_insights_summary()

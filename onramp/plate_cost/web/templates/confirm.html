@@ -36,8 +36,7 @@
 {% endif %}
 
 <form method="post" action="/confirm">
-  <input type="hidden" name="sales_csv_b64" value="{{ sales_csv_b64 }}">
-  <input type="hidden" name="bom_csv_b64" value="{{ bom_csv_b64 }}">
+  <input type="hidden" name="staged_upload_id" value="{{ staged_upload_id }}">
   <button type="submit" class="btn-primary">Confirm and save</button>
 </form>
 <p class="page-meta"><a href="/upload">Start over</a></p>
