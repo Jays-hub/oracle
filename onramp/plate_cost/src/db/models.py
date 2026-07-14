@@ -5,12 +5,14 @@ storage for accounts, restaurants, sessions, and staged uploads. It is **not** t
 imported by ``forecasting/``, never written through ``schemas/``, never placed under ``data/``
 (the seam directory owned by neither peer; see ``engine.py`` for where the file actually lives).
 
-Six tables, matching the schema sketch in ``website_production_overview.md`` §3: ``restaurants``
-· ``users`` · ``memberships`` (user<->restaurant, role) · ``credentials`` (argon2 hash + a
-single pending reset token) · ``sessions`` (revocable, DB-listed) · ``staged_uploads``
+Six tables landed in W5, matching the schema sketch in ``website_production_overview.md`` §3:
+``restaurants`` · ``users`` · ``memberships`` (user<->restaurant, role) · ``credentials`` (argon2
+hash + a single pending reset token) · ``sessions`` (revocable, DB-listed) · ``staged_uploads``
 (payload/kind/expiry, replacing W1-W4's hidden-base64-form-field round trip). ``audit_log`` is
 in that sketch too but deliberately not built here — nothing in this phase writes or reads one
 yet; see ``docs/phase_decisions/W5.md`` Explicitly Deferred.
+
+W6 adds a seventh: ``dishes`` (the operator-maintained menu-price catalog — see ``Dish`` below).
 """
 from __future__ import annotations
 
@@ -123,6 +125,37 @@ class Session(Base):
     created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(default=None)
+
+
+class Dish(Base):
+    """The operator-maintained menu-price catalog (W6) -- the one seam input the PoC never
+    asked for. ``data/raw/bom.parquet`` has quantities/units and
+    ``data/raw/price_observations.parquet`` has ingredient unit prices, but no dish's *menu
+    price* crosses the seam anywhere (``data/CONTRACT.md``'s "Co provenance" forward note). Menu
+    price is *user/operational* catalog data under the two-store laws
+    (``docs/website_production_overview.md`` §3) -- it lives here, app-DB-only, and never
+    crosses into ``data/raw/``; only the *derived* food-cost this phase also introduces does that
+    (``src/costing/tenant_grid.py::FoodCostRow``).
+
+    Keyed by ``(restaurant_id, dish_name)`` rather than the seam's own ``dish_id``: that id is
+    itself just ``normalize_name(dish_name)`` (``schemas/seam.py::BomRow``), so storing the
+    display name here and normalizing at join time (``src/costing/menu_prices.py``) reuses that
+    one canonical function instead of persisting a second, parallel id. ``id`` is still a real
+    UUID primary key -- the "stable item_id introduced app-side" production overview §6 asks
+    for; carrying it into the seam schemas themselves is W9's job.
+    """
+
+    __tablename__ = "dishes"
+    __table_args__ = (
+        UniqueConstraint("restaurant_id", "dish_name", name="uq_dish_restaurant_name"),
+    )
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=_new_id)
+    restaurant_id: Mapped[str] = mapped_column(ForeignKey("restaurants.id"), nullable=False)
+    dish_name: Mapped[str] = mapped_column(nullable=False)
+    menu_price: Mapped[float] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(default=_utcnow, onupdate=_utcnow, nullable=False)
 
 
 class StagedUpload(Base):

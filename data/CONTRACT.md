@@ -31,16 +31,17 @@ of who writes what, who reads what, and the law that keeps the firewall intact. 
 
 ## What the on-ramp writes to `data/raw/` (its captured data legs)
 
-The current on-ramp implementation (`onramp/plate_cost/`) writes three of the engine's four data
-legs. Files (`.csv` or `.parquet`):
+The current on-ramp implementation (`onramp/plate_cost/`) writes four of the engine's data legs,
+plus one derived leg. Files (`.csv` or `.parquet`):
 
 | File | Leg | Written when |
 |---|---|---|
 | `sales_export.csv` (a.k.a. `pos_sales.*`) | **sales history** | onboarding (POS export) → later POS feed |
 | `bom.csv` (RecipeLine rows) | **BOM** | the one-time recipe sitdown |
 | `price_observations.csv` | **invoice / price history** | **built (W3, 2026-07-05)** — a digital-feed CSV upload (`src/capture/invoice_upload.py`); each confirmed invoice APPENDS rows (never a full replace, unlike the other two legs), so history accumulates |
+| `food_cost.csv` | **derived per-dish ingredient cost (`Co`)** | **built (W6, 2026-07-14)** — recomputed from the BOM + latest prices and written full-replace (a current snapshot, not a history) whenever the operator saves a menu price or confirms a new invoice (`src/costing/tenant_grid.py`); see "Co provenance" below |
 
-The **fourth** leg — `eightysix_log.csv` (the 86/stockout log, the censored-demand signal) — is
+The **fifth** leg — `eightysix_log.csv` (the 86/stockout log, the censored-demand signal) — is
 **not** captured by the on-ramp. It is a separate, deliberately tiny habit (tap a dish when it 86s).
 It still lands in `data/raw/` for the engine to read; it just has a different capture surface.
 
@@ -58,22 +59,20 @@ export replaces the simulated one, the `../schemas/` definitions are the validat
 Recorded decisions about future seam evolution, not yet built. Each clears the Comprehension
 Contract (`.claude/rules/00-process.md`) when it lands.
 
-- **Co provenance — a derived food-cost leg (review issue #3). Still NOT built, even after W3.**
-  Today the engine's overage cost `Co` (the food cost of a wasted portion) is hand-entered in
-  `config/items.yaml` as a simulation placeholder. `Co` *is* the plate cost the on-ramp already
-  computes — but the seam still carries **no menu prices**: W3 (2026-07-05) added ingredient unit
-  prices (`price_observations.csv`, above), yet `bom.parquet` still has only quantities/yields/units
-  and `sales_export.parquet` only counts — no dish's *menu price* crosses the seam anywhere, so the
-  engine **still cannot reconstruct a plate cost (let alone a margin) from `data/raw/` today**. This
-  is why W3's own `/insights` opportunities surface reports an ingredient-cost delta only, never a
-  margin or food-cost-tier claim (`docs/phase_decisions/W3.md`). **Decision (unchanged):** when real
-  tenant data flows, the on-ramp writes its computed per-dish food cost as a new **derived seam leg**
-  (a `food_cost` column or file under `data/raw/`), so `Co` flows *from the on-ramp's computation*
-  and is never re-typed — one source of truth, consistent with "one recipe-confirmation act feeds
-  two products." This adds a `../schemas/` definition and a row to the legs table above; it is a
-  gated step, still deferred to a later on-ramp phase (menu-price capture hasn't been built either).
-  Until then, `config/items.yaml` `Co` is an honestly-labeled placeholder, not a second source of
-  truth to reconcile.
+- **Co provenance — a derived food-cost leg (review issue #3). Built (W6, 2026-07-14).**
+  `food_cost.csv` (above) is now written: `schemas/seam.py::FoodCostRow` (`dish_id`, `dish_name`,
+  `food_cost`, `computed_at`), recomputed from `bom.parquet` + the latest `price_observations.parquet`
+  price per ingredient (`src/costing/tenant_grid.py::build_food_cost_rows`) and written full-replace
+  whenever the operator saves a menu price (`src/costing/menu_prices.py` — "one recipe-confirmation
+  act feeds two products," now also true of "one menu-price save") **or confirms a new invoice**
+  (`web/app.py::invoice_confirm_submit`, added post-review — a price-only invoice upload changes
+  `Co` too, and the leg must not go stale until the next unrelated menu-price save;
+  `web/menu_prices.py::recompute_and_write_food_cost` is the one recompute path both actions share).
+  It deliberately carries no `menu_price` itself — that stays app-DB-only catalog data
+  (`onramp/plate_cost/docs/website_production_overview.md` §3's two-store laws) — and the cost math
+  never needed `menu_price` in the first place. **Not yet wired into the engine**:
+  `config/items.yaml` `Co` is still a hand-typed placeholder until a `forecasting/` phase reads this
+  leg instead — that consuming change is out of this on-ramp phase's scope and remains open.
 
 - **Stable `item_id` across the seam (review issue #4, durable fix).** The only key shared by
   `config/items.yaml` and `data/raw/` today is the display name (`name` ↔ `dish_name`) — a

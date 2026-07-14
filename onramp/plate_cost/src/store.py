@@ -64,3 +64,9 @@ def read_sales() -> pd.DataFrame:
 def read_price_observations() -> pd.DataFrame:
     """Invoice/price-history seam leg from data/raw/price_observations.parquet (W3)."""
     return _read_raw_parquet("price_observations.parquet")
+
+
+def read_food_cost() -> pd.DataFrame:
+    """Derived per-dish food-cost seam leg from data/raw/food_cost.parquet (W6) -- read back so
+    /your-data can disclose the leg it now sends the engine (W6_review.md MAJOR-1)."""
+    return _read_raw_parquet("food_cost.parquet")

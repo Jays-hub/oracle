@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.dish_name }}{% endblock %}
+
+{# This page shows the operator's own captured data — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>{{ detail.dish_name }}</h1>
+  <p class="page-meta"><a href="/dishes">&larr; Back to your dishes</a></p>
+</section>
+
+<section class="confirm-summary">
+  {% if detail.margin_display is not none %}
+  <div class="dish-margin">
+    <span class="margin-label">Margin</span>
+    <span class="margin-amount">${{ "%.2f" | format(detail.margin_display) }}</span>
+  </div>
+  {% endif %}
+  <dl class="dish-details">
+    <div class="detail-row">
+      <dt>Menu price</dt>
+      <dd>
+        {% if detail.menu_price is not none %}${{ "%.2f" | format(detail.menu_price) }}
+        {% else %}Not set — <a href="/menu-prices">set a menu price</a>{% endif %}
+      </dd>
+    </div>
+    <div class="detail-row">
+      <dt>~Cost</dt>
+      <dd>
+        {% if detail.cost_display is not none %}${{ "%.2f" | format(detail.cost_display) }}
+        {% else %}Not available yet{% endif %}
+      </dd>
+    </div>
+    {% if detail.food_cost_pct is not none %}
+    <div class="detail-row">
+      <dt>Food cost</dt>
+      <dd>{{ "%.0f" | format(detail.food_cost_pct * 100) }}% <span class="tier tier--{{ detail.food_cost_tier }}">{{ detail.food_cost_tier }}</span></dd>
+    </div>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="confirm-summary">
+  <h2>Ingredient breakdown</h2>
+  <p class="page-meta">Every line's as-used cost — qty converted to canonical units, divided by
+  yield, times the latest invoice price — so you can check the total by hand.</p>
+  <dl class="dish-details">
+    {% for line in detail.lines %}
+    <div class="detail-row">
+      <dt>{{ line.ingredient_name }} <span class="detail-note">{{ line.qty }} {{ line.recipe_unit }}</span></dt>
+      <dd>
+        {% if line.as_used_cost is not none %}${{ "%.2f" | format(line.as_used_cost) }}
+        {% else %}price not yet captured{% endif %}
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% if detail.any_missing %}
+  <p class="page-meta">The total above is unavailable until every ingredient has a captured
+  price and a convertible unit.</p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block footer %}
+<p>Costs rounded to nearest $0.25 · Margin = Menu − ~Cost · Figures are directional estimates</p>
+{% endblock %}

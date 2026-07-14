@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Dish not found{% endblock %}
+
+{% block content %}
+<section class="error-panel" role="alert">
+  <h1>We couldn't find that dish</h1>
+  <p>It may have been renamed or removed from your recipe sheet since this link was created.</p>
+  <p><a href="/dishes">Back to your dishes</a></p>
+</section>
+{% endblock %}

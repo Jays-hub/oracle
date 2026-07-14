@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Menu prices{% endblock %}
+
+{# This page edits the operator's own catalog — never label it as sample/illustrative (rule 06). #}
+{% block sample_banner %}{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+  <h1>Menu prices</h1>
+  <p class="page-meta">The one input we still needed from you — set each dish's menu price to see
+  its real cost, margin, and food-cost tier on <a href="/dishes">your dishes</a>.</p>
+</section>
+
+{% if errors %}
+<section class="skipped-notice" role="alert">
+  <strong>Please fix the following:</strong>
+  <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if not rows %}
+<section class="confirm-summary">
+  <p>No recipe sheet captured yet — <a href="/upload">connect your data</a> first, then come back
+  to set menu prices.</p>
+</section>
+{% else %}
+<form method="post" action="/menu-prices" class="upload-form">
+  <dl class="dish-details">
+    {% for row in rows %}
+    <div class="upload-field">
+      <label for="price__{{ row.dish_id }}">{{ row.dish_name }}</label>
+      <input type="text" inputmode="decimal" id="price__{{ row.dish_id }}"
+             name="price__{{ row.dish_id }}"
+             value="{{ '%.2f'|format(row.menu_price) if row.menu_price is not none else '' }}"
+             placeholder="e.g. 14.00">
+    </div>
+    {% endfor %}
+  </dl>
+  <button type="submit" class="btn-primary">Save menu prices</button>
+  <p class="field-hint">Leave a field blank to skip pricing that dish for now — nothing is
+  overwritten until you set a value.</p>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+<p>Menu prices are kept private to your account — they never leave this app, only the resulting
+cost figure does (see <a href="/your-data">your data</a> for what we send the forecasting engine).</p>
+{% endblock %}

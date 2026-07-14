@@ -6,7 +6,7 @@ every dish before it goes out" gate, exercised directly.
 import pytest
 from pydantic import ValidationError
 
-from schemas import BomRow, SalesExportRow
+from schemas import BomRow, FoodCostRow, SalesExportRow
 
 
 def _bom(**over):
@@ -54,3 +54,31 @@ def test_salesrow_accepts_valid_and_coerces_count():
 def test_salesrow_rejects_bad(bad):
     with pytest.raises(ValidationError):
         SalesExportRow(**_sales(**bad))
+
+
+def _food_cost(**over):
+    base = dict(dish_id="short-rib", dish_name="Short Rib", food_cost=24.0, computed_at="2026-07-14")
+    base.update(over)
+    return base
+
+
+def test_foodcostrow_accepts_valid():
+    FoodCostRow(**_food_cost())
+
+
+@pytest.mark.parametrize("bad", [
+    {"food_cost": 0.0},     # must be > 0
+    {"food_cost": -5.0},    # can't be negative
+    {"dish_id": ""},        # required, non-empty
+    {"dish_name": ""},      # required, non-empty
+])
+def test_foodcostrow_rejects_bad(bad):
+    with pytest.raises(ValidationError):
+        FoodCostRow(**_food_cost(**bad))
+
+
+def test_foodcostrow_carries_no_menu_price():
+    """The two-store laws (website_production_overview.md §3): menu price is user/operational
+    catalog data and never crosses the seam — only the derived cost does. A structural guard
+    against ever adding one to this row by accident."""
+    assert "menu_price" not in FoodCostRow.model_fields
