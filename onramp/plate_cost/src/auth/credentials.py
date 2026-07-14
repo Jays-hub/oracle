@@ -1,47 +1,63 @@
-"""Operator credential check — pure, framework-agnostic (rule 05: compute stays pure).
+"""Password + token cryptography — pure, framework- and DB-agnostic (rule 05: compute stays
+pure). ``src/auth/service.py`` is the DB-aware layer that calls these; ``web/auth.py`` is the
+only caller that knows about HTTP/cookies.
 
-W2 is a single-operator tool today: one restaurant, one login, no signup and no password
-reset. The credential lives entirely in environment variables (rule 07: secrets in env, never
-in code or the repo) rather than a user table, because nothing has yet validated a need for
-more than one account (see docs/phase_decisions/W2.md — a user table is a forward note, not
-built here). Verification fails CLOSED: if either env var is unset, every attempt fails rather
-than falling back to a default or hardcoded credential.
+W5 retires W2's single env-configured SHA-256 operator credential: passwords now hash with
+argon2id, a slow memory-hard KDF appropriate for a real, growing user table — the W2 module's
+own docstring flagged "revisit if this ever becomes a real multi-user credential store," and
+W5 is that revisit (``docs/phase_decisions/W5.md``). ``PasswordHasher`` embeds its own salt and
+cost parameters inside the returned hash string, so no separate salt column is needed.
+
+Session and password-reset tokens are a different problem with a different right answer:
+they're already 256 bits of ``secrets``-grade randomness, not a low-entropy human password, so
+hashing them for at-rest storage needs no memory-hard KDF — a fast SHA-256 is exactly right.
 """
 from __future__ import annotations
 
 import hashlib
-import hmac
-import os
+import secrets
 
-USERNAME_ENV = "ONRAMP_AUTH_USERNAME"
-PASSWORD_HASH_ENV = "ONRAMP_AUTH_PASSWORD_HASH"
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+
+_hasher = PasswordHasher()
 
 
 def hash_password(password: str) -> str:
-    """SHA-256 hex digest of a password — deterministic (same input always yields the same
-    output), used both to seed ONRAMP_AUTH_PASSWORD_HASH and to check a login attempt.
-
-    Not a slow KDF (bcrypt/scrypt/argon2): the threat model here is one operator credential
-    checked against a login form, not a leaked table of many user hashes worth slowing down
-    offline brute-force against. Revisit if this ever becomes a real multi-user credential store.
-    """
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    """Argon2id hash of ``password`` — salted internally, non-deterministic across calls (two
+    hashes of the same password never match byte-for-byte; ``verify_password`` is how you
+    check one against the other)."""
+    return _hasher.hash(password)
 
 
-def verify_credentials(username: str, password: str) -> bool:
-    """True iff username/password match the configured operator credential.
+# A fixed, valid argon2id hash with no corresponding real account. src.auth.service.authenticate
+# verifies against this when the email doesn't match any user, so an unknown email still pays
+# the same KDF cost as a known one with a wrong password — otherwise the *response* is identical
+# either way but the *latency* isn't, and a timing side-channel enumerates accounts even though
+# the message never does (docs/phase_decisions/W5_review.md MINOR-1).
+DUMMY_PASSWORD_HASH = hash_password("not-a-real-account-timing-parity-only")
 
-    Both comparisons run unconditionally (no short-circuit before the final `and`) and use
-    `hmac.compare_digest` so a wrong-username attempt and a wrong-password attempt take
-    indistinguishable time.
-    """
-    expected_username = os.environ.get(USERNAME_ENV)
-    expected_hash = os.environ.get(PASSWORD_HASH_ENV)
-    if not expected_username or not expected_hash:
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """True iff ``password`` matches ``password_hash``. Never raises on a bad/foreign/corrupt
+    hash — that is just "doesn't match," not a 500 (mirrors W2's non-ASCII-safe credential
+    check, generalized to any malformed-input failure mode argon2 can raise)."""
+    try:
+        return _hasher.verify(password_hash, password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
         return False
-    # Compare as UTF-8 bytes, not str: hmac.compare_digest raises TypeError on a str
-    # argument containing non-ASCII characters, which would turn a login attempt with an
-    # accented username into a 500 instead of a clean rejection (W2_review.md MAJOR-1).
-    username_ok = hmac.compare_digest(username.encode("utf-8"), expected_username.encode("utf-8"))
-    password_ok = hmac.compare_digest(hash_password(password), expected_hash)
-    return username_ok and password_ok
+
+
+def generate_token() -> str:
+    """A high-entropy opaque token for session cookies / password-reset links: 32 random bytes,
+    URL-safe text. The raw value is what the client holds (a cookie, a reset-link path
+    segment); only its hash (``hash_token`` below) is ever persisted."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_token(token: str) -> str:
+    """SHA-256 hex digest, for at-rest storage of session/reset tokens — so a DB read, backup,
+    or log line never yields a directly usable token. Not argon2: the input is already a
+    uniform 256-bit random value, not a human password, so a KDF's deliberate slowness buys
+    nothing here and would only slow down every request's session lookup."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

@@ -1,64 +1,55 @@
-"""Tests for the pure operator-credential check (src/auth/credentials.py).
+"""Tests for the pure password/token cryptography (src/auth/credentials.py).
 
-Covers: correct credentials accepted, wrong username/password rejected, verification fails
-CLOSED when unconfigured (no default/hardcoded credential to fall back to), and hash_password
-is deterministic (same input always yields the same output — the "reproducibility" guard for
-this phase, since there's no stochastic model here to seed).
+Covers: a correct password verifies, a wrong one doesn't, verification never raises on a
+corrupt/foreign hash (fails closed as a clean False, not a 500), hashing is salted (two hashes
+of the same password differ — the correctness property that replaces W2's sha256
+"hash_password is deterministic" test, since argon2 must NOT be deterministic), and
+verify_password is nonetheless repeatable given a fixed hash (the "same seed twice -> identical
+result" reproducibility guard, translated to this phase's actual stochastic component: salted
+hashing). Token generation/hashing get their own correctness + determinism checks.
 """
-from src.auth.credentials import (
-    PASSWORD_HASH_ENV,
-    USERNAME_ENV,
-    hash_password,
-    verify_credentials,
-)
+from src.auth.credentials import generate_token, hash_password, hash_token, verify_password
 
 
-def _set_credential(monkeypatch, username: str, password: str) -> None:
-    monkeypatch.setenv(USERNAME_ENV, username)
-    monkeypatch.setenv(PASSWORD_HASH_ENV, hash_password(password))
+def test_correct_password_verifies():
+    hashed = hash_password("s3cret")
+    assert verify_password("s3cret", hashed) is True
 
 
-def test_correct_credentials_accepted(monkeypatch):
-    _set_credential(monkeypatch, "chef", "s3cret")
-    assert verify_credentials("chef", "s3cret") is True
+def test_wrong_password_rejected():
+    hashed = hash_password("s3cret")
+    assert verify_password("wrong", hashed) is False
 
 
-def test_wrong_password_rejected(monkeypatch):
-    _set_credential(monkeypatch, "chef", "s3cret")
-    assert verify_credentials("chef", "wrong") is False
+def test_verify_never_raises_on_a_corrupt_hash():
+    """A malformed/foreign hash string (e.g. a stale sha256 hex digest from before W5, or plain
+    garbage) must be reported as "doesn't match," never crash the caller."""
+    assert verify_password("s3cret", "not-an-argon2-hash") is False
+    assert verify_password("s3cret", "") is False
 
 
-def test_wrong_username_rejected(monkeypatch):
-    _set_credential(monkeypatch, "chef", "s3cret")
-    assert verify_credentials("someone-else", "s3cret") is False
+def test_hash_password_is_salted_not_deterministic():
+    """Two hashes of the SAME password must differ — argon2's embedded random salt is what
+    makes a stolen hash table useless for a rainbow-table lookup. (The opposite property from
+    W2's retired sha256 hash_password, which was deliberately deterministic.)"""
+    assert hash_password("s3cret") != hash_password("s3cret")
 
 
-def test_fails_closed_when_env_unset(monkeypatch):
-    """No configured credential means no login can ever succeed — never fall back to a
-    hardcoded default (rule 07: secrets in env, never in code)."""
-    monkeypatch.delenv(USERNAME_ENV, raising=False)
-    monkeypatch.delenv(PASSWORD_HASH_ENV, raising=False)
-    assert verify_credentials("anyone", "anything") is False
-    assert verify_credentials("", "") is False
+def test_verify_password_is_repeatable_given_a_fixed_hash():
+    """Reproducibility guard: checking the same (password, hash) pair twice always agrees —
+    the salt lives inside the hash string, so re-verification is deterministic even though
+    hashing itself is not."""
+    hashed = hash_password("s3cret")
+    assert verify_password("s3cret", hashed) == verify_password("s3cret", hashed) is True
 
 
-def test_fails_closed_when_only_username_configured(monkeypatch):
-    monkeypatch.setenv(USERNAME_ENV, "chef")
-    monkeypatch.delenv(PASSWORD_HASH_ENV, raising=False)
-    assert verify_credentials("chef", "s3cret") is False
+def test_generate_token_is_unique_and_url_safe():
+    a, b = generate_token(), generate_token()
+    assert a != b
+    assert all(c.isalnum() or c in "-_" for c in a)
 
 
-def test_non_ascii_username_rejected_not_raised(monkeypatch):
-    """hmac.compare_digest raises TypeError on a non-ASCII str; the raw username must never
-    reach it un-encoded (W2_review.md MAJOR-1 — this used to 500 instead of returning False)."""
-    _set_credential(monkeypatch, "chef", "s3cret")
-    assert verify_credentials("café", "s3cret") is False
-    assert verify_credentials("chef", "wrong-café-password") is False
-
-
-def test_hash_password_is_deterministic():
-    assert hash_password("s3cret") == hash_password("s3cret")
-
-
-def test_hash_password_differs_for_different_passwords():
-    assert hash_password("s3cret") != hash_password("other")
+def test_hash_token_is_deterministic_and_distinguishes_inputs():
+    token = generate_token()
+    assert hash_token(token) == hash_token(token)
+    assert hash_token(token) != hash_token(generate_token())

@@ -10,6 +10,124 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-14 — W5 hardening: fixed all `W5_review.md` findings `[built]`
+
+`/review-web W5`'s verdict was **"No (not yet)"** — a BLOCKER: real multi-restaurant account
+creation shipped over a still-global `data/raw/`, so the reviewer created two accounts, seeded the
+shared store with Restaurant A's data, and logged in as B to read *and export* A's BOM. Jay
+greenlit every finding, choosing the reviewer's own "thinner, W5-appropriate" option for the
+BLOCKER — fence single-tenant now, do the real cross-peer seam partitioning on schedule at W9 —
+over pulling W9's `data/CONTRACT.md` amendment forward unilaterally. `docs/phase_decisions/W5.md`/
+`W5_review.md` are left as the frozen build-time/review-time record (same convention as the
+2026-07-13 W4 hardening entry); this entry is the remediation record.
+
+- **BLOCKER-1 — cross-tenant leak, fenced.** `src/auth/service.py::create_account` now raises
+  `ValueError` if any `Restaurant` row already exists — a real DB constraint, not an unenforced
+  convention, so "exactly one tenant" holds until W9 partitions the seam. Verified live against a
+  real migrated SQLite file (not just the unit test): a second `create_account` call is rejected
+  with a named error instead of silently creating a second tenant that reads/writes the first
+  one's `data/raw/` files. `website_production_overview.md` §2.5 and the W5 phase-ladder row were
+  corrected — they had claimed W5 already let a second restaurant coexist safely, which the
+  reviewer's live reproduction disproved.
+- **MINOR-1 — login timing enumeration.** `authenticate()` returned instantly on an unknown email
+  without ever running argon2, so an attacker could distinguish "email exists" from "email doesn't"
+  by latency even though the response message was identical. `src/auth/credentials.py` now carries
+  a fixed `DUMMY_PASSWORD_HASH`; `authenticate()` verifies against it on the absent-user path so
+  both branches pay the same KDF cost.
+- **MINOR-2 — migration/ORM drift guard was table-names-only.** The whole suite built its schema
+  via `Base.metadata.create_all`, never the actual Alembic migration, and the one test that did run
+  the migration checked table names only — a dropped column or constraint could drift silently.
+  Added `test_migrated_schema_matches_orm_metadata_exactly` (`tests/test_db_engine.py`), which runs
+  `alembic upgrade head` against a throwaway DB and asserts `compare_metadata` returns an empty diff.
+- **MINOR-4 — the decision log misdescribed the shipped code.** `docs/phase_decisions/W5.md` claimed
+  `require_login`/`current_identity` let a DB error propagate to a 500; the shipped
+  `web/auth.py::_identity()` actually catches `SQLAlchemyError` for all three call sites uniformly
+  (a DB outage fail-closes to `/login`, not a crash) — the *safer* behavior, but the opposite of
+  what the record said. Corrected in place (struck through + annotated, not silently rewritten) so
+  a future reader isn't misled into "fixing" a propagation path that never existed.
+- **LOW-1 — staged-upload consume was check-then-set.** `src/capture/staging.py::take_staged_upload`
+  now claims a row with one atomic `UPDATE ... WHERE consumed_at IS NULL`, checking `rowcount`
+  instead of reading `consumed_at` then writing it in a separate step — closes a genuine concurrent
+  double-submit TOCTOU (an invoice's price rows are appended, not replaced, so a raced double-take
+  would have duplicated them). Proven with real threads/real sessions against a dedicated
+  busy-timeout'd SQLite engine (`test_take_staged_upload_is_atomic_under_concurrent_race`): 8
+  concurrent callers, exactly 1 winner, every run.
+- **LOW-2 — reset-token-in-logs, tracked forward.** Kept as-is for localhost (correctly never in the
+  HTTP response), but now explicitly named in `website_production_overview.md`'s W7 row and
+  `W5.md`'s Explicitly Deferred table so it can't be forgotten once real email transport or remote
+  logging exists.
+- **LOW-3 — SQLite foreign keys were declared but not enforced.** `src/db/engine.py::build_engine`
+  now runs `PRAGMA foreign_keys=ON` on every SQLite connection via a `connect` event listener.
+  `test_build_engine_enables_sqlite_foreign_key_enforcement` proves an orphaned `Membership` insert
+  now raises `IntegrityError` instead of silently succeeding.
+- **NIT — `reset_password`'s self-contradicting docstring** ("cleared on success either way")
+  reworded to state plainly that only the success path clears the token.
+- **Tests: 473 pass, up from 468** — 5 new (`test_create_account_rejects_a_second_restaurant`,
+  `test_authenticate_unknown_email_still_pays_argon2_cost`,
+  `test_migrated_schema_matches_orm_metadata_exactly`,
+  `test_build_engine_enables_sqlite_foreign_key_enforcement`,
+  `test_take_staged_upload_is_atomic_under_concurrent_race`). `ruff check`: clean. `lint-imports`:
+  2 contracts kept, 0 broken.
+- W5 is now done: build closed in the entry below, review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-14 — W5 built: the designated app DB + real identity `[built]`
+
+Built `website_production_overview.md` §4's W5 slice: a real on-ramp-private application database
+(SQLAlchemy + Alembic, SQLite via `ONRAMP_DATABASE_URL`) replaces W2's single env-configured operator
+credential and the `RESTAURANT_ID = "default"` placeholder. Full reasoning, load-bearing assumptions,
+and design decisions: `docs/phase_decisions/W5.md`. Not marked done here — per `00-process.md`, that
+happens when `/review-web W5` closes on the code.
+
+- **Six new tables** (`onramp/plate_cost/src/db/models.py`, one Alembic migration
+  `migrations/versions/0001_initial_schema.py`): `restaurants`, `users`, `memberships`,
+  `credentials` (argon2id hash + a single pending reset token), `sessions` (revocable, DB-listed),
+  `staged_uploads` (payload/kind/expiry). `audit_log`, named in the production overview's schema
+  sketch, is deliberately not built — nothing reads or writes one yet.
+- **Real identity replaces the env credential.** `src/auth/credentials.py` now hashes passwords with
+  argon2id (was a deterministic SHA-256 placeholder); `src/auth/service.py` is the new DB-aware layer
+  (`create_account`, `authenticate`, `create_session`, `resolve_session`, `revoke_session`,
+  `request_password_reset`, `reset_password`) that `web/auth.py` calls. Login/logout, `/your-data` and
+  every other protected route, and the nav's `logged_in` flag all move onto this — 9 call sites in
+  `web/app.py` gained a `db: Session = Depends(get_db)` dependency.
+- **Sessions are DB-backed and revocable, not client-signed.** Starlette's `SessionMiddleware`
+  (itsdangerous) is retired entirely; the cookie now carries only an opaque random token, hashed and
+  looked up against the `sessions` table on every request. Logout revokes the row server-side — a
+  presented stale cookie no longer authenticates, which a signed-cookie scheme could never guarantee.
+  This also resolves the W2→W5 "ephemeral session secret" forward note in the production overview more
+  completely than persisting `ONRAMP_SESSION_SECRET` would have: there is no signing secret left to
+  manage at all.
+- **Staged uploads move server-side.** `/upload` and `/invoice/upload` used to round-trip the raw
+  uploaded bytes back to the browser as base64 hidden form fields; `src/capture/staging.py`'s
+  `stage_upload`/`take_staged_upload` now persist that payload in `staged_uploads` and hand the client
+  back only an opaque id, single-use and expiring after 30 minutes. `/confirm` and `/invoice/confirm`
+  still fully re-validate whatever they find staged (rule 07) — the mechanism changed, the
+  never-trust-the-round-trip discipline didn't.
+- **Invite-only account creation + password reset.** `scripts/create_account.py` (a `getpass`-gated
+  CLI, the only account-creation path — there is still no public `/signup` route) is the whole
+  "invite" act. `GET`/`POST /reset-password` and `GET`/`POST /reset-password/{token}` are new routes;
+  W5 has no email transport yet, so the reset link is written to the server log rather than sent
+  anywhere — recorded as a deliberate, honestly-scoped gap, not an oversight.
+- **Two build-time bugs worth flagging for the reviewer:** SQLite silently round-trips a plain
+  `DateTime` column as timezone-naive even when a timezone-aware value was written, which broke every
+  session/token-expiry comparison until every `_utcnow()` in this phase's new modules was made
+  naive-but-UTC consistently; and Alembic's `env.py` calling `fileConfig()` with its default
+  `disable_existing_loggers=True` silently disabled `web.app`'s logger for the rest of the process the
+  first time a test ran a migration in-process, breaking an unrelated `caplog`-based assertion later in
+  the same suite run — fixed with `disable_existing_loggers=False`. Both are recorded in
+  `docs/phase_decisions/W5.md`'s Constraints section.
+- **Tests: 468 pass, up from 434** — net +34 across four new test files
+  (`test_auth_service.py`, `test_staging.py`, `test_db_engine.py`, `test_create_account_script.py`)
+  plus `test_auth_credentials.py`, `test_web_auth.py`, `test_web_upload.py`, `test_web_invoice.py`
+  rewritten for the new identity/staging contracts (exact per-file deltas in the decision log).
+  `ruff check`: clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test green. Also
+  smoke-tested live over real HTTP (migrate → create an account → start the server → exercise
+  `/`, `/login`, `/your-data`, `/reset-password`) before tearing the process down.
+
+---
+
 ## 2026-07-13 — W4 hardening: fixed all `W4_review.md` findings `[built]`
 
 `/review-web W4`'s verdict was **"Yes, with one MAJOR to fix first"** — the transparency page

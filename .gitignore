@@ -13,6 +13,12 @@
 !/data/_truth/.gitkeep
 *.duckdb
 
+# ── On-ramp app DB (W5) ──────────────────────────────────────────────
+# The designated application database (docs/website_production_overview.md §3) — SQLite by
+# default, on-ramp-private, and deliberately NOT under /data/ above (that directory is the
+# platform seam, owned by neither peer; the app DB never crosses it).
+/onramp/plate_cost/instance/
+
 # ── Models & experiment tracking ─────────────────────────────────────
 # Regenerable and potentially large; the registry itself is Phase 8+ (rule 04).
 /models/

@@ -47,10 +47,11 @@ from schemas import BomRow, SalesExportRow  # noqa: E402  (import after the sys.
 
 # A ~15-25 item recipe sitdown produces a CSV of a few KB; 700 KB is generous headroom while still
 # rejecting a runaway or wrong-file upload before it reaches the parser (rule 07: hostile input).
-# Capped below 786,432 bytes on purpose: the confirm step round-trips the raw bytes through a
-# base64 form field (~1.33x inflation), and Starlette's default per-field cap on a POSTed form is
-# 1 MiB (1,048,576 bytes) — 700_000 * 4/3 ≈ 933 KB stays safely under that with margin, so nothing
-# that passes this check at /upload can ever be rejected by the framework at /confirm.
+# Originally sized to also survive a base64 round-trip through a confirm-page hidden field under
+# Starlette's 1 MiB form-field cap; W5 moved that round-trip server-side into the staged_uploads
+# table (src/capture/staging.py), so that constraint no longer applies — the number is kept
+# unchanged anyway, since it was already a generous, deliberate ceiling on its own terms and W5
+# is scoped to identity/storage, not to relaxing upload limits (docs/phase_decisions/W5.md).
 MAX_UPLOAD_BYTES = 700_000
 
 _SALES_REQUIRED_COLUMNS = {"dish_name", "count", "period_start", "period_end"}

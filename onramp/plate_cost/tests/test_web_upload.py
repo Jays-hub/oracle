@@ -5,13 +5,17 @@ directory both the read and write paths reference (W3_review.md LOW-1 collapsed 
 write-side web.app._RAW_DIR copy into this one shared constant) — never the real data/raw/.
 Covers: the happy path end-to-end (and that it actually lands schema-valid Parquet), validation
 errors surfaced without a crash, the cross-file mismatch warning, the size-limit boundary, and that
-/confirm re-validates rather than trusting the round-tripped hidden fields.
+/confirm re-validates rather than trusting the staged payload.
 
-W2 added a login gate in front of these routes (test_web_auth.py owns that behavior). These tests
-are about upload/confirm logic, not auth, so an autouse fixture bypasses the gate here — mirrors
-how test_web.py's grid tests don't re-verify plate-cost math that src/pricing/ already covers.
+W2 added a login gate in front of these routes (test_web_auth.py owns that behavior). W5 added a
+real identity behind that gate (a staged upload is owned by a user/restaurant id). These tests
+are about upload/confirm logic, not auth/identity, so an autouse fixture bypasses both with a
+fixed fake identity — mirrors how test_web.py's grid tests don't re-verify plate-cost math that
+src/pricing/ already covers.
 """
 import re
+from base64 import b64encode
+from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
@@ -20,14 +24,23 @@ from fastapi.testclient import TestClient
 import src.store as store_mod
 import web.app as appmod
 from schemas import BomRow, SalesExportRow
+from src.auth.service import Identity
+from src.db.models import StagedUpload
 from web.app import app
 
 _client = TestClient(app)
 
+_FAKE_IDENTITY = Identity(
+    session_id="s1", user_id="u1", email="chef@example.com",
+    restaurant_id="r1", restaurant_name="Test Kitchen",
+)
+
 
 @pytest.fixture(autouse=True)
 def _bypass_login(monkeypatch):
-    monkeypatch.setattr(appmod, "require_login", lambda request: None)
+    monkeypatch.setattr(appmod, "require_login", lambda request, db: None)
+    monkeypatch.setattr(appmod, "current_identity", lambda request, db: _FAKE_IDENTITY)
+
 
 _VALID_SALES = (
     b"dish_name,count,period_start,period_end\n"
@@ -51,11 +64,38 @@ def _post_upload(sales=_VALID_SALES, bom=_VALID_BOM):
     )
 
 
-def _extract_hidden_fields(html: str) -> tuple[str, str]:
-    sales_m = re.search(r'name="sales_csv_b64" value="([^"]*)"', html)
-    bom_m = re.search(r'name="bom_csv_b64" value="([^"]*)"', html)
-    assert sales_m and bom_m, "confirm page is missing the round-trip hidden fields"
-    return sales_m.group(1), bom_m.group(1)
+def _extract_staged_upload_id(html: str) -> str:
+    m = re.search(r'name="staged_upload_id" value="([^"]*)"', html)
+    assert m, "confirm page is missing the staged_upload_id hidden field"
+    return m.group(1)
+
+
+def _stage_row_directly(db_sessionmaker, payload: dict[str, str]) -> str:
+    """Seeds a staged_uploads row directly through the DB, bypassing /upload entirely — used to
+    prove /confirm re-validates whatever it finds staged rather than trusting it, now that a
+    client can no longer submit the payload bytes itself (only an opaque id)."""
+    db = db_sessionmaker()
+    try:
+        row = StagedUpload(
+            user_id=_FAKE_IDENTITY.user_id,
+            restaurant_id=_FAKE_IDENTITY.restaurant_id,
+            kind="bom_sales",
+            payload=payload,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row.id
+    finally:
+        db.close()
+
+
+def _stage_bom_sales_directly(db_sessionmaker, sales=_VALID_SALES, bom=_VALID_BOM) -> str:
+    return _stage_row_directly(db_sessionmaker, {
+        "sales_csv_b64": b64encode(sales).decode("ascii"),
+        "bom_csv_b64": b64encode(bom).decode("ascii"),
+    })
 
 
 def test_upload_form_returns_200():
@@ -74,10 +114,8 @@ def test_capture_funnel_pages_never_show_the_sample_data_banner(tmp_path, monkey
 
     upload_form_resp = _client.get("/upload")
     upload_resp = _post_upload()
-    sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
-    confirm_resp = _client.post(
-        "/confirm", data={"sales_csv_b64": sales_b64, "bom_csv_b64": bom_b64},
-    )
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+    confirm_resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
 
     for resp in (upload_form_resp, upload_resp, confirm_resp):
         assert "sample-banner" not in resp.text
@@ -135,11 +173,9 @@ def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_resp = _post_upload()
-    sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
+    staged_id = _extract_staged_upload_id(upload_resp.text)
 
-    confirm_resp = _client.post(
-        "/confirm", data={"sales_csv_b64": sales_b64, "bom_csv_b64": bom_b64},
-    )
+    confirm_resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
     assert confirm_resp.status_code == 200
     assert "Saved" in confirm_resp.text
 
@@ -149,6 +185,21 @@ def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
     assert len(sales_df) == 2
     BomRow(**{k: bom_df[k].iloc[0] for k in BomRow.model_fields})
     SalesExportRow(**{k: sales_df[k].iloc[0] for k in SalesExportRow.model_fields})
+
+
+def test_confirm_is_single_use(tmp_path, monkeypatch):
+    """W5: a replayed /confirm POST with the same staged_upload_id must not re-write the seam a
+    second time — the staging row is consumed on first use."""
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+
+    upload_resp = _post_upload()
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+
+    first = _client.post("/confirm", data={"staged_upload_id": staged_id})
+    second = _client.post("/confirm", data={"staged_upload_id": staged_id})
+
+    assert first.status_code == 200
+    assert second.status_code == 400
 
 
 def test_confirm_never_touches_real_raw_dir_when_isolated(tmp_path, monkeypatch):
@@ -165,57 +216,53 @@ def test_confirm_never_touches_real_raw_dir_when_isolated(tmp_path, monkeypatch)
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
 
     upload_resp = _post_upload()
-    sales_b64, bom_b64 = _extract_hidden_fields(upload_resp.text)
-    _client.post("/confirm", data={"sales_csv_b64": sales_b64, "bom_csv_b64": bom_b64})
+    staged_id = _extract_staged_upload_id(upload_resp.text)
+    _client.post("/confirm", data={"staged_upload_id": staged_id})
 
     assert real_bom.exists() == existed_before
     if existed_before:
         assert real_bom.stat().st_mtime == mtime_before
 
 
-def test_confirm_rejects_tampered_payload_never_trusts_the_hidden_field(tmp_path, monkeypatch):
-    """Rule 07: /confirm must re-validate, not blindly trust a round-tripped hidden field. Craft
-    a base64 payload that decodes to CSV content failing schema validation and confirm it is
-    rejected rather than written."""
+def test_confirm_rejects_tampered_staged_payload_never_trusts_it(tmp_path, monkeypatch, db_sessionmaker):
+    """Rule 07: /confirm must re-validate, not blindly trust the staged payload. Seed a staged
+    row directly (bypassing /upload) whose bytes decode to CSV content failing schema
+    validation, and confirm it is rejected rather than written."""
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    from base64 import b64encode
+    tampered_sales = b"dish_name,count,period_start,period_end\nBurger,-999,2026-06-01,2026-06-07\n"
+    staged_id = _stage_bom_sales_directly(db_sessionmaker, sales=tampered_sales, bom=_VALID_BOM)
 
-    tampered_sales = b64encode(
-        b"dish_name,count,period_start,period_end\nBurger,-999,2026-06-01,2026-06-07\n"
-    ).decode("ascii")
-    valid_bom = b64encode(_VALID_BOM).decode("ascii")
-
-    resp = _client.post(
-        "/confirm", data={"sales_csv_b64": tampered_sales, "bom_csv_b64": valid_bom},
-    )
+    resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 400
     assert not (tmp_path / "bom.parquet").exists()
     assert not (tmp_path / "sales_export.parquet").exists()
 
 
-def test_confirm_rejects_invalid_base64():
-    resp = _client.post(
-        "/confirm", data={"sales_csv_b64": "not-valid-base64!!!", "bom_csv_b64": "also-bad!!!"},
-    )
+def test_confirm_rejects_unknown_staged_upload_id():
+    resp = _client.post("/confirm", data={"staged_upload_id": "not-a-real-id"})
     assert resp.status_code == 400
     assert "Traceback" not in resp.text
 
 
-def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_path, monkeypatch):
-    """/confirm is directly POST-able and must not rely on /upload having already size-checked.
-    Regression for the review finding that /confirm had no size policy of its own and could only
-    be incidentally rejected by Starlette's unrelated per-field cap."""
-    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    monkeypatch.setattr(appmod, "MAX_UPLOAD_BYTES", 10)
-    from base64 import b64encode
+def test_confirm_rejects_malformed_base64_in_staged_payload(db_sessionmaker):
+    """Distinct failure mode from a schema-invalid CSV: the staged payload itself isn't valid
+    base64 at all (binascii.Error, not a ValidationError) — must still fail legibly, not crash."""
+    staged_id = _stage_row_directly(db_sessionmaker, {
+        "sales_csv_b64": "not-valid-base64!!!", "bom_csv_b64": "also-bad!!!",
+    })
+    resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
+    assert resp.status_code == 400
+    assert "Traceback" not in resp.text
 
-    resp = _client.post(
-        "/confirm",
-        data={
-            "sales_csv_b64": b64encode(_VALID_SALES).decode("ascii"),
-            "bom_csv_b64": b64encode(_VALID_BOM).decode("ascii"),
-        },
-    )
+
+def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_path, monkeypatch, db_sessionmaker):
+    """/confirm must not rely on /upload having already size-checked — re-applies the same size
+    policy to whatever it finds staged."""
+    monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    staged_id = _stage_bom_sales_directly(db_sessionmaker)
+    monkeypatch.setattr(appmod, "MAX_UPLOAD_BYTES", 10)
+
+    resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 422
     assert "too large" in resp.text.lower()
     assert not (tmp_path / "bom.parquet").exists()
