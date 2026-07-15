@@ -1,11 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Menu Engineering Grid{% endblock %}
+{% block title %}Plate Cost — know what every dish costs you{% endblock %}
 
 {% block content %}
-<section class="page-intro">
-  <h1>Menu Engineering Grid</h1>
-  <p class="page-meta">{{ total_covers }} covers on record · Popularity × Margin</p>
+<section class="hero">
+  <h1 class="hero-headline">Connect your POS and confirm your recipes once — here's exactly what
+  every dish costs you, which dishes make your money, and which quietly lose it.</h1>
+  <p class="hero-sub">See it below with a live sample menu, no login required. Then connect your
+  own restaurant's data in one sitting.</p>
+  <div class="hero-actions">
+    <a href="#live-demo" class="btn-primary">See the live demo</a>
+    {# A logged-in operator gets a real next step instead of a contradictory "Log in" CTA
+       sitting beside the nav's already-authenticated links (W8_review.md NIT-5). #}
+    {% if logged_in %}
+    <a href="/dishes" class="btn-secondary">Go to your dishes</a>
+    {% else %}
+    <a href="/login" class="btn-secondary">Log in</a>
+    {% endif %}
+  </div>
 </section>
+
+<section id="live-demo" aria-labelledby="live-demo-heading">
+<div class="page-intro">
+  <h2 id="live-demo-heading">Live demo — sample menu</h2>
+  <p class="page-meta">{{ total_covers }} covers on record · Popularity × Margin</p>
+</div>
 
 {% if skipped %}
 <section class="skipped-notice" role="alert">
@@ -80,6 +98,7 @@
 <div class="grid-footer">
   <p>{{ total_covers }} covers on record · Costs rounded to nearest $0.25 · Menu − ~Cost = Margin reconciles by eye</p>
 </div>
+</section>
 {% endblock %}
 
 {% block footer %}

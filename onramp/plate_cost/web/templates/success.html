@@ -11,10 +11,13 @@
   ({{ summary.period_start }} – {{ summary.period_end }}) are now on record.</p>
 </section>
 
+{% set step = 3 %}
+{% include "_progress_meter.html" %}
+
 <section class="confirm-summary">
-  <p>Your sales and recipe data is now stored. The dashboard that reads this data back and shows
-  it in your own margin grid arrives in a later phase — today's grid view still shows the shared
-  sample data used to demo the tool.</p>
+  <p>Your sales and recipe data is now stored. One step left to see your own real margins:
+  <a href="/menu-prices">set your menu prices</a>, then check <a href="/dishes">your dishes</a>
+  for the costed grid.</p>
   <p><a href="/upload">Upload again</a></p>
 </section>
 {% endblock %}
