@@ -10,6 +10,129 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-15 — W7 hardening: fixed all `W7_review.md` findings `[built]`
+
+`/review-web W7`'s verdict was **"No, not as it stands"** — three MAJOR findings meant the hardening
+bundle didn't yet do its job, even though every named artifact was present and the seam/layering
+invariants held. All findings (3 MAJOR + 2 MINOR + 1 NIT) are fixed in this pass. `docs/phase_decisions/
+W7.md`/`W7_review.md` are left as the frozen build-time/review-time record (same convention as the
+2026-07-13 W4 hardening entry); this entry is the remediation record.
+
+- **MAJOR-1 — the CSRF middleware buffered the entire request body in memory before any size/auth/
+  token check.** `verify_csrf_request`'s `request.body()` priming call (needed to keep the body alive
+  for downstream `Form(...)`/`UploadFile` dependencies — a real, separately-verified fix) ran
+  unconditionally ahead of the route's own 700 KB size guard, so an unauthenticated caller with no
+  valid CSRF token could force arbitrary-size in-memory buffering (reviewer verified: an 8 MB-per-file/
+  16 MB upload — 23× the cap — was fully buffered, 56.1 MB peak heap, before the 422 ever fired).
+  `web/csrf.py::CSRFMiddleware` now checks `Content-Length` against a 3 MB cap and 413s *before*
+  `verify_csrf_request` is called at all — comfortably above the largest legitimate body (the two-file
+  `/upload` route) but far below a hostile payload. A malformed/unparsable `Content-Length` is rejected
+  the same way (hostile input, not guessed at).
+- **MAJOR-2 — the reset-password route leaked account existence and 500'd under any SMTP failure.**
+  `send_password_reset_email` raises (by design) when SMTP is configured but the send fails; with no
+  try/except around it, that raise only happened when the account existed (a non-existent email never
+  reaches the sender at all) — an unhandled 500 vs. a normal 200 is a textbook enumeration oracle,
+  contradicting the route's own "identical response" comment. `web/app.py::reset_password_request_
+  submit` now wraps the send in try/except: on failure it logs server-side with a correlation id and
+  falls through to the exact same "submitted" response as every other path — without reverting to the
+  W5 raw-token-in-logs fallback, which would have silently resurrected `W5_review.md` LOW-2 the moment
+  SMTP looked configured.
+- **MAJOR-3 — the rate limiter keyed on the proxy's IP under the phase's own recommended reverse-proxy
+  deploy.** `_client_ip` read `request.client.host` (the TCP peer); with no proxy-header handling
+  anywhere, every real visitor behind the recommended "reverse proxy in front of a loopback bind"
+  topology would collapse onto the proxy's one address, throttling the 11th distinct chef in a minute
+  while leaving a real attacker indistinguishable. New `web/config.py::trusted_proxy_ips()` reads
+  `ONRAMP_TRUSTED_PROXY_IPS` (comma-separated, empty/unset by default); `web/rate_limit.py::_client_ip`
+  now reads the first `X-Forwarded-For` entry *only* when the socket peer is in that allowlist,
+  otherwise falls back to the socket peer exactly as before — so today's direct dev/test behavior is
+  unchanged, and a real reverse-proxy deploy just has to name its own address.
+- **MINOR — `RequestLoggingMiddleware` skipped the log line for any request that raised**, silently
+  omitting exactly the failures a "monitoring" deliverable most needs to surface. `dispatch` now wraps
+  `call_next` in try/except, logs method/path/duration at ERROR with status 500 on an exception, then
+  re-raises so normal error handling (`ServerErrorMiddleware`, route-level try/except) still runs.
+- **MINOR — `configure_logging`'s docstring promised stdout; bare `logging.StreamHandler()` defaults to
+  stderr.** Now passes `sys.stdout` explicitly so behavior matches the documented contract.
+- **NIT — `POST /reset-password/{token}` (token consumption) had no rate limit at all.** Added a
+  `reset-confirm` bucket (budget 10/60s) alongside the existing four.
+- **Tests: 599 pass, up from 591** — 8 new, one per finding except the two paired with the same fix
+  (`test_oversized_post_is_rejected_before_the_body_is_buffered` + `test_reasonable_sized_multipart_
+  upload_is_unaffected_by_the_size_guard` prove MAJOR-1 both ways; `test_reset_password_request_
+  identical_response_when_smtp_configured_but_send_fails` reproduces MAJOR-2; `test_client_ip_ignores_
+  forwarded_header_from_an_untrusted_peer` + `test_client_ip_reads_forwarded_header_only_from_a_
+  trusted_proxy` prove MAJOR-3 both ways; `test_request_logging_middleware_logs_a_line_for_requests_
+  that_raise` + `test_configure_logging_writes_to_stdout_not_stderr` cover the two MINORs;
+  `test_reset_confirm_endpoint_429s_after_its_configured_budget` covers the NIT). All three fixes also
+  verified live against a real `TestClient` run (not just the new unit tests) before being written up
+  as permanent tests. `ruff check .`: clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test
+  green.
+- W7 is now done: build closed below, review closed on this entry — per `00-process.md`, no
+  comprehension step required.
+
+---
+
+## 2026-07-14 — W7 built: production hosting + security hardening `[built]`
+
+Built `website_production_overview.md` §4's W7 slice: per-request CSRF protection, rate limiting on
+the funnels, structured logging, backup + retention mechanics, real SMTP for password resets, and TLS
+*support* — the code and config that make a real deploy safe the day one happens, without provisioning
+any actual cloud infrastructure or picking a hosting platform (no pilot deploy or platform choice
+exists yet to encode). Full reasoning, load-bearing assumptions, and design decisions:
+`docs/phase_decisions/W7.md`. Not marked done here — per `00-process.md`, that happens when
+`/review-phase W7` closes on the code.
+
+- **New `web/csrf.py`** — a stateless double-submit-cookie `CSRFMiddleware`, applied to every
+  state-changing route with no exemptions. Closes the `same_site="lax"`-only placeholder
+  `docs/phase_decisions/W2_review.md` MINOR-3 flagged. Every POST template gained a hidden
+  `csrf_token` field via `_nav_context`. Hit and fixed a real Starlette `BaseHTTPMiddleware` gotcha
+  mid-build: reading `request.form()` in middleware silently empties the body for every downstream
+  `Form(...)`/`UploadFile` dependency unless `request.body()` is read first (see `W7.md` Constraints);
+  verified fixed with a live multipart upload through the real middleware, not just unit tests.
+- **New `web/rate_limit.py`** — an in-process fixed-window limiter on `POST /login` (anti-brute-force),
+  `POST /reset-password`, `POST /upload`, and `POST /invoice/upload` (the funnels), independent budgets
+  per client IP per route.
+- **New `web/observability.py`** — JSON-structured logging (`configure_logging`, called from
+  `web/__main__.py`, deliberately not at import time so `caplog`-based tests are unaffected) plus a
+  `RequestLoggingMiddleware` logging method/path/status/duration for every request. Verified live via a
+  real programmatic `uvicorn.Server` HTTP round trip after an unrelated shell-output-capture quirk in
+  this dev sandbox made two earlier smoke-test attempts misleadingly look silent.
+- **New `web/config.py`** — `ONRAMP_ENV`-driven production posture in one place: `is_production()`
+  (the session + CSRF cookies are now `Secure` in production, was hardcoded `False`),
+  `ensure_production_config()` (fails fast at startup if `ONRAMP_ENV=production` is missing
+  `ONRAMP_DATABASE_URL`/`ONRAMP_SMTP_HOST`), and `resolve_tls_files`/`ensure_safe_bind` (refuses to
+  bind past loopback with no TLS material configured — `web/__main__.py` now enforces this).
+- **New `src/email/sender.py`** — real SMTP (stdlib `smtplib`, no new dependency) for the
+  password-reset link; `web/app.py` now only logs the raw reset token when SMTP isn't configured at
+  all, closing `docs/phase_decisions/W5_review.md` LOW-2 ("a reset token ... must not survive to any
+  shared/hosted environment"). An SMTP failure with a host configured raises rather than silently
+  falling back to logging, so a misconfigured production deploy fails loudly.
+- **New `src/pricing/retention.py` + `scripts/apply_retention.py`** — a 400-day retention policy for
+  the ever-accumulating `price_observations.parquet` leg (production-overview row 10), always keeping
+  the latest observation per ingredient regardless of age so the grid never silently loses its only
+  price for an ingredient. A periodic maintenance script, deliberately not run inline on
+  `/invoice/confirm`.
+- **New `scripts/backup.py`** — snapshots the app DB (SQLite's own online backup API, not a raw file
+  copy) and every file under `data/raw/` into `ONRAMP_BACKUP_DIR/<timestamp>/`. Local-disk mechanics
+  only; shipping off-box is a real deploy's job (needs infra credentials this environment doesn't
+  have).
+- **New `Dockerfile`** — a generic, platform-agnostic container image, the "real deploy target"
+  artifact without committing to a specific unvalidated hosting platform.
+- **Deliberately not built:** the Postgres swap (recorded as "iff hosted concurrency demands it" —
+  none exists yet), any platform-specific deploy config, actual TLS certificate provisioning, and a
+  scheduler for the two new ops scripts — see `W7.md` Explicitly Deferred for the complete list and
+  why each waits on a real pilot deploy or platform choice rather than being invented here.
+- **Tests: 591 pass, up from 531** — 60 new: `test_web_csrf.py` (10, overrides conftest's new autouse
+  CSRF bypass to test the real enforcement end-to-end, including a live multipart-upload regression
+  test for the body-caching fix), `test_rate_limit.py` (6), `test_pricing_retention.py` (9),
+  `test_email_sender.py` (6), `test_backup_script.py` (10), `test_web_config.py` (14),
+  `test_web_observability.py` (4), plus 1 SMTP-integration test appended to `test_web_auth.py`.
+  `conftest.py` gained two autouse fixtures (`_bypass_csrf_by_default`, `_reset_rate_limits`) so none
+  of the 46 pre-existing `client.post(...)` call sites across five test files needed editing. `ruff
+  check .`: clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test green. Also smoke-tested
+  live: `python -m web`, `scripts/backup.py`, and `scripts/apply_retention.py` all run as real CLI
+  processes against isolated tmp state.
+
+---
+
 ## 2026-07-14 — W6 hardening: fixed all `W6_review.md` findings `[built]`
 
 `/review-web W6`'s verdict was **"No"** — a BLOCKER: the grid and the dish-detail page showed a

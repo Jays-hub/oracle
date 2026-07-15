@@ -22,6 +22,7 @@
 {% endif %}
 
 <form method="post" action="/invoice/upload" enctype="multipart/form-data" class="upload-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="upload-field">
     <label for="invoice_file">Invoice line items (CSV)</label>
     <p class="field-hint">Columns: <code>ingredient_name, unit_price, source_invoice, observed_date</code></p>

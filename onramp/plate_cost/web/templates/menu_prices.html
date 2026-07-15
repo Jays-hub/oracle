@@ -25,6 +25,7 @@
 </section>
 {% else %}
 <form method="post" action="/menu-prices" class="upload-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <dl class="dish-details">
     {% for row in rows %}
     <div class="upload-field">

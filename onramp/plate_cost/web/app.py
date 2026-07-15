@@ -48,6 +48,15 @@ only catalog); saving also recomputes and writes the derived data/raw/food_cost.
 grid at GET / uses) and GET /dishes/{dish_id} is the line-by-line ingredient breakdown
 (docs/phase_decisions/W6.md).
 
+W7: production hosting + security hardening. Every state-changing POST now requires a
+double-submit CSRF token (web/csrf.py); /login, /reset-password, /upload, and /invoice/upload
+are rate-limited per client (web/rate_limit.py); the session cookie is Secure whenever
+ONRAMP_ENV=production (web/config.py); a password-reset link is emailed through real SMTP when
+ONRAMP_SMTP_HOST is configured, and only then does the server stop logging the raw token
+(src/email/sender.py, closing docs/phase_decisions/W5_review.md LOW-2); every request is
+logged as one structured JSON line (web/observability.py, wired up in web/__main__.py, not
+here — see that module's docstring for why) (docs/phase_decisions/W7.md).
+
 No JS framework anywhere. Server-rendered HTML (Jinja2) only.
 (.claude/rules/05–07: thin over pure compute, fast first paint, dollar-legible, hostile-until-
 validated input, atomic seam writes, backend-enforced tenant isolation.)
@@ -87,9 +96,12 @@ from src.capture.seam_upload import (
     write_seam_atomic,
 )
 from src.capture.staging import stage_upload, take_staged_upload
+from src.email.sender import send_password_reset_email
 
 from .auth import SESSION_COOKIE, current_identity, get_db, is_authenticated, require_login
 from .compute import build_grid_data
+from .config import is_production
+from .csrf import CSRFMiddleware
 from .dishes import build_dish_detail, build_dishes_summary
 from .insights import build_insights_summary
 from .invoice import build_invoice_summary
@@ -98,6 +110,8 @@ from .menu_prices import (
     recompute_and_write_food_cost,
     save_menu_prices_and_recompute_food_cost,
 )
+from .observability import RequestLoggingMiddleware
+from .rate_limit import check_rate_limit
 from .upload import build_summary
 from .your_data import (
     build_your_data_summary,
@@ -111,12 +125,20 @@ _WEB_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Plate Cost · On-Ramp", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=str(_WEB_DIR / "static")), name="static")
+# Registration order matters (Starlette: the LAST-added middleware ends up OUTERMOST) — CSRF is
+# added first so RequestLogging wraps it and therefore logs every request, including the ones
+# CSRF rejects with a 403.
+app.add_middleware(CSRFMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 
 
 def _nav_context(request: Request) -> dict:
     """Merged into every TemplateResponse (base.html's nav needs it everywhere) — one place to
-    compute it rather than every route remembering to pass logged_in itself (rule 05 reuse)."""
-    return {"logged_in": is_authenticated(request)}
+    compute it rather than every route remembering to pass logged_in itself (rule 05 reuse).
+    ``csrf_token`` is read from request.state (set by CSRFMiddleware, which always runs before
+    the route handler that builds this response) so every form-bearing template gets it for
+    free, without each route wiring it into its own context dict."""
+    return {"logged_in": is_authenticated(request), "csrf_token": getattr(request.state, "csrf_token", "")}
 
 
 _templates = Jinja2Templates(
@@ -153,10 +175,21 @@ def login_form(request: Request) -> HTMLResponse:
     return _templates.TemplateResponse(request=request, name="login.html", context={"error": None})
 
 
+# Generous enough that a chef fat-fingering a password a few times never gets blocked, tight
+# enough to slow down an automated guesser (W7: "rate limiting on the funnels" +
+# security-hardening in general — brute force is the textbook target for a login endpoint).
+_LOGIN_RATE_LIMIT = 10
+_RESET_PASSWORD_RATE_LIMIT = 5
+_RESET_CONFIRM_RATE_LIMIT = 10
+_UPLOAD_RATE_LIMIT = 20
+
+
 @app.post("/login", response_class=HTMLResponse, response_model=None)
 def login_submit(
     request: Request, email: str = Form(...), password: str = Form(...), db: DbSession = Depends(get_db),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | PlainTextResponse | RedirectResponse:
+    if throttled := check_rate_limit(request, "login", _LOGIN_RATE_LIMIT):
+        return throttled
     user = authenticate(db, email, password)
     issued = create_session(db, user) if user is not None else None
     if issued is None:
@@ -167,7 +200,7 @@ def login_submit(
     token, _row = issued
     response = RedirectResponse(url="/your-data", status_code=303)
     response.set_cookie(
-        key=SESSION_COOKIE, value=token, httponly=True, samesite="lax", secure=False,
+        key=SESSION_COOKIE, value=token, httponly=True, samesite="lax", secure=is_production(),
         max_age=int(SESSION_TTL.total_seconds()),
     )
     return response
@@ -188,16 +221,34 @@ def reset_password_request_form(request: Request) -> HTMLResponse:
     )
 
 
-@app.post("/reset-password", response_class=HTMLResponse)
+@app.post("/reset-password", response_class=HTMLResponse, response_model=None)
 def reset_password_request_submit(
     request: Request, email: str = Form(...), db: DbSession = Depends(get_db),
-) -> HTMLResponse:
+) -> HTMLResponse | PlainTextResponse:
+    if throttled := check_rate_limit(request, "reset-password", _RESET_PASSWORD_RATE_LIMIT):
+        return throttled
     token = request_password_reset(db, email)
     if token is not None:
-        # No email transport yet (W7) — an invite-only, localhost-only account model means the
-        # operator running this process can read the reset link straight off the server log
-        # (docs/phase_decisions/W5.md). Never put the token in the HTTP response itself.
-        _log.info("password reset requested for %s -> /reset-password/%s", email.strip().lower(), token)
+        reset_link = str(request.url_for("reset_password_form", token=token))
+        # W7: real SMTP when configured (src/email/sender.py). The raw token is logged
+        # server-side ONLY when no email transport exists at all — the W5 dev/localhost
+        # stand-in (docs/phase_decisions/W5.md) — never once SMTP is live, since a live reset
+        # token is a bearer credential and must not sit in logs when a real inbox can carry it
+        # instead (closes docs/phase_decisions/W5_review.md LOW-2).
+        try:
+            emailed = send_password_reset_email(email.strip().lower(), reset_link)
+        except Exception:
+            # sender.py raises loudly (by design) when SMTP is configured but the send fails.
+            # That "loud" failure must stay server-side only: the route's response can't vary
+            # by whether the account exists (review finding W7_review.md MAJOR-2 — an unhandled
+            # raise here 500'd only when the account existed, an enumeration oracle). Absorb it
+            # into the same response and alert an operator without also reverting to the
+            # raw-token-in-logs fallback, which would silently resurrect W5_review.md LOW-2.
+            correlation_id = uuid4().hex[:8]
+            _log.exception("password reset email send failed (correlation_id=%s)", correlation_id)
+            emailed = True
+        if not emailed:
+            _log.info("password reset requested for %s -> /reset-password/%s", email.strip().lower(), token)
     # Identical response whether or not the account exists — this form must never confirm or
     # deny that an email has an account (enumeration defense).
     return _templates.TemplateResponse(
@@ -215,7 +266,12 @@ def reset_password_form(request: Request, token: str) -> HTMLResponse:
 @app.post("/reset-password/{token}", response_class=HTMLResponse, response_model=None)
 def reset_password_submit(
     request: Request, token: str, new_password: str = Form(...), db: DbSession = Depends(get_db),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | PlainTextResponse | RedirectResponse:
+    # Tokens are long random values (generate_token), so brute-forcing one is already
+    # impractical, but nothing else here throttled guessing attempts at all — cheap to close
+    # given the bucket machinery already exists (review finding W7_review.md NIT).
+    if throttled := check_rate_limit(request, "reset-confirm", _RESET_CONFIRM_RATE_LIMIT):
+        return throttled
     ok = reset_password(db, token, new_password)
     if not ok:
         return _templates.TemplateResponse(
@@ -297,10 +353,12 @@ async def upload_submit(
     sales_file: UploadFile = File(...),
     bom_file: UploadFile = File(...),
     db: DbSession = Depends(get_db),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | PlainTextResponse | RedirectResponse:
     identity = current_identity(request, db)
     if identity is None:
         return RedirectResponse(url="/login", status_code=303)
+    if throttled := check_rate_limit(request, "upload", _UPLOAD_RATE_LIMIT):
+        return throttled
     # Hostile until validated (rule 07): size-check before we even try to decode/parse either file.
     sales_bytes = await sales_file.read(MAX_UPLOAD_BYTES + 1)
     bom_bytes = await bom_file.read(MAX_UPLOAD_BYTES + 1)
@@ -415,10 +473,12 @@ def invoice_upload_form(request: Request, db: DbSession = Depends(get_db)) -> HT
 @app.post("/invoice/upload", response_class=HTMLResponse, response_model=None)
 async def invoice_upload_submit(
     request: Request, invoice_file: UploadFile = File(...), db: DbSession = Depends(get_db),
-) -> HTMLResponse | RedirectResponse:
+) -> HTMLResponse | PlainTextResponse | RedirectResponse:
     identity = current_identity(request, db)
     if identity is None:
         return RedirectResponse(url="/login", status_code=303)
+    if throttled := check_rate_limit(request, "upload", _UPLOAD_RATE_LIMIT):
+        return throttled
     invoice_bytes = await invoice_file.read(MAX_UPLOAD_BYTES + 1)
 
     errors = _invoice_size_errors(invoice_bytes)
