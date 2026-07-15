@@ -14,10 +14,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from schemas import BomRow, SalesExportRow  # noqa: E402  (import after the sys.path bootstrap)
+from src.report.grid import normalize_name  # noqa: E402  (import after the sys.path bootstrap)
 
 
 class UploadSummary(TypedDict):
     dish_count: int
+    costable_dish_count: int
     recipe_line_count: int
     sales_row_count: int
     total_covers: int
@@ -27,10 +29,19 @@ class UploadSummary(TypedDict):
 
 
 def build_summary(bom_rows: list[BomRow], sales_rows: list[SalesExportRow]) -> UploadSummary:
-    """Chef-legible counts for the confirm/success pages — dishes, coverage period, covers."""
+    """Chef-legible counts for the confirm/success pages — dishes, coverage period, covers.
+
+    ``costable_dish_count`` joins on the same ``normalize_name()`` key
+    ``cross_reference_dishes`` uses (W8_review.md MINOR-2) — a dish present in only one file
+    (already surfaced separately as ``only_in_bom``/``only_in_sales``) won't actually cost on
+    ``/dishes``, so it must not inflate a "this is enough to show value" count.
+    """
     dish_names = sorted({r.dish_name for r in bom_rows} | {r.dish_name for r in sales_rows})
+    bom_keys = {normalize_name(r.dish_name) for r in bom_rows}
+    sales_keys = {normalize_name(r.dish_name) for r in sales_rows}
     return {
         "dish_count": len({r.dish_name for r in bom_rows}),
+        "costable_dish_count": len(bom_keys & sales_keys),
         "recipe_line_count": len(bom_rows),
         "sales_row_count": len(sales_rows),
         "total_covers": sum(r.count for r in sales_rows),

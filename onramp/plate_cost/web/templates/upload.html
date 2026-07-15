@@ -11,6 +11,9 @@
   what we found before anything is saved.</p>
 </section>
 
+{% set step = 1 %}
+{% include "_progress_meter.html" %}
+
 {% if errors %}
 <section class="skipped-notice" role="alert">
   <strong>{{ errors | length }} problem{{ "s" if errors | length != 1 else "" }} found — nothing

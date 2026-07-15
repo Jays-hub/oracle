@@ -15,6 +15,11 @@
   --plowhorse:        #7a5c1a;
   --puzzle:           #1a4a7a;
   --dog:              #5a5a5a;
+
+  /* keyboard-focus ring only — never reused for content, so it never competes with --money
+     (rule 06: kitchen-hostile defaults, keyboard navigability). Contrast-checked >3:1 on both
+     --bg and --surface. */
+  --focus:            #0b57d0;
 }
 
 body {
@@ -24,14 +29,49 @@ body {
   line-height: 1.5;
 }
 
+/* ── links (restrained: distinguished by underline, not a second accent color — rule 06's
+   single "this is money" accent stays reserved for --money) ── */
+a {
+  color: var(--text);
+  text-decoration-color: var(--text-muted);
+  text-underline-offset: 2px;
+}
+a:hover { text-decoration-color: var(--text); }
+
+/* ── keyboard focus (WCAG 2.4.7 — a kitchen is glare/grease/gloves, never assume a mouse) ── */
+a:focus-visible, button:focus-visible, input:focus-visible, .btn-primary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── skip link (WCAG 2.4.1 — bypass the nav on every page load) ── */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--surface);
+  color: var(--text);
+  padding: .75rem 1.25rem;
+  border-radius: 0 0 var(--radius) 0;
+  box-shadow: var(--shadow);
+  font-weight: 600;
+}
+.skip-link:focus {
+  left: 0;
+}
+
 /* ── header ── */
 .site-header {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: .5rem 1rem;
 }
 .wordmark {
   font-size: 1.1rem;
@@ -41,11 +81,14 @@ body {
 }
 .site-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  gap: .5rem 1rem;
   font-size: .85rem;
 }
-.site-nav a { color: var(--text-muted); }
+.site-nav a { color: var(--text-muted); text-decoration: none; }
+.site-nav a:hover, .site-nav a:focus-visible { text-decoration: underline; }
+.site-nav a[aria-current="page"] { color: var(--text); font-weight: 600; }
 .logout-form { display: inline; }
 .logout-form button {
   background: none;
@@ -247,6 +290,101 @@ main {
   font-size: .85rem;
 }
 
+/* ── storefront hero (W8: the site's own one-sentence pitch, vision §1) ── */
+.hero {
+  max-width: 760px;
+  margin: 0 auto 3rem;
+  text-align: center;
+}
+.hero-headline {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+  margin-bottom: .9rem;
+}
+.hero-sub {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  margin-bottom: 1.5rem;
+}
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: .75rem;
+}
+.btn-secondary {
+  display: inline-block;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .95rem;
+  font-weight: 600;
+  padding: .65rem 1.25rem;
+  text-decoration: none;
+}
+.btn-secondary:hover { border-color: var(--text-muted); }
+.hero-actions a.btn-primary,
+.hero-actions a.btn-secondary { text-decoration: none; }
+
+/* ── onboarding progress meter (W8, vision §3A: a chef always sees where they are) ── */
+.progress-meter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  list-style: none;
+  margin-bottom: 2rem;
+  font-size: .85rem;
+}
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--text-muted);
+}
+.progress-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: .78rem;
+}
+.progress-step.is-done .progress-step-number {
+  background: var(--star);
+  border-color: var(--star);
+  color: #fff;
+}
+.progress-step.is-current { color: var(--text); font-weight: 600; }
+.progress-step.is-current .progress-step-number {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+/* ── "good enough to show value" threshold (W8, vision §3A) ── */
+.value-threshold {
+  border-radius: var(--radius);
+  padding: .75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: .9rem;
+  max-width: 560px;
+}
+.value-threshold--met {
+  background: #e6f4ea;
+  color: #1f5c2a;
+  font-weight: 600;
+}
+.value-threshold--not-met {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
 /* ── upload / confirm forms (W1 capture funnel) ── */
 .upload-form, .confirm-summary {
   background: var(--surface);
@@ -284,9 +422,20 @@ main {
 }
 .btn-primary:hover { opacity: .9; }
 
-/* ── responsive ── */
+/* ── responsive (tablet on the pass, phone in the office — rule 06) ── */
+@media (max-width: 768px) {
+  main { padding: 1.5rem 1rem; }
+  .site-header { padding: .85rem 1rem; }
+  .hero-headline { font-size: 1.55rem; }
+  .upload-form, .confirm-summary { max-width: 100%; }
+}
+
 @media (max-width: 480px) {
   .dish-grid { grid-template-columns: 1fr; }
   .page-intro h1 { font-size: 1.25rem; }
   .margin-amount { font-size: 1.35rem; }
+  .hero-headline { font-size: 1.35rem; }
+  .hero-sub { font-size: .95rem; }
+  .hero-actions { flex-direction: column; }
+  .hero-actions a { text-align: center; }
 }

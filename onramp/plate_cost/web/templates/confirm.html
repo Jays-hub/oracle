@@ -10,6 +10,24 @@
   <p class="page-meta">Nothing has been saved yet — review, then confirm.</p>
 </section>
 
+{% set step = 2 %}
+{% include "_progress_meter.html" %}
+
+{# "Good enough to show value" threshold (W8, vision §3A) — a chef-legible floor, not a data
+   computation: a handful of confirmed dishes is enough to see a real spread across quadrants.
+   Deliberately simple and easy to retune; see docs/phase_decisions/W8.md. Gates on
+   costable_dish_count (BOM ∩ sales, same normalize_name() join cross_reference_dishes uses) —
+   not the raw dish_count above, which can include a dish that only appears in one file and
+   therefore won't actually cost on /dishes (W8_review.md MINOR-2). #}
+{% set _value_threshold = 3 %}
+{% if summary.costable_dish_count >= _value_threshold %}
+<p class="value-threshold value-threshold--met">&#10003; That's enough dishes to show value —
+set your menu prices next to see your real margins.</p>
+{% else %}
+<p class="value-threshold value-threshold--not-met">A few more dishes will show a fuller
+picture — even a handful is enough to get started.</p>
+{% endif %}
+
 <section class="confirm-summary">
   <dl class="dish-details">
     <div class="detail-row"><dt>Dishes</dt><dd>{{ summary.dish_count }}</dd></div>

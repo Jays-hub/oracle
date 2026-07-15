@@ -7,21 +7,22 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
   <header class="site-header">
     <span class="wordmark">Plate Cost</span>
-    <nav class="site-nav">
+    <nav class="site-nav" aria-label="Main">
       {% if logged_in %}
-        <a href="/dishes">Your dishes</a>
-        <a href="/menu-prices">Menu prices</a>
-        <a href="/your-data">Your data</a>
-        <a href="/invoice/upload">Upload invoice</a>
-        <a href="/insights">Insights</a>
+        <a href="/dishes" {{ 'aria-current="page"' | safe if request.url.path == "/dishes" }}>Your dishes</a>
+        <a href="/menu-prices" {{ 'aria-current="page"' | safe if request.url.path == "/menu-prices" }}>Menu prices</a>
+        <a href="/your-data" {{ 'aria-current="page"' | safe if request.url.path == "/your-data" }}>Your data</a>
+        <a href="/invoice/upload" {{ 'aria-current="page"' | safe if request.url.path == "/invoice/upload" }}>Upload invoice</a>
+        <a href="/insights" {{ 'aria-current="page"' | safe if request.url.path == "/insights" }}>Insights</a>
         <form method="post" action="/logout" class="logout-form">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit">Log out</button>
         </form>
       {% else %}
-        <a href="/login">Log in</a>
+        <a href="/login" {{ 'aria-current="page"' | safe if request.url.path == "/login" }}>Log in</a>
       {% endif %}
     </nav>
   </header>
@@ -30,7 +31,7 @@
     Sample data — illustrative only, not your restaurant's numbers
   </div>
   {% endblock %}
-  <main>{% block content %}{% endblock %}</main>
+  <main id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
   <footer class="site-footer">{% block footer %}{% endblock %}</footer>
 </body>
 </html>

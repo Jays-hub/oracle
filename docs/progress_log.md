@@ -10,6 +10,105 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-15 — W8 hardening: fixed all `W8_review.md` findings `[built]`
+
+`/review-web W8`'s verdict was **"Yes"** — no blockers, but the reviewer flagged one real
+regression (MINOR-1) and one honesty gap (MINOR-2) worth landing before this is shown to a real
+stranger, plus 3 NITs. Jay greenlit all 5. `docs/phase_decisions/W8.md`/`W8_review.md` are left as
+the frozen build-time/review-time record (same convention as the W4–W7 hardening entries); this
+entry is the remediation record.
+
+- **MINOR-1 — the global link restyle made inline prose links near-invisible.** `style.css`'s
+  `a { text-decoration-color: var(--border); }` produced a ~1.3:1 underline — effectively gone,
+  most consequentially on `success.html`'s post-save "set your menu prices / your dishes" CTA, the
+  storefront's own guided next step at the highest-trust moment. Now uses `var(--text-muted)`
+  (independently contrast-verified >5:1); hover strengthens to `var(--text)`.
+- **MINOR-2 — the "good enough to show value" badge counted the wrong dishes.** It gated on
+  `summary.dish_count` (raw BOM-distinct names), which can include a dish present in only one file
+  (already surfaced separately as `only_in_bom`/`only_in_sales`) and therefore won't actually cost
+  on `/dishes`. New `web/upload.py::build_summary` field `costable_dish_count` joins BOM ∩ sales on
+  the same `normalize_name()` key `cross_reference_dishes` already uses — `confirm.html` now gates
+  on that, not the inflated raw count. The displayed "Dishes" row is untouched (still the honest
+  raw count).
+- **NIT — `_progress_meter.html` had no fallback for a missing `step`.** An includer that forgot
+  `{% set step %}` would 500 (Jinja's default `Undefined` raises on the `<` comparison). Now
+  `{% set step = step | default(0) %}` degrades to every step reading as not-yet-reached instead.
+- **NIT — a logged-in operator saw a contradictory "Log in" CTA in the hero.** `grid.html`'s hero
+  now shows "Go to your dishes" instead when `logged_in` is true.
+- **NIT — two test names claimed "every page" but only asserted against `GET /`.**
+  `test_skip_link_present_on_every_page` and the focus-target test now also exercise `/login`.
+- **Tests: 615 pass, up from 611** — 4 new (one per finding except the two NITs sharing the
+  every-page test rewrite): `test_content_link_underline_is_a_visible_color_not_the_near_
+  invisible_border_tint`, `test_progress_meter_partial_renders_safely_without_step_set`,
+  `test_landing_page_shows_a_real_next_step_when_already_logged_in`,
+  `test_confirm_page_threshold_ignores_dishes_that_only_appear_in_one_file` (reproduces MINOR-2:
+  raw dish_count=3 but only 2 dishes match across files, so the badge must read not-met). `ruff
+  check .`: clean. `lint-imports`: 2 contracts kept, 0 broken. Boundary test green.
+- W8 is now done: build closed in the entry below, review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-15 — W8 built: the public face — storefront + design & accessibility pass `[built]`
+
+Built `website_production_overview.md` §4's W8 slice: a public storefront making the site's own
+one-sentence pitch (vision §1) with the sample grid kept embedded as a clearly-labeled live demo,
+a keyboard/screen-reader accessibility pass (skip link, focus-visible rings, active-nav marking)
+and a responsive breakpoint across every existing screen, and onboarding UX polish — a progress
+meter + "good enough to show value" threshold on the sales+BOM capture funnel (vision §3A). Pure
+presentation: no new routes, no new `src/` compute, no seam/schema changes. Full reasoning, load-
+bearing assumptions, and design decisions: `docs/phase_decisions/W8.md`. Not marked done here —
+per `00-process.md`, that happens when `/review-phase W8` (or `/review-web W8`) closes on the code.
+
+- **`web/static/style.css`** — a new `--focus` token + global `:focus-visible` outlines on every
+  interactive element; a `.skip-link` (visually hidden until focused); restrained link styling
+  (underline-on-text-color, keeping `--money` the palette's only saturated accent per rule 06);
+  `.hero`/`.progress-meter`/`.value-threshold` components; a 768px tablet breakpoint alongside the
+  existing 480px phone one; nav `flex-wrap` for narrow viewports (no JS hamburger — the spec is
+  explicit that this stays a markup pass, not a stack change).
+- **`web/templates/base.html`** — a skip link to `id="main-content"` (`tabindex="-1"` so it's
+  programmatically focusable); `aria-current="page"` on whichever nav link matches
+  `request.url.path`.
+- **`web/templates/grid.html`** — a new `<section class="hero">` above the existing sample grid
+  carrying vision §1's pitch verbatim and two CTAs ("See the live demo" anchor, "Log in" — no
+  "sign up" link exists since account creation is invite-only until W10); the grid itself now
+  lives inside `<section id="live-demo">`, labeled "Live demo — sample menu."
+  `GET /` stays the one public route — the hero was added to the existing template rather than
+  splitting off a new landing route/page.
+- **New `web/templates/_progress_meter.html`** — a shared 3-step onboarding indicator ("Connect
+  your data" → "Review" → "Saved"), included (not duplicated) from `upload.html`, `confirm.html`,
+  `success.html`.
+- **`web/templates/confirm.html`** — the "good enough to show value" badge, gated on
+  `summary.dish_count >= 3` (a documented, deliberately simple UI constant, not a `src/`
+  computation — `summary.dish_count` is `web/upload.py::build_summary`'s existing BOM-distinct-
+  dish count, already exactly "how far through the recipe-sitdown" a chef is).
+- **`web/templates/success.html`** — fixed stale copy: it previously told the chef their own
+  margin grid "arrives in a later phase," which stopped being true the moment W6 shipped
+  `/menu-prices` + `/dishes`. Now points onward to both. Not in the original W8 punch-list
+  verbatim, but squarely inside "the design pass across every existing screen" + rule 06 honesty.
+- **Contrast verified, not changed.** Every color pairing already in the palette (money-on-
+  white/bg, text-muted, all three tier badges, the sample-banner, `.btn-primary`'s white-on-money)
+  was hand-checked against the WCAG relative-luminance formula — all pass AA with margin (tightest
+  5.07:1 vs. a 4.5:1 floor). No token needed to change. No automated checker (axe/Lighthouse) was
+  available in this environment to cross-verify the hand calculation — flagged as a reviewer focus
+  area in `W8.md`.
+- **Tests: 611 pass, up from 599** — 12 new in `tests/test_web_landing.py`: the hero pitch text
+  and demo anchor render on `GET /`, the sample grid stays embedded and labeled, the skip link +
+  `main-content` focus target are present on every page, `aria-current` marks the active nav link
+  both unauthenticated (`/login`) and authenticated (`/invoice/upload`, plus proving a *different*
+  nav link on the same render is NOT marked current), the progress meter renders on all three
+  funnel steps with the right step `aria-current="step"` and prior steps `is-done`, the value-
+  threshold badge flips at exactly 3 dishes (both directions tested), and `success.html` no longer
+  claims the tenant grid "arrives in a later phase." `ruff check .`: clean. `lint-imports`: 2
+  contracts kept, 0 broken. Boundary test green. Verified end-to-end via `TestClient(app)` (the
+  real ASGI app, middleware stack, and Jinja templates) — a real socket-bound `python -m web` live
+  smoke test was not run this session (blocked by the auto-mode classifier refusing to disarm
+  W7's `ensure_safe_bind` guard without explicit authorization; see `W8.md` Constraints). No
+  browser/screenshot tool was available to visually render the CSS — say so rather than claim a
+  visual check that didn't happen.
+
+---
+
 ## 2026-07-15 — W7 hardening: fixed all `W7_review.md` findings `[built]`
 
 `/review-web W7`'s verdict was **"No, not as it stands"** — three MAJOR findings meant the hardening

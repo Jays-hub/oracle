@@ -1,0 +1,21 @@
+{# Onboarding progress meter (W8, vision §3A: "a progress meter ... made visible" so a chef
+   always knows where they are in the recipe-sitdown). Include with `{% set step = N %}` set in
+   the parent template first — Jinja `include` shares the calling context by default.
+   `default(0)` guards an includer that forgets to set `step` — Jinja's default Undefined would
+   otherwise raise on the `<` comparison below (W8_review.md NIT-3), 500-ing the page instead of
+   just rendering every step as not-yet-reached. #}
+{% set step = step | default(0) %}
+{% set _steps = [
+  {"n": 1, "label": "Connect your data"},
+  {"n": 2, "label": "Review"},
+  {"n": 3, "label": "Saved"},
+] %}
+<ol class="progress-meter" aria-label="Onboarding progress">
+  {% for s in _steps %}
+  <li class="progress-step{{ ' is-done' if s.n < step else '' }}{{ ' is-current' if s.n == step else '' }}"
+      {{ 'aria-current="step"' | safe if s.n == step }}>
+    <span class="progress-step-number" aria-hidden="true">{{ s.n }}</span>
+    <span class="progress-step-label">{{ s.label }}</span>
+  </li>
+  {% endfor %}
+</ol>
