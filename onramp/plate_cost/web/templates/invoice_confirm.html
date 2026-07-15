@@ -29,6 +29,7 @@
 {% endif %}
 
 <form method="post" action="/invoice/confirm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="staged_upload_id" value="{{ staged_upload_id }}">
   <button type="submit" class="btn-primary">Confirm and save</button>
 </form>

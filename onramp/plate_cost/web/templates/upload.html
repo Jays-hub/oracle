@@ -22,6 +22,7 @@
 {% endif %}
 
 <form method="post" action="/upload" enctype="multipart/form-data" class="upload-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <div class="upload-field">
     <label for="sales_file">Sales export (CSV)</label>
     <p class="field-hint">Columns: <code>dish_name, count, period_start, period_end</code></p>

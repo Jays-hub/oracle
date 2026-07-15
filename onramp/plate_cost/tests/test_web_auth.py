@@ -416,3 +416,81 @@ def test_reset_password_submit_rejects_invalid_token():
     )
     assert resp.status_code == 400
     assert "invalid" in resp.text.lower()
+
+
+def test_reset_password_request_emails_the_link_and_stops_logging_the_raw_token_when_smtp_is_configured(
+    db_sessionmaker, monkeypatch, caplog,
+):
+    """W7 (closes docs/phase_decisions/W5_review.md LOW-2): once real email transport exists,
+    the raw reset token — a 1-hour bearer credential — must not also sit in the server log."""
+    import smtplib
+
+    sent: list[object] = []
+
+    class _FakeSMTP:
+        def __init__(self, host, port, timeout=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, username, password):
+            pass
+
+        def send_message(self, message):
+            sent.append(message)
+
+    monkeypatch.setenv("ONRAMP_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
+
+    email, _ = _seed_account(db_sessionmaker)
+    client = TestClient(app)
+
+    with caplog.at_level("INFO", logger="web.app"):
+        resp = client.post("/reset-password", data={"email": email})
+
+    assert resp.status_code == 200
+    assert len(sent) == 1
+    assert email in sent[0]["To"]
+    assert not any("/reset-password/" in line for line in caplog.messages)
+
+
+def test_reset_password_request_identical_response_when_smtp_configured_but_send_fails(
+    db_sessionmaker, monkeypatch, caplog,
+):
+    """Regression for W7_review.md MAJOR-2: send_password_reset_email raises (by design) when
+    SMTP is configured but the send fails; an unhandled raise used to 500 ONLY when the account
+    existed (a non-existent email never calls the sender at all), an enumeration oracle. The
+    route must now absorb the failure into the SAME response as the unknown-email path, and must
+    not fall back to logging the raw token now that SMTP is (nominally) configured."""
+    import smtplib
+
+    class _FailingSMTP:
+        def __init__(self, host, port, timeout=None):
+            pass
+
+        def __enter__(self):
+            raise RuntimeError("connection refused")
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setenv("ONRAMP_SMTP_HOST", "smtp.example.com")
+    monkeypatch.setattr(smtplib, "SMTP", _FailingSMTP)
+
+    email, _ = _seed_account(db_sessionmaker, email="real@example.com")
+    client = TestClient(app)
+
+    with caplog.at_level("INFO", logger="web.app"):
+        known = client.post("/reset-password", data={"email": email})
+        unknown = client.post("/reset-password", data={"email": "nobody@example.com"})
+
+    assert known.status_code == unknown.status_code == 200
+    assert known.text == unknown.text
+    assert not any("/reset-password/" in line for line in caplog.messages)
