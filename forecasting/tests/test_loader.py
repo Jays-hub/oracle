@@ -42,18 +42,61 @@ def _write_pos(raw_dir: Path) -> None:
 
 @pytest.fixture
 def raw_dir(tmp_path):
-    rd = tmp_path / "raw"
-    rd.mkdir()
+    # W9: the loader now reads a tenant subdirectory of raw/, not raw/ itself.
+    rd = tmp_path / "raw" / "tenant-a"
+    rd.mkdir(parents=True)
     _write_pos(rd)
     return rd
 
 
 def test_rejects_non_raw_dir(tmp_path):
     """The loader whitelists the raw store — a non-raw (e.g. oracle) dir is refused."""
-    bad = tmp_path / "_truth"
+    bad = tmp_path / "_truth" / "tenant-a"
+    bad.mkdir(parents=True)
+    with pytest.raises(ValueError, match="raw"):
+        load_pos_sales(bad)
+
+
+def test_rejects_bare_raw_dir_with_no_tenant_segment(tmp_path):
+    """W9: data/raw/ itself is a container, not a readable tenant directory — a caller must
+    always name a specific tenant subdirectory, never the flat store."""
+    bad = tmp_path / "raw"
     bad.mkdir()
     with pytest.raises(ValueError, match="raw"):
         load_pos_sales(bad)
+
+
+def test_tenant_isolation_reads_only_the_named_restaurants_rows(tmp_path):
+    """Two tenants' data can coexist under data/raw/ without either leaking into the other's
+    read -- the loader only ever opens the one subdirectory it's given."""
+    tenant_a = tmp_path / "raw" / "tenant-a"
+    tenant_b = tmp_path / "raw" / "tenant-b"
+    tenant_a.mkdir(parents=True)
+    tenant_b.mkdir(parents=True)
+    _write_pos(tenant_a)
+    pd.DataFrame(
+        [("2023-01-02", "2023-01-02 12:00:00", "Tuna Tartare", 5, False)],
+        columns=["business_date", "sold_at", "item_name", "qty", "void_flag"],
+    ).assign(
+        check_id="c", line_id="l", category="Entree", menu_price=10.0, modifiers="",
+        discount_amount=0.0, comp_flag=None, server_id="S003",
+    ).to_csv(tenant_b / "pos_sales.csv", index=False)
+
+    demand_a = build_observed_demand(tenant_a)
+    demand_b = build_observed_demand(tenant_b)
+
+    a_burger_dinner = demand_a[
+        (demand_a["item_id"] == "house_burger") & (demand_a["service_period"] == "dinner")
+    ]["demand"].iloc[0]
+    assert a_burger_dinner == 1  # tenant-a's own rows, unaffected by tenant-b's data existing
+
+    # tenant-b never sold a burger -- its own read must show 0, not tenant-a's rows leaking in.
+    # (build_observed_demand reindexes onto the full known-item grid, so "house_burger" is
+    # still a row for tenant-b -- at demand 0, never at tenant-a's actual count.)
+    b_burger_lunch = demand_b[
+        (demand_b["item_id"] == "house_burger") & (demand_b["service_period"] == "lunch")
+    ]["demand"].iloc[0]
+    assert b_burger_lunch == 0
 
 
 def test_voids_excluded(raw_dir):

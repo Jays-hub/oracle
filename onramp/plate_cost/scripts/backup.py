@@ -70,15 +70,25 @@ def backup_app_db(destination: Path, database_url: str | None = None) -> Path | 
 
 
 def backup_raw_dir(destination: Path, raw_dir: Path | None = None) -> Path:
-    """Copies every file directly under ``data/raw/`` (a flat directory — ``data/CONTRACT.md``)
-    into ``destination/raw/``. Returns that directory, created even when the seam is empty, so
-    an empty ``data/raw/`` produces a legible zero-file backup rather than a missing one."""
+    """Copies every tenant subdirectory under ``data/raw/`` (one per ``restaurant_id`` since W9 —
+    ``data/CONTRACT.md``) into ``destination/raw/``, preserving each tenant's own subdirectory
+    name. Returns that directory, created even when the seam is empty, so an empty ``data/raw/``
+    produces a legible zero-file backup rather than a missing one.
+
+    Recurses one level (``shutil.copytree`` per tenant dir), not a flat ``iterdir()`` file copy —
+    W9 moved every seam file one path segment deeper (``data/raw/<restaurant_id>/bom.parquet``),
+    so a flat copy would have silently backed up nothing going forward. Skips any stray file
+    landing directly under ``data/raw/`` (there shouldn't be one post-W9) rather than erroring,
+    so an unexpected leftover never aborts an otherwise-good backup.
+    """
     source = raw_dir or RAW_DIR
     dest_raw = destination / "raw"
     dest_raw.mkdir(parents=True, exist_ok=True)
     if source.exists():
         for item in source.iterdir():
-            if item.is_file():
+            if item.is_dir():
+                shutil.copytree(item, dest_raw / item.name, dirs_exist_ok=True)
+            elif item.is_file():
                 shutil.copy2(item, dest_raw / item.name)
     return dest_raw
 

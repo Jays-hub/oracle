@@ -48,8 +48,9 @@ def _write_eightysix(raw_dir: Path, rows: list[dict]) -> None:
 
 @pytest.fixture
 def raw_dir(tmp_path):
-    rd = tmp_path / "raw"
-    rd.mkdir()
+    # W9: the cleaner now reads a tenant subdirectory of raw/, not raw/ itself.
+    rd = tmp_path / "raw" / "tenant-a"
+    rd.mkdir(parents=True)
     _write_eightysix(rd, [])  # default: no 86 events
     return rd
 

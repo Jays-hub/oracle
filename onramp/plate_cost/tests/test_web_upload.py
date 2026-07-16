@@ -179,8 +179,8 @@ def test_confirm_writes_schema_valid_seam_files(tmp_path, monkeypatch):
     assert confirm_resp.status_code == 200
     assert "Saved" in confirm_resp.text
 
-    bom_df = pd.read_parquet(tmp_path / "bom.parquet")
-    sales_df = pd.read_parquet(tmp_path / "sales_export.parquet")
+    bom_df = pd.read_parquet(tmp_path / "r1" / "bom.parquet")
+    sales_df = pd.read_parquet(tmp_path / "r1" / "sales_export.parquet")
     assert len(bom_df) == 2
     assert len(sales_df) == 2
     BomRow(**{k: bom_df[k].iloc[0] for k in BomRow.model_fields})
@@ -209,7 +209,7 @@ def test_confirm_never_touches_real_raw_dir_when_isolated(tmp_path, monkeypatch)
 
     data/raw/ is gitignored, so a fresh checkout (e.g. CI) has no bom.parquet at all — this must
     hold whether or not the real file happens to exist locally from a prior `python -m src.run`."""
-    real_bom = store_mod.RAW_DIR / "bom.parquet"  # captured BEFORE patching — the real, unpatched path
+    real_bom = store_mod.RAW_DIR / "r1" / "bom.parquet"  # captured BEFORE patching — the real, unpatched path
     existed_before = real_bom.exists()
     mtime_before = real_bom.stat().st_mtime if existed_before else None
 
@@ -234,8 +234,8 @@ def test_confirm_rejects_tampered_staged_payload_never_trusts_it(tmp_path, monke
 
     resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 400
-    assert not (tmp_path / "bom.parquet").exists()
-    assert not (tmp_path / "sales_export.parquet").exists()
+    assert not (tmp_path / "r1" / "bom.parquet").exists()
+    assert not (tmp_path / "r1" / "sales_export.parquet").exists()
 
 
 def test_confirm_rejects_unknown_staged_upload_id():
@@ -265,5 +265,5 @@ def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_pa
     resp = _client.post("/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 422
     assert "too large" in resp.text.lower()
-    assert not (tmp_path / "bom.parquet").exists()
-    assert not (tmp_path / "sales_export.parquet").exists()
+    assert not (tmp_path / "r1" / "bom.parquet").exists()
+    assert not (tmp_path / "r1" / "sales_export.parquet").exists()

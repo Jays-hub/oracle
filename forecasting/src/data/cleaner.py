@@ -40,6 +40,7 @@ import yaml
 from forecasting.src.config import load_items
 from forecasting.src.data.loader import (
     _LUNCH_DINNER_CUTOFF_HOUR,
+    SIMULATED_RESTAURANT_ID,
     build_name_to_id_map,
     load_pos_sales,
 )
@@ -50,9 +51,12 @@ _DEFAULT_SIM_CFG = _REPO_ROOT / "config" / "sim.yaml"
 
 
 def _assert_raw_only(path: Path) -> None:
-    if Path(path).name != "raw":
+    """Whitelist a tenant subdirectory of data/raw/ only (W9 -- data/CONTRACT.md, mirrors
+    loader.py's identical guard, duplicated per this repo's existing per-module convention)."""
+    if Path(path).parent.name != "raw":
         raise ValueError(
-            f"cleaner reads the data/raw/ store only; refused non-raw path: {path}"
+            f"cleaner reads a data/raw/<restaurant_id>/ tenant directory only; "
+            f"refused non-raw-tenant path: {path}"
         )
 
 
@@ -117,14 +121,14 @@ def _load_eightysix_log(raw_dir: Path) -> pd.DataFrame:
 
 
 def clean_demand(
-    raw_dir: Path = _DEFAULT_RAW_DIR,
+    raw_dir: Path = _DEFAULT_RAW_DIR / SIMULATED_RESTAURANT_ID,
     cfg_path: Path | None = None,
 ) -> pd.DataFrame:
     """Remove observable pollution and tag censored day-items.
 
     Parameters
     ----------
-    raw_dir   : path to data/raw/ (whitelisted; non-raw dirs are refused)
+    raw_dir   : path to a data/raw/<restaurant_id>/ tenant dir (whitelisted; non-raw dirs refused)
     cfg_path  : override for config/sim.yaml (used in tests)
 
     Returns

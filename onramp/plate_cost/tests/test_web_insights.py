@@ -11,17 +11,25 @@ from fastapi.testclient import TestClient
 
 import src.store as store_mod
 import web.app as appmod
+from src.auth.service import Identity
 from web.app import app
 
 _client = TestClient(app)
+
+_FAKE_IDENTITY = Identity(
+    session_id="s1", user_id="u1", email="chef@example.com",
+    restaurant_id="r1", restaurant_name="Test Kitchen",
+)
 
 
 @pytest.fixture(autouse=True)
 def _bypass_login(monkeypatch):
     monkeypatch.setattr(appmod, "require_login", lambda request, db: None)
+    monkeypatch.setattr(appmod, "current_identity", lambda request, db: _FAKE_IDENTITY)
 
 
 def _write_bom(raw_dir):
+    raw_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame([
         {"dish_id": "short-rib", "dish_name": "Short Rib", "ingredient_id": "beef",
          "ingredient_name": "beef", "qty": 8.0, "recipe_unit": "oz", "canonical_unit": "oz",
@@ -30,6 +38,7 @@ def _write_bom(raw_dir):
 
 
 def _write_prices(raw_dir, rows):
+    raw_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_parquet(raw_dir / "price_observations.parquet", index=False, engine="pyarrow")
 
 
@@ -42,7 +51,7 @@ def test_insights_with_no_data_shows_calm_empty_state(tmp_path, monkeypatch):
 
 def test_insights_with_bom_but_no_invoice_shows_calm_empty_state(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    _write_bom(tmp_path)
+    _write_bom(tmp_path / "r1")
     resp = _client.get("/insights")
     assert resp.status_code == 200
     assert "Nothing to show yet" in resp.text
@@ -50,8 +59,8 @@ def test_insights_with_bom_but_no_invoice_shows_calm_empty_state(tmp_path, monke
 
 def test_insights_with_no_significant_move_says_so(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    _write_bom(tmp_path)
-    _write_prices(tmp_path, [
+    _write_bom(tmp_path / "r1")
+    _write_prices(tmp_path / "r1", [
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.00,
          "source_invoice": "INV-1", "observed_date": "2026-06-01"},
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.05,
@@ -64,8 +73,8 @@ def test_insights_with_no_significant_move_says_so(tmp_path, monkeypatch):
 
 def test_insights_shows_dollar_quantified_opportunity(tmp_path, monkeypatch):
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    _write_bom(tmp_path)
-    _write_prices(tmp_path, [
+    _write_bom(tmp_path / "r1")
+    _write_prices(tmp_path / "r1", [
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.00,
          "source_invoice": "INV-1", "observed_date": "2026-06-01"},
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.48,
@@ -84,8 +93,8 @@ def test_insights_never_claims_margin_or_food_cost_tier(tmp_path, monkeypatch):
     render an actual tier/margin FINDING: no tier CSS class, no "strong/ok/thin" label, no dollar
     figure claimed as a margin (rule 06 false-precision guard)."""
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
-    _write_bom(tmp_path)
-    _write_prices(tmp_path, [
+    _write_bom(tmp_path / "r1")
+    _write_prices(tmp_path / "r1", [
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.00,
          "source_invoice": "INV-1", "observed_date": "2026-06-01"},
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.48,
@@ -103,12 +112,13 @@ def test_insights_survives_non_convertible_unit_without_crashing(tmp_path, monke
     page (W3_review.md MAJOR-1) — the affected dish silently drops out of costing, exactly like a
     missing price, instead of the ValueError propagating to a bare crash."""
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    (tmp_path / "r1").mkdir(parents=True)
     pd.DataFrame([
         {"dish_id": "weird", "dish_name": "Weird Dish", "ingredient_id": "beef",
          "ingredient_name": "beef", "qty": 1.0, "recipe_unit": "each", "canonical_unit": "g",
          "yield_factor": 1.0},
-    ]).to_parquet(tmp_path / "bom.parquet", index=False, engine="pyarrow")
-    _write_prices(tmp_path, [
+    ]).to_parquet(tmp_path / "r1" / "bom.parquet", index=False, engine="pyarrow")
+    _write_prices(tmp_path / "r1", [
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.00,
          "source_invoice": "INV-1", "observed_date": "2026-06-01"},
         {"ingredient_id": "beef", "ingredient_name": "beef", "unit_price": 3.48,
@@ -127,7 +137,7 @@ def test_insights_unexpected_failure_returns_legible_error(monkeypatch):
     06/07): a calm 503 + correlation id, never a stack trace — mirrors test_web.py's grid-route
     regression test. dish_ingredient_cost's own degrade-gracefully fix covers the KNOWN failure
     mode; this covers everything else, the way every sibling route already does."""
-    def boom():
+    def boom(restaurant_id):
         raise RuntimeError("simulated: something broke at /secret/internal/path")
 
     monkeypatch.setattr(appmod, "build_insights_summary", boom)

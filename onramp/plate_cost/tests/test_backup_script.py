@@ -85,6 +85,25 @@ def test_backup_raw_dir_copies_every_seam_file(backup_mod, tmp_path):
     assert pd.read_parquet(dest_raw / "bom.parquet")["a"].iloc[0] == 1
 
 
+def test_backup_raw_dir_copies_tenant_subdirectories(backup_mod, tmp_path):
+    """W9: data/raw/ is a container of one subdirectory per restaurant_id, not itself a flat set
+    of files. A backup that only copied top-level files would silently back up nothing at all
+    going forward -- this is the regression that fix guards against."""
+    raw_dir = tmp_path / "raw"
+    tenant_a = raw_dir / "tenant-a"
+    tenant_b = raw_dir / "tenant-b"
+    tenant_a.mkdir(parents=True)
+    tenant_b.mkdir(parents=True)
+    pd.DataFrame({"a": [1]}).to_parquet(tenant_a / "bom.parquet", index=False, engine="pyarrow")
+    pd.DataFrame({"a": [2]}).to_parquet(tenant_b / "bom.parquet", index=False, engine="pyarrow")
+    destination = tmp_path / "snapshot"
+
+    dest_raw = backup_mod["backup_raw_dir"](destination, raw_dir=raw_dir)
+
+    assert pd.read_parquet(dest_raw / "tenant-a" / "bom.parquet")["a"].iloc[0] == 1
+    assert pd.read_parquet(dest_raw / "tenant-b" / "bom.parquet")["a"].iloc[0] == 2
+
+
 def test_backup_raw_dir_produces_an_empty_but_present_directory_when_seam_is_empty(backup_mod, tmp_path):
     raw_dir = tmp_path / "raw"
     raw_dir.mkdir()

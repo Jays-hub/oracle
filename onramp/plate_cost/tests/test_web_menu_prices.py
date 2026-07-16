@@ -8,10 +8,12 @@ rejected and named, and an unauthenticated request never reaches any tenant data
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from schemas import BomRow, PriceObservationRow
 from src import store
 from src.auth.service import create_account
+from src.db.models import Restaurant
 from web.app import app
 
 _BOM_ROW = BomRow(
@@ -25,6 +27,9 @@ _PRICE_ROW = PriceObservationRow(
 
 
 def _seed_raw_dir(raw_dir, with_prices=True):
+    """``raw_dir`` must already be the tenant's own subdirectory (``tmp_path / restaurant_id``,
+    W9) -- resolve the id via ``_create_account`` before seeding."""
+    raw_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame([_BOM_ROW.model_dump()]).to_parquet(raw_dir / "bom.parquet", index=False, engine="pyarrow")
     if with_prices:
         pd.DataFrame([_PRICE_ROW.model_dump()]).to_parquet(
@@ -32,18 +37,29 @@ def _seed_raw_dir(raw_dir, with_prices=True):
         )
 
 
-def _logged_in_client(db_sessionmaker) -> TestClient:
+def _create_account(db_sessionmaker) -> str:
+    """Creates the one test account/restaurant and returns the real, DB-issued restaurant_id --
+    needed before seeding data/raw/<restaurant_id>/ (W9)."""
     db = db_sessionmaker()
     try:
         create_account(db, "Test Kitchen", "chef@example.com", "s3cret123")
+        return db.scalars(select(Restaurant)).one().id
     finally:
         db.close()
+
+
+def _login(db_sessionmaker) -> TestClient:
     client = TestClient(app)
     resp = client.post(
         "/login", data={"email": "chef@example.com", "password": "s3cret123"}, follow_redirects=True,
     )
     assert resp.status_code == 200
     return client
+
+
+def _logged_in_client(db_sessionmaker) -> TestClient:
+    _create_account(db_sessionmaker)
+    return _login(db_sessionmaker)
 
 
 def test_menu_prices_redirects_unauthenticated_get_to_login():
@@ -69,9 +85,10 @@ def test_menu_prices_shows_empty_state_when_no_bom_captured(db_sessionmaker, mon
 
 
 def test_menu_prices_form_lists_captured_dish(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
     resp = client.get("/menu-prices")
     assert resp.status_code == 200
     assert "Burger" in resp.text
@@ -79,9 +96,10 @@ def test_menu_prices_form_lists_captured_dish(db_sessionmaker, monkeypatch, tmp_
 
 
 def test_saving_a_menu_price_persists_and_shows_on_rerender(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.post("/menu-prices", data={"price__burger": "12.00"}, follow_redirects=False)
     assert resp.status_code == 303
@@ -92,14 +110,15 @@ def test_saving_a_menu_price_persists_and_shows_on_rerender(db_sessionmaker, mon
 
 
 def test_saving_a_menu_price_writes_the_food_cost_seam_leg(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     client.post("/menu-prices", data={"price__burger": "12.00"}, follow_redirects=False)
 
-    assert (tmp_path / "food_cost.parquet").exists()
-    on_disk = pd.read_parquet(tmp_path / "food_cost.parquet")
+    assert (tmp_path / restaurant_id / "food_cost.parquet").exists()
+    on_disk = pd.read_parquet(tmp_path / restaurant_id / "food_cost.parquet")
     assert on_disk["dish_id"].iloc[0] == "burger"
     assert on_disk["food_cost"].iloc[0] == pytest.approx(6.0 / 0.9 * 3.0)
 
@@ -107,13 +126,14 @@ def test_saving_a_menu_price_writes_the_food_cost_seam_leg(db_sessionmaker, monk
 def test_saving_with_no_price_observations_yet_upserts_price_without_crashing(db_sessionmaker, monkeypatch, tmp_path):
     """An operator may set a menu price before ever uploading an invoice -- no food_cost leg can
     be derived yet (no ingredient prices), but the save itself must still succeed."""
-    _seed_raw_dir(tmp_path, with_prices=False)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id, with_prices=False)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.post("/menu-prices", data={"price__burger": "12.00"}, follow_redirects=False)
     assert resp.status_code == 303
-    assert not (tmp_path / "food_cost.parquet").exists()
+    assert not (tmp_path / restaurant_id / "food_cost.parquet").exists()
 
     resp = client.get("/menu-prices")
     assert 'value="12.00"' in resp.text
@@ -124,23 +144,25 @@ def test_food_cost_leg_is_cleared_when_no_dish_remains_costable(db_sessionmaker,
     (W6_review.md LOW-6): saving a menu price writes the leg, then a price observation going
     missing (e.g. a BOM/price re-upload that leaves the dish uncostable) and a second save must
     clear the file rather than silently keep the old snapshot."""
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     client.post("/menu-prices", data={"price__burger": "12.00"}, follow_redirects=False)
-    assert (tmp_path / "food_cost.parquet").exists()
+    assert (tmp_path / restaurant_id / "food_cost.parquet").exists()
 
-    (tmp_path / "price_observations.parquet").unlink()  # simulate: beef no longer has a price
+    (tmp_path / restaurant_id / "price_observations.parquet").unlink()  # simulate: beef no longer has a price
 
     client.post("/menu-prices", data={"price__burger": "15.00"}, follow_redirects=False)
-    assert not (tmp_path / "food_cost.parquet").exists()
+    assert not (tmp_path / restaurant_id / "food_cost.parquet").exists()
 
 
 def test_blank_price_field_leaves_dish_unset(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.post("/menu-prices", data={"price__burger": ""}, follow_redirects=False)
     assert resp.status_code == 303  # not an error -- just nothing set
@@ -150,9 +172,10 @@ def test_blank_price_field_leaves_dish_unset(db_sessionmaker, monkeypatch, tmp_p
 
 
 def test_non_positive_price_is_rejected_and_named(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.post("/menu-prices", data={"price__burger": "-5"}, follow_redirects=False)
     assert resp.status_code == 422
@@ -161,9 +184,10 @@ def test_non_positive_price_is_rejected_and_named(db_sessionmaker, monkeypatch, 
 
 
 def test_non_numeric_price_is_rejected(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.post("/menu-prices", data={"price__burger": "abc"}, follow_redirects=False)
     assert resp.status_code == 422

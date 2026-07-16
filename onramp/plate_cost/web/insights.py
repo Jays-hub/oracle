@@ -57,7 +57,7 @@ def _display_opportunity(o: Opportunity) -> OpportunityDisplay:
     }
 
 
-def build_insights_summary() -> InsightsSummary:
+def build_insights_summary(restaurant_id: str) -> InsightsSummary:
     """Read the operator's own BOM + price history back and compute this week's findings.
 
     Mirrors ``your_data.build_your_data_summary``'s FileNotFoundError handling: no capture yet on
@@ -68,8 +68,8 @@ def build_insights_summary() -> InsightsSummary:
         "has_data": False, "opportunities": [], "trend_count": 0, "significant_count": 0,
     }
     try:
-        bom_df = store.read_bom()
-        price_df = store.read_price_observations()
+        bom_df = store.read_bom(restaurant_id)
+        price_df = store.read_price_observations(restaurant_id)
     except FileNotFoundError:
         return empty
 

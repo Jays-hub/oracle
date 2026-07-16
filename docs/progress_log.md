@@ -10,6 +10,103 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-07-16 — W9 hardening: fixed all `W9_review.md` findings `[built]`
+
+`/review-web W9`'s verdict was **"Yes, with one documented scope deferral to consciously accept"** —
+no blockers; the seam firewall, layering, and tenant-scoped reads all verified by running. Jay
+greenlit all three findings and explicitly accepted the item_id deferral rather than building it.
+`docs/phase_decisions/W9.md`/`W9_review.md` are left as the frozen build-time/review-time record
+(same convention as the W4–W8 hardening entries); this entry is the remediation record.
+
+- **MINOR-1 — the item_id deferral was accepted, and the spec's self-contradiction reconciled.**
+  `website_production_overview.md` §4's W9 row, §6, and the PoC gap table (row 9) disagreed on
+  whether "stable `item_id` carried into the seam schemas" belonged to W9. Jay accepted deferring
+  it (not building it); all three references now consistently say so, pointing at this acceptance
+  (`W9_review.md` MINOR-1, accepted 2026-07-16). `schemas/` is unchanged.
+- **MINOR-2 — `tenant_raw_dir`'s validator accepted a trailing newline.** `_RESTAURANT_ID_PATTERN`
+  used `^...$` with `.match()`; Python's `$` matches before a trailing `\n`, so `"abc\n"` passed
+  validation and would have resolved to a directory literally named `"abc\n"`. Anchored with `\Z`
+  instead (rejects the newline; `..`, `/`, `\`, null bytes, and over-length strings were already
+  correctly rejected). Regression case added to `test_tenant_raw_dir_rejects_path_traversal`.
+- **MINOR-3 — no end-to-end two-tenant isolation test at the web request boundary.** Isolation was
+  proven at the store/loader unit level but never composed through a real login session. Added
+  `test_your_data_and_dishes_never_cross_tenants_for_two_real_accounts` (`test_web_auth.py`): two
+  distinct tenants, each with their own captured BOM/sales, and neither's `/your-data` or `/dishes`
+  ever surfaces the other's covers count or dish names. Building this surfaced a real constraint the
+  review hadn't accounted for: `create_account`'s single-restaurant fence (deliberately still active
+  post-W9, per `W9.md`'s "Explicitly Deferred" table) blocks a *second* account from being created
+  through the normal signup path. The test seeds tenant B directly against the DB models
+  (`Restaurant`/`User`/`Credential`/`Membership`), bypassing that fence rather than lifting it —
+  lifting it is its own, separately-reviewable decision (`src/auth/service.py::create_account`
+  docstring), not something a test-coverage fix should do unilaterally.
+- **NIT — three security-relevant `assert`s in `store.py` (stripped under `python -O`) converted to
+  explicit `if / raise`.** The `RAW_DIR` path invariant (import-time), `tenant_raw_dir`'s
+  escaped-path backstop, and `_read_raw_parquet`'s bare-filename guard now raise `RuntimeError`
+  unconditionally rather than relying on assertions that vanish under an optimization flag. Each
+  was already backed by a real primary guard (the regex validator, a hardcoded filename), so this
+  is defense-in-depth hardening, not a behavior change.
+- **Tests: 622 pass, up from 621** — 1 net new integration test plus the traversal-rejection
+  regression case folded into an existing test. `ruff check .`: clean. `lint-imports`: 2 contracts
+  kept, 0 broken.
+- W9 is now done: build closed in the entry below, review closed on this entry — per
+  `00-process.md`, no comprehension step required.
+
+---
+
+## 2026-07-16 — W9 built: multi-tenancy across the seam, speculatively `[built]`
+
+Built ahead of W9's own trigger ("a second real tenant's data needing to coexist,"
+`website_production_overview.md` §4) — no such tenant exists yet. Flagged to Jay before starting;
+greenlit to build as forward infrastructure with the shape recorded as a considered guess, not a
+validated one. Full reasoning, load-bearing assumptions, and the two flagged-for-scrutiny decisions:
+`docs/phase_decisions/W9.md`. Not marked done here — per `00-process.md`, that happens when
+`/review-web W9` closes on the code.
+
+- **`data/CONTRACT.md`** — the W2 forward note replaced with the built decision: `data/raw/` is now a
+  container of one subdirectory per `restaurant_id` (the app-DB's `Restaurant.id`), not a flat file
+  store. Chosen over a `restaurant_id` column because every existing writer's full-replace/lock-guarded-
+  accumulate semantics stay untouched (a column would have made a full-replace write silently delete
+  every *other* tenant's rows from the same file). `data/_truth/` deliberately NOT partitioned by this
+  decision — out of the seam this file governs, flagged as a forward note. The shared pre-tenancy
+  sentinel (`uuid.UUID(int=0).hex`, 32 zero-hex-chars) is recorded so both peers' independently
+  hardcoded copies can be diffed against one source.
+- **`onramp/plate_cost/src/store.py`** — new `tenant_raw_dir(restaurant_id)` (path-safe-slug validated,
+  rejects traversal); `read_bom`/`read_sales`/`read_price_observations`/`read_food_cost` now require
+  `restaurant_id`. **`src/capture/seam_upload.py`, `invoice_upload.py`, `src/costing/tenant_grid.py`
+  needed zero changes** — they already take a bare `raw_dir: Path`, so tenancy resolution lives in
+  exactly one place per peer (the store helper on read, `web/app.py`'s routes on write).
+- **`web/app.py`, `web/menu_prices.py`, `web/dishes.py`, `web/insights.py`, `web/your_data.py`** —
+  every seam read/write threads `identity.restaurant_id` through; `/insights` and `/your-data`(+export)
+  switched from a boolean-only `require_login` to `current_identity` so the id is actually available.
+- **`onramp/plate_cost/src/run.py`** — the CLI demo tool (no account/session concept at all) now writes
+  into a fixed, non-account-linked sentinel bucket rather than inventing tenant selection it doesn't
+  need.
+- **`forecasting/src/data/loader.py` + `cleaner.py`** — the runtime whitelist guard now checks the
+  path's *parent* is literally `raw` (one level deeper); both keep a default `raw_dir`, repointed at the
+  new `SIMULATED_RESTAURANT_ID` sentinel rather than removed, so all 8 `forecasting/src/evaluate/*.py`
+  dollar-floor/calibration scripts needed **zero changes** — they still call `build_observed_demand()`/
+  `clean_demand()` with no arguments and keep working against the one simulated dataset that exists.
+- **`forecasting/src/simulate/generator.py`** — `RestaurantSimulator.run()` (the class-level primitive)
+  loses its `raw_dir` default entirely, forcing every direct caller to name a tenant explicitly; the
+  module-level `run()` convenience wrapper keeps one sanctioned default (the sentinel), mirroring the
+  on-ramp CLI.
+- **Found and fixed a real, unrelated regression in `scripts/backup.py` (W7)** while implementing this:
+  `backup_raw_dir()` only ever copied flat files, never subdirectories — once every tenant's data moved
+  one level deeper, backups would have silently captured zero files with no error and no failing test.
+  Fixed to `shutil.copytree` each tenant subdirectory.
+- **Tests: 621 pass, up from 615** — 6 net new (cross-tenant isolation regressions in
+  `tests/test_store.py` and `forecasting/tests/test_loader.py`, a `scripts/backup.py` regression
+  guard), plus every web test that seeds `data/raw/` fixtures restructured to seed under a tenant
+  subdirectory (`test_web_upload.py`, `test_web_invoice.py`, `test_web_dishes.py`,
+  `test_web_menu_prices.py`, `test_web_auth.py`, `test_web_insights.py`). `ruff check .`: clean.
+  `lint-imports`: 2 contracts kept, 0 broken. Verified beyond the suite: ran the real on-ramp CLI
+  against the actual repo `data/raw/`, confirmed the tenant-subdirectory write, read it back through
+  the real DuckDB store, confirmed path-traversal rejection, and confirmed both peers'
+  `SIMULATED_RESTAURANT_ID`/`_DEMO_RESTAURANT_ID` literals resolve identically. Manual test artifact
+  removed afterward.
+
+---
+
 ## 2026-07-15 — W8 hardening: fixed all `W8_review.md` findings `[built]`
 
 `/review-web W8`'s verdict was **"Yes"** — no blockers, but the reviewer flagged one real

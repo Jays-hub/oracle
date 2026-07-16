@@ -21,6 +21,13 @@ _PLATE_COST_DIR = Path(__file__).parent.parent
 # plate_cost -> onramp -> restaurant-dev (the repo root that owns data/raw/, the shared seam).
 _REPO_ROOT = _PLATE_COST_DIR.parent.parent
 
+# data/raw/ is a per-tenant container since W9 (data/CONTRACT.md) — this CLI predates the web
+# app's accounts entirely (no login, no Restaurant row), so it writes into a fixed, non-account-
+# linked bucket rather than inventing tenant selection this standalone demo tool doesn't need.
+# The nil UUID (uuid.UUID(int=0).hex) is the documented sentinel both peers hardcode identically
+# for exactly this "no real signup-issued tenant" case (data/CONTRACT.md).
+_DEMO_RESTAURANT_ID = "00000000000000000000000000000000"
+
 # schemas/ is platform-owned (data/CONTRACT.md) — imported by BOTH peers, owned by neither. It
 # lives at the repo root, outside this package's import path, so put the root on sys.path. This is
 # contract-sanctioned (importing the shared seam schemas), NOT peer coupling: the on-ramp still
@@ -141,7 +148,7 @@ def run(data_dir: Path, export: bool = True) -> None:
         _export_to_raw(
             ingredients, dishes, recipe_lines,
             data_dir / "sample_sales.csv",
-            _REPO_ROOT / "data" / "raw",
+            _REPO_ROOT / "data" / "raw" / _DEMO_RESTAURANT_ID,
         )
         print("Done.\n")
 
