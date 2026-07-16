@@ -26,7 +26,7 @@ def build_menu_prices_form(db: DbSession, restaurant_id: str) -> list[MenuPriceR
     (``None`` if not — the form shows a blank input, never a fabricated $0.00). Empty list if no
     recipe sheet has been captured yet — there is nothing to price."""
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(restaurant_id)
     except FileNotFoundError:
         return []
 
@@ -39,7 +39,7 @@ def build_menu_prices_form(db: DbSession, restaurant_id: str) -> list[MenuPriceR
     return sorted(rows, key=lambda r: r["dish_name"])
 
 
-def recompute_and_write_food_cost(bom_df: pd.DataFrame) -> None:
+def recompute_and_write_food_cost(bom_df: pd.DataFrame, restaurant_id: str) -> None:
     """Recompute the derived ``food_cost`` seam leg from the current BOM + latest invoice prices
     and write (or, if nothing is costable, clear) it — the one recompute path shared by both
     operator actions that can invalidate ``Co``: a menu-price save
@@ -49,15 +49,16 @@ def recompute_and_write_food_cost(bom_df: pd.DataFrame) -> None:
     result was skipped entirely rather than clearing a now-stale prior snapshot (LOW-6).
     """
     try:
-        price_df = store.read_price_observations()
+        price_df = store.read_price_observations(restaurant_id)
     except FileNotFoundError:
         price_df = pd.DataFrame()
 
+    raw_dir = store.tenant_raw_dir(restaurant_id)
     rows = build_food_cost_rows(bom_df, price_df, as_of=date.today())
     if rows:
-        write_food_cost_atomic(rows, store.RAW_DIR)
+        write_food_cost_atomic(rows, raw_dir)
     else:
-        clear_food_cost(store.RAW_DIR)
+        clear_food_cost(raw_dir)
 
 
 def save_menu_prices_and_recompute_food_cost(
@@ -76,7 +77,7 @@ def save_menu_prices_and_recompute_food_cost(
     rather than guessed at.
     """
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(restaurant_id)
     except FileNotFoundError:
         return  # nothing captured yet — no dish exists to attach a price to
 
@@ -87,4 +88,4 @@ def save_menu_prices_and_recompute_food_cost(
             continue
         upsert_menu_price(db, restaurant_id, dish_name, price)
 
-    recompute_and_write_food_cost(bom_df)
+    recompute_and_write_food_cost(bom_df, restaurant_id)

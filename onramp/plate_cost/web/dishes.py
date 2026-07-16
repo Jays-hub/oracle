@@ -55,12 +55,14 @@ def build_dishes_summary(db: DbSession, restaurant_id: str) -> DishesSummary:
         "has_data": False, "rows": [], "unpriced": [], "quadrant_actions": QUADRANT_ACTIONS,
     }
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(restaurant_id)
     except FileNotFoundError:
         return empty
 
-    sales_df = _read_optional(store.read_sales, ["dish_name", "count"])
-    price_df = _read_optional(store.read_price_observations, ["ingredient_id", "unit_price"])
+    sales_df = _read_optional(lambda: store.read_sales(restaurant_id), ["dish_name", "count"])
+    price_df = _read_optional(
+        lambda: store.read_price_observations(restaurant_id), ["ingredient_id", "unit_price"]
+    )
     menu_prices = menu_prices_by_seam_key(db, restaurant_id)
 
     rows, unpriced = build_tenant_grid(bom_df, sales_df, price_df, menu_prices)
@@ -124,7 +126,7 @@ def build_dish_detail(db: DbSession, restaurant_id: str, dish_id: str) -> DishDe
     implementations could — and did — disagree).
     """
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(restaurant_id)
     except FileNotFoundError:
         return _NOT_FOUND
 
@@ -133,7 +135,9 @@ def build_dish_detail(db: DbSession, restaurant_id: str, dish_id: str) -> DishDe
         return _NOT_FOUND
     dish_name = dish_rows.iloc[0]["dish_name"]
 
-    price_df = _read_optional(store.read_price_observations, ["ingredient_id", "unit_price"])
+    price_df = _read_optional(
+        lambda: store.read_price_observations(restaurant_id), ["ingredient_id", "unit_price"]
+    )
     line_items, cost_display = build_dish_line_items(bom_df, price_df, dish_id)
     any_missing = cost_display is None
     lines: list[IngredientLine] = [

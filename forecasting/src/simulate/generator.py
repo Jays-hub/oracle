@@ -21,6 +21,16 @@ _DEFAULT_SIM_CFG = _REPO_ROOT / "config" / "sim.yaml"
 _DEFAULT_RAW_DIR = _REPO_ROOT / "data" / "raw"
 _DEFAULT_TRUTH_DIR = _REPO_ROOT / "data" / "_truth"
 
+# data/raw/ is a per-tenant container since W9 (data/CONTRACT.md) -- this module's own copy of
+# the fixed demo/simulation sentinel (own copy per this repo's per-file duplication convention,
+# same reasoning as _assert_not_truth_path below being duplicated rather than shared; matches
+# forecasting/src/data/loader.py::SIMULATED_RESTAURANT_ID and onramp/plate_cost/src/run.py's
+# identical literal -- no shared import crosses the peer boundary for it).
+# data/_truth/ is deliberately NOT tenant-scoped by this decision: it is scoring-internal to
+# forecasting/, not part of the seam CONTRACT.md governs, and there is never more than one
+# simulated dataset's truth in existence at a time today. Flagged as a forward note, not built.
+SIMULATED_RESTAURANT_ID = "00000000000000000000000000000000"
+
 
 def _assert_not_truth_path(p: Path) -> None:
     if "_truth" in str(p):
@@ -101,7 +111,13 @@ class RestaurantSimulator:
     #  Public entry point                                                  #
     # ------------------------------------------------------------------ #
 
-    def run(self, raw_dir: Path = _DEFAULT_RAW_DIR, truth_dir: Path = _DEFAULT_TRUTH_DIR) -> None:
+    def run(self, raw_dir: Path, truth_dir: Path = _DEFAULT_TRUTH_DIR) -> None:
+        """``raw_dir`` has no default (W9): the class-level primitive is only ever invoked
+        directly by this module's own ``run()`` wrapper (below, which supplies the sentinel
+        tenant) and by tests, which must always name which tenant's directory they're writing
+        into -- a silent flat-store default here is exactly the "which tenant?" ambiguity W9
+        exists to remove. ``truth_dir`` is untouched -- not tenant-scoped by this phase (see
+        SIMULATED_RESTAURANT_ID's docstring above)."""
         _assert_not_truth_path(raw_dir)
         raw_dir.mkdir(parents=True, exist_ok=True)
         truth_dir.mkdir(parents=True, exist_ok=True)
@@ -861,10 +877,13 @@ class RestaurantSimulator:
 
 def run(
     sim_cfg: Path = _DEFAULT_SIM_CFG,
-    raw_dir: Path = _DEFAULT_RAW_DIR,
+    raw_dir: Path = _DEFAULT_RAW_DIR / SIMULATED_RESTAURANT_ID,
     truth_dir: Path = _DEFAULT_TRUTH_DIR,
 ) -> None:
-    """Top-level entry point. Called by tests and CLI."""
+    """Top-level entry point. Called by tests and CLI (``python -m
+    forecasting.src.simulate.generator``) -- this convenience wrapper is the one place a default
+    tenant is sanctioned (the fixed simulation sentinel), mirroring onramp/plate_cost/src/run.py's
+    CLI default; RestaurantSimulator.run() itself requires an explicit raw_dir."""
     RestaurantSimulator(sim_cfg).run(raw_dir, truth_dir)
 
 

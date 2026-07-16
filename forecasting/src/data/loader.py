@@ -24,6 +24,14 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_RAW_DIR = _REPO_ROOT / "data" / "raw"
 _DEFAULT_SIM_CFG = _REPO_ROOT / "config" / "sim.yaml"
 
+# data/raw/ is a per-tenant container since W9 (data/CONTRACT.md) — a runtime path assertion
+# below now whitelists one level deeper (a tenant subdirectory of "raw", not "raw" itself).
+# SIMULATED_RESTAURANT_ID is the fixed, non-account-linked sentinel this module's default reads
+# from: the nil UUID (uuid.UUID(int=0).hex), the same literal onramp/plate_cost/src/run.py
+# hardcodes independently for its own demo writes (no shared import crosses the peer boundary;
+# data/CONTRACT.md is where both copies are recorded so they can be diffed against each other).
+SIMULATED_RESTAURANT_ID = "00000000000000000000000000000000"
+
 # Daypart is implied by the sale timestamp, never labeled in a Toast export
 # (forecasting/docs/simulated_data.md). Lunch service runs 11:00-15:00 and dinner
 # 17:00-22:00 in the generator; nothing is rung up in the 15:00-17:00 gap, so a single
@@ -32,13 +40,15 @@ _LUNCH_DINNER_CUTOFF_HOUR = 16
 
 
 def _assert_raw_only(path: Path) -> None:
-    """Whitelist the raw store (rule 01): this loader opens the data/raw/ directory only.
-    Whitelisting beats blacklisting -- any directory that is not the raw store is refused,
-    so a model-input path can never resolve into the hidden ground-truth oracle.
+    """Whitelist the raw store (rule 01): this loader opens a tenant subdirectory of data/raw/
+    only (W9 -- data/CONTRACT.md). Whitelisting beats blacklisting -- any path whose parent is
+    not literally the raw store is refused, so a model-input path can never resolve into the
+    hidden ground-truth oracle.
     """
-    if Path(path).name != "raw":
+    if Path(path).parent.name != "raw":
         raise ValueError(
-            f"loader reads the data/raw/ store only; refused non-raw path: {path}"
+            f"loader reads a data/raw/<restaurant_id>/ tenant directory only; "
+            f"refused non-raw-tenant path: {path}"
         )
 
 
@@ -66,8 +76,8 @@ def build_name_to_id_map(cfg_path: Path | None = None) -> dict[str, str]:
     return mapping
 
 
-def load_pos_sales(raw_dir: Path = _DEFAULT_RAW_DIR) -> pd.DataFrame:
-    """Load the raw Toast line-item export. Opens the data/raw/ store only."""
+def load_pos_sales(raw_dir: Path = _DEFAULT_RAW_DIR / SIMULATED_RESTAURANT_ID) -> pd.DataFrame:
+    """Load the raw Toast line-item export. Opens a data/raw/<restaurant_id>/ tenant dir only."""
     _assert_raw_only(raw_dir)
     df = pd.read_csv(Path(raw_dir) / "pos_sales.csv")
     df["business_date"] = pd.to_datetime(df["business_date"]).dt.date
@@ -75,7 +85,7 @@ def load_pos_sales(raw_dir: Path = _DEFAULT_RAW_DIR) -> pd.DataFrame:
     return df
 
 
-def build_observed_demand(raw_dir: Path = _DEFAULT_RAW_DIR) -> pd.DataFrame:
+def build_observed_demand(raw_dir: Path = _DEFAULT_RAW_DIR / SIMULATED_RESTAURANT_ID) -> pd.DataFrame:
     """Aggregate the raw POS export into the per-(date, item, service_period) demand
     series the baselines and the dollar floor consume.
 

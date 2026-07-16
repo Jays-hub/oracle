@@ -284,14 +284,15 @@ def reset_password_submit(
 
 @app.get("/your-data", response_class=HTMLResponse, response_model=None)
 def your_data(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request, db):
-        return redirect
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
     # Same calm-fallback shape as grid()/insights() (W4_review.md MINOR-1): build_your_data_
     # summary() degrades an unreadable *price* leg on its own (src/web/your_data.py's
     # _price_leg_stats()), but this still catches anything unexpected in the BOM/sales path
     # itself, so the trust page never bare-500s.
     try:
-        summary = build_your_data_summary()
+        summary = build_your_data_summary(identity.restaurant_id)
     except Exception:
         correlation_id = uuid4().hex[:8]
         _log.exception("your-data render failed (correlation_id=%s)", correlation_id)
@@ -308,8 +309,9 @@ def your_data(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse
 
 @app.get("/your-data/export/{leg}", response_model=None)
 def your_data_export(request: Request, leg: str, db: DbSession = Depends(get_db)) -> PlainTextResponse | RedirectResponse:
-    if redirect := require_login(request, db):
-        return redirect
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
     exporters = {
         "bom": ("bom.csv", export_bom_csv),
         "sales": ("sales_export.csv", export_sales_csv),
@@ -323,7 +325,7 @@ def your_data_export(request: Request, leg: str, db: DbSession = Depends(get_db)
         return PlainTextResponse("Unknown export.", status_code=404)
     filename, export_fn = match
     try:
-        csv_text = export_fn()
+        csv_text = export_fn(identity.restaurant_id)
     except FileNotFoundError:
         return PlainTextResponse("No data captured yet.", status_code=404)
     except Exception:
@@ -448,7 +450,7 @@ def confirm_submit(
         )
 
     try:
-        write_seam_atomic(bom_result.rows, sales_result.rows, store.RAW_DIR)
+        write_seam_atomic(bom_result.rows, sales_result.rows, store.tenant_raw_dir(identity.restaurant_id))
     except Exception:
         correlation_id = uuid4().hex[:8]
         _log.exception("seam write failed (correlation_id=%s)", correlation_id)
@@ -493,7 +495,7 @@ async def invoice_upload_submit(
             request=request, name="invoice_upload.html", context={"errors": result.errors}, status_code=422,
         )
 
-    unmatched = cross_reference_ingredients(result.rows, _known_ingredient_ids())
+    unmatched = cross_reference_ingredients(result.rows, _known_ingredient_ids(identity.restaurant_id))
     staged_id = stage_upload(
         db, identity.user_id, identity.restaurant_id, kind="invoice",
         payload={"invoice_csv_b64": _b64(invoice_bytes)},
@@ -556,7 +558,7 @@ def invoice_confirm_submit(
         )
 
     try:
-        write_price_observations_atomic(result.rows, store.RAW_DIR)
+        write_price_observations_atomic(result.rows, store.tenant_raw_dir(identity.restaurant_id))
     except Exception:
         correlation_id = uuid4().hex[:8]
         _log.exception("price observation write failed (correlation_id=%s)", correlation_id)
@@ -570,12 +572,12 @@ def invoice_confirm_submit(
     # invoice upload (W6_review.md MINOR-3). Best-effort: no consumer reads this leg yet, so a
     # failure here must never fail the invoice confirmation the operator actually came for.
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(identity.restaurant_id)
     except FileNotFoundError:
         bom_df = None
     if bom_df is not None:
         try:
-            recompute_and_write_food_cost(bom_df)
+            recompute_and_write_food_cost(bom_df, identity.restaurant_id)
         except Exception:
             _log.exception(
                 "food_cost recompute after invoice confirm failed (correlation_id=%s)",
@@ -590,10 +592,11 @@ def invoice_confirm_submit(
 
 @app.get("/insights", response_class=HTMLResponse, response_model=None)
 def insights(request: Request, db: DbSession = Depends(get_db)) -> HTMLResponse | RedirectResponse:
-    if redirect := require_login(request, db):
-        return redirect
+    identity = current_identity(request, db)
+    if identity is None:
+        return RedirectResponse(url="/login", status_code=303)
     try:
-        summary = build_insights_summary()
+        summary = build_insights_summary(identity.restaurant_id)
     except Exception:
         # Fail legibly (rules 06/07), mirroring the grid route: a calm page + correlation id, never
         # a bare 500. dish_ingredient_cost already degrades a non-convertible unit to "not costed"
@@ -638,7 +641,10 @@ async def menu_prices_submit(request: Request, db: DbSession = Depends(get_db)) 
 
     form = await request.form()
     try:
-        dish_names = store.read_bom().drop_duplicates("dish_id").set_index("dish_id")["dish_name"].to_dict()
+        dish_names = (
+            store.read_bom(identity.restaurant_id)
+            .drop_duplicates("dish_id").set_index("dish_id")["dish_name"].to_dict()
+        )
     except FileNotFoundError:
         dish_names = {}
     prices_by_dish_id, errors = _parse_menu_price_form(form, dish_names)
@@ -759,14 +765,14 @@ def _invoice_size_errors(raw: bytes) -> list[str]:
     return []
 
 
-def _known_ingredient_ids() -> set[str]:
+def _known_ingredient_ids(restaurant_id: str) -> set[str]:
     """Ingredient ids already in the captured BOM, for the invoice cross-reference warning.
 
     An empty set (no BOM captured yet) is a valid, non-error state — every invoice ingredient
     simply shows as unmatched, which is honest: there's nothing to match against yet.
     """
     try:
-        bom_df = store.read_bom()
+        bom_df = store.read_bom(restaurant_id)
     except FileNotFoundError:
         return set()
     return set(bom_df["ingredient_id"])

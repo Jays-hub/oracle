@@ -13,6 +13,7 @@ from sqlalchemy import select
 from schemas import BomRow, PriceObservationRow, SalesExportRow
 from src import store
 from src.auth.service import create_account
+from src.db.models import Restaurant
 from web.app import app
 
 _BOM_ROWS = [
@@ -31,6 +32,10 @@ _PRICE_ROW = PriceObservationRow(
 
 
 def _seed_raw_dir(raw_dir):
+    """``raw_dir`` must already be the tenant's own subdirectory (``tmp_path / restaurant_id``,
+    W9) -- the caller resolves that id via ``_create_account`` before seeding, since a real
+    account's restaurant_id isn't known until the account row exists."""
+    raw_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame([r.model_dump() for r in _BOM_ROWS]).to_parquet(
         raw_dir / "bom.parquet", index=False, engine="pyarrow"
     )
@@ -42,12 +47,19 @@ def _seed_raw_dir(raw_dir):
     )
 
 
-def _logged_in_client(db_sessionmaker) -> TestClient:
+def _create_account(db_sessionmaker) -> str:
+    """Creates the one test account/restaurant and returns the real, DB-issued restaurant_id --
+    needed before seeding data/raw/<restaurant_id>/ (W9), since that id doesn't exist until the
+    account row does."""
     db = db_sessionmaker()
     try:
         create_account(db, "Test Kitchen", "chef@example.com", "s3cret123")
+        return db.scalars(select(Restaurant)).one().id
     finally:
         db.close()
+
+
+def _login(db_sessionmaker) -> TestClient:
     client = TestClient(app)
     resp = client.post(
         "/login", data={"email": "chef@example.com", "password": "s3cret123"}, follow_redirects=True,
@@ -56,9 +68,13 @@ def _logged_in_client(db_sessionmaker) -> TestClient:
     return client
 
 
+def _logged_in_client(db_sessionmaker) -> TestClient:
+    _create_account(db_sessionmaker)
+    return _login(db_sessionmaker)
+
+
 def _set_menu_price(db_sessionmaker, dish_name="Burger", price=25.0):
     from src.costing.menu_prices import upsert_menu_price
-    from src.db.models import Restaurant
     db = db_sessionmaker()
     try:
         restaurant = db.scalars(select(Restaurant)).one()
@@ -90,9 +106,10 @@ def test_dishes_grid_shows_empty_state_when_no_bom_captured(db_sessionmaker, mon
 
 
 def test_dishes_grid_shows_real_costed_dish(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
     _set_menu_price(db_sessionmaker, "Burger", 25.0)
 
     resp = client.get("/dishes")
@@ -105,9 +122,10 @@ def test_dishes_grid_shows_real_costed_dish(db_sessionmaker, monkeypatch, tmp_pa
 def test_dishes_grid_names_unpriced_dish_instead_of_dropping_it(db_sessionmaker, monkeypatch, tmp_path):
     """Salad has no menu price and no romaine price observation -- must be named in the unpriced
     list, never silently omitted with no explanation."""
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
     _set_menu_price(db_sessionmaker, "Burger", 25.0)
 
     resp = client.get("/dishes")
@@ -117,9 +135,10 @@ def test_dishes_grid_names_unpriced_dish_instead_of_dropping_it(db_sessionmaker,
 
 
 def test_dish_detail_shows_ingredient_breakdown_reconciling_to_total(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
     _set_menu_price(db_sessionmaker, "Burger", 25.0)
 
     resp = client.get("/dishes/burger")
@@ -153,14 +172,17 @@ def test_dish_detail_total_reconciles_with_grid_for_a_multi_ingredient_dish(db_s
     ONCE, on the aggregate, to $0.25. The single-ingredient reconciliation test above can't catch
     this (its one line IS the total); this fixture is the one the bug actually breaks. The grid
     and the detail page must show the identical ~Cost and margin for the same dish."""
+    restaurant_id = _create_account(db_sessionmaker)
+    tenant_dir = tmp_path / restaurant_id
+    tenant_dir.mkdir(parents=True)
     pd.DataFrame([r.model_dump() for r in _MULTI_INGREDIENT_BOM_ROWS]).to_parquet(
-        tmp_path / "bom.parquet", index=False, engine="pyarrow"
+        tenant_dir / "bom.parquet", index=False, engine="pyarrow"
     )
     pd.DataFrame([r.model_dump() for r in _MULTI_INGREDIENT_PRICE_ROWS]).to_parquet(
-        tmp_path / "price_observations.parquet", index=False, engine="pyarrow"
+        tenant_dir / "price_observations.parquet", index=False, engine="pyarrow"
     )
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
     _set_menu_price(db_sessionmaker, "Fries", 9.00)
 
     grid_resp = client.get("/dishes")
@@ -177,9 +199,10 @@ def test_dish_detail_total_reconciles_with_grid_for_a_multi_ingredient_dish(db_s
 def test_dish_detail_degrades_honestly_when_ingredient_price_missing(db_sessionmaker, monkeypatch, tmp_path):
     """Salad's romaine has no price observation -- the page must render (not crash) and say the
     total isn't available, rather than showing a fabricated $0 cost."""
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.get("/dishes/salad")
     assert resp.status_code == 200
@@ -188,9 +211,10 @@ def test_dish_detail_degrades_honestly_when_ingredient_price_missing(db_sessionm
 
 
 def test_dish_detail_returns_calm_404_for_unknown_dish(db_sessionmaker, monkeypatch, tmp_path):
-    _seed_raw_dir(tmp_path)
+    restaurant_id = _create_account(db_sessionmaker)
+    _seed_raw_dir(tmp_path / restaurant_id)
     monkeypatch.setattr(store, "RAW_DIR", tmp_path)
-    client = _logged_in_client(db_sessionmaker)
+    client = _login(db_sessionmaker)
 
     resp = client.get("/dishes/nonexistent-dish")
     assert resp.status_code == 404

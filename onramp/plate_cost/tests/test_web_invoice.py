@@ -119,11 +119,12 @@ def test_invoice_upload_flags_ingredient_not_in_bom(tmp_path, monkeypatch):
     # reference (W3_review.md LOW-1; this test used to need two independent patches to stay
     # isolated, one of which was easy to forget).
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    (tmp_path / "r1").mkdir()
     pd.DataFrame([{
         "dish_id": "salad", "dish_name": "Salad", "ingredient_id": "romaine",
         "ingredient_name": "romaine", "qty": 4.0, "recipe_unit": "oz", "canonical_unit": "oz",
         "yield_factor": 1.0,
-    }]).to_parquet(tmp_path / "bom.parquet", index=False, engine="pyarrow")
+    }]).to_parquet(tmp_path / "r1" / "bom.parquet", index=False, engine="pyarrow")
 
     resp = _post_invoice_upload()
     assert resp.status_code == 200
@@ -140,7 +141,7 @@ def test_confirm_writes_schema_valid_seam_file(tmp_path, monkeypatch):
     assert confirm_resp.status_code == 200
     assert "Saved" in confirm_resp.text
 
-    df = pd.read_parquet(tmp_path / "price_observations.parquet")
+    df = pd.read_parquet(tmp_path / "r1" / "price_observations.parquet")
     assert len(df) == 2
     PriceObservationRow(**{k: df[k].iloc[0] for k in PriceObservationRow.model_fields})
 
@@ -162,7 +163,7 @@ def test_confirm_accumulates_across_separate_invoices(tmp_path, monkeypatch):
         "/invoice/confirm", data={"staged_upload_id": _extract_staged_upload_id(second_upload.text)},
     )
 
-    df = pd.read_parquet(tmp_path / "price_observations.parquet")
+    df = pd.read_parquet(tmp_path / "r1" / "price_observations.parquet")
     assert len(df) == 3  # 2 from the first invoice + 1 new, never replaced
 
 
@@ -188,7 +189,7 @@ def test_confirm_rejects_tampered_staged_payload_never_trusts_it(tmp_path, monke
 
     resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 400
-    assert not (tmp_path / "price_observations.parquet").exists()
+    assert not (tmp_path / "r1" / "price_observations.parquet").exists()
 
 
 def test_confirm_rejects_malformed_base64_in_staged_payload(db_sessionmaker):
@@ -214,7 +215,7 @@ def test_confirm_enforces_its_own_size_limit_without_going_through_upload(tmp_pa
     resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert resp.status_code == 422
     assert "too large" in resp.text.lower()
-    assert not (tmp_path / "price_observations.parquet").exists()
+    assert not (tmp_path / "r1" / "price_observations.parquet").exists()
 
 
 def test_confirm_recomputes_food_cost_leg_when_bom_already_captured(tmp_path, monkeypatch):
@@ -222,18 +223,19 @@ def test_confirm_recomputes_food_cost_leg_when_bom_already_captured(tmp_path, mo
     without a trip back through /menu-prices first (W6_review.md MINOR-3: the leg must not go
     stale after an invoice-driven price change)."""
     monkeypatch.setattr(store_mod, "RAW_DIR", tmp_path)
+    (tmp_path / "r1").mkdir()
     pd.DataFrame([{
         "dish_id": "burger", "dish_name": "Burger", "ingredient_id": "beef patty",
         "ingredient_name": "beef patty", "qty": 6.0, "recipe_unit": "oz", "canonical_unit": "oz",
         "yield_factor": 1.0,
-    }]).to_parquet(tmp_path / "bom.parquet", index=False, engine="pyarrow")
+    }]).to_parquet(tmp_path / "r1" / "bom.parquet", index=False, engine="pyarrow")
 
     upload_resp = _post_invoice_upload()
     staged_id = _extract_staged_upload_id(upload_resp.text)
     confirm_resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
     assert confirm_resp.status_code == 200
 
-    df = pd.read_parquet(tmp_path / "food_cost.parquet")
+    df = pd.read_parquet(tmp_path / "r1" / "food_cost.parquet")
     assert df["dish_id"].iloc[0] == "burger"
     assert df["food_cost"].iloc[0] == pytest.approx(6.0 * 3.50)  # beef patty @ $3.50/oz, yield 1.0
 
@@ -248,7 +250,7 @@ def test_confirm_without_a_captured_bom_still_succeeds(tmp_path, monkeypatch):
     confirm_resp = _client.post("/invoice/confirm", data={"staged_upload_id": staged_id})
 
     assert confirm_resp.status_code == 200
-    assert not (tmp_path / "food_cost.parquet").exists()
+    assert not (tmp_path / "r1" / "food_cost.parquet").exists()
 
 
 def test_invoice_pages_never_show_the_sample_data_banner(tmp_path, monkeypatch):
