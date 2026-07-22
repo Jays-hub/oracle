@@ -54,7 +54,7 @@ This is the mathematical version of the strategy doc's claim that waste is downs
 
 **5. It encodes your culinary edge as a parameter.** A chef's tacit policy — "I never 86 the burger,
 but I'd rather run out of the special than dump it" — is *exactly* a statement about `Cu/Co` per dish.
-You elicit those intuitions (as the discovery onboarding in `docs/discovery_and_validation` shows) and turn them into critical ratios.
+You elicit those intuitions (as the discovery onboarding in `docs/discovery/discovery_and_validation` shows) and turn them into critical ratios.
 Domain knowledge becomes the algorithm. A generic POS forecast cannot do this because it never
 captured the per-dish economics.
 

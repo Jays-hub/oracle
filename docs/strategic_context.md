@@ -5,7 +5,7 @@ wedge, which alternatives are already closed (so they don't get reopened), the r
 selected it, and the constraints that govern the build. `docs/overview_and_method` (method) plus the
 engine chapters in `forecasting/docs/` are *how* the engine is built; this is *why* it's the thing
 worth building. **Everything here is a hypothesis filter, not validated fact** — only real customer
-discovery (`docs/discovery_and_validation`) settles it.
+discovery (`docs/discovery/discovery_and_validation`) settles it.
 
 ## The wedge, in one paragraph
 The surviving wedge is **ingredient/prep-level demand forecasting, sold under a waste/spoilage
@@ -94,7 +94,7 @@ structurally can't easily take — weight them most.**
   of the ~15–25 big items; the output *replaces* a guess the prep cook already makes.
 - **#1 (unsaturated): MIXED — validate this first.** POS-native tools forecast covers/$, not "braise
   18 short ribs." Plausible but unverified — this is the confirm-or-kill question for discovery
-  (`docs/discovery_and_validation`).
+  (`docs/discovery/discovery_and_validation`).
 - **#2 (exogenous): WEAK UNLESS deliberately added.** The base signal is POS-ownable; the prep forecast
   becomes *defensibly* better only by fusing in signal the POS can't see (events, weather-delta,
   day-before reservation depth). **Designing that exogenous layer is the technical heart of the
@@ -141,7 +141,7 @@ structurally can't easily take — weight them most.**
     so a new one works on day one (test #5).
 
 ## What's still unvalidated (the open gates)
-None of this validates the wedge — discovery does (`docs/discovery_and_validation`). Outstanding:
+None of this validates the wedge — discovery does (`docs/discovery/discovery_and_validation`). Outstanding:
 - **The lead confirm-or-kill question:** *"Do your current tools tell you 'prep 18 short ribs
   tomorrow,' or just 'Thursday will do $8,400'?"* — ask it first.
 - Define the **MVP** (prep sheet, top ~15 items, POS sales + one-time recipe confirm + 1–2 exogenous

@@ -101,7 +101,7 @@ pytest/ruff live only in the `restaurant-dev` conda env — always invoke via `m
 (restaurant-data gotchas) · `mastery_and_customer_language` (curriculum + customer language).
 **Platform method/strategy — `../docs/`:** `overview_and_method` (method + the comprehension
 contract) · `strategic_context` (why this wedge, the closed lanes, the 5-part test) ·
-`discovery_and_validation` (the "Marco" data source + the question set) · `common_base_reconciliation`
+`discovery/discovery_and_validation` (the "Marco" data source + the question set) · `common_base_reconciliation`
 (the shared-store / common-DB decision log).
 
 ## Current status
