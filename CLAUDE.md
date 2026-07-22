@@ -95,4 +95,4 @@ story, while the plate-cost-specific views are provisional. This is on-ramp *fun
 but elevating its polish still does not move the moat (Anti-Drift), which lives in `forecasting/`.
 
 Simulation and the on-ramp's later phases remain pending real customer discovery — treat all "Marco"
-numbers (`docs/discovery_and_validation`) as plausible placeholders, not validated facts.
+numbers (`docs/discovery/discovery_and_validation`) as plausible placeholders, not validated facts.
