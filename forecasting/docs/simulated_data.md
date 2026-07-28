@@ -19,7 +19,7 @@ my 90% quantiles right 90% of the time? does my waste residual match the spoilag
 verification loop is most of the learning value of the whole project.
 
 ## What a real first dump actually contains (and what it's missing)
-Anchored to the discovery onboarding conversation (`docs/discovery_and_validation`). You receive:
+Anchored to the discovery onboarding conversation (`docs/discovery/discovery_and_validation`). You receive:
 1. A **Toast line-item sales export** (~2.5 years), via the bookkeeper — item-level, timestamped, and
    polluted with comps/staff meals/voids, spanning ~4 menu changes a year.
 2. A **Resy reservation export** (CSV) — the forward book, with no-shows and cancellations, and

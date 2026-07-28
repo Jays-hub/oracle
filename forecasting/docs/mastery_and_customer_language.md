@@ -92,5 +92,5 @@ can't scale.
 ## Honest caveat, kept in front of you
 None of this curriculum validates the wedge. It makes you fluent and fast. Whether prep-level
 forecasting is *unsaturated and wanted* is the empirical question only the discovery interviews answer
-(see `docs/discovery_and_validation`). Build the skill now; let the operators tell you whether to build
+(see `docs/discovery/discovery_and_validation`). Build the skill now; let the operators tell you whether to build
 the company.

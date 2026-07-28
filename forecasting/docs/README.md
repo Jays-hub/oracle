@@ -2,7 +2,7 @@
 
 The forecasting-specific half of the project encyclopedia. These are the "how the engine is built"
 chapters. The cross-cutting chapters they depend on — `overview_and_method` (method + how comprehension
-works), `strategic_context`, `discovery_and_validation`, and the `common_base_reconciliation` record —
+works), `strategic_context`, `discovery/discovery_and_validation`, and the `common_base_reconciliation` record —
 live at the **platform** level in `../../docs/` (because both peers depend on them).
 
 Read in order; start with `overview_and_method` at the platform level.
@@ -17,4 +17,4 @@ Read in order; start with `overview_and_method` at the platform level.
 
 Reading path: `../../docs/overview_and_method` → `conceptual_spine` → `simulated_data` →
 `construction_roadmap` → `data_hard_truths` → `mastery_and_customer_language` →
-`../../docs/strategic_context` → `../../docs/discovery_and_validation`.
+`../../docs/strategic_context` → `../../docs/discovery/discovery_and_validation`.
