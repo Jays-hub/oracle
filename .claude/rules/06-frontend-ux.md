@@ -60,6 +60,12 @@ on-ramp contract (`onramp/README.md`) and the precision discipline
 - **Kitchen-hostile by default.** Legible contrast, real semantic markup, keyboard navigability —
   assume glare, grease, and gloves. Meet WCAG AA contrast on any money figure.
 - **Responsive.** Works on a tablet on the pass and a phone in the office, not only a demo laptop.
+- **Render and check — don't trust green tests.** A passing test that asserts on a CSS *variable name*
+  does not prove the rendered pixels meet contrast, that keyboard focus is visible, or that the layout
+  holds at tablet/phone widths — only opening the page does. Before a web phase closes, render the real
+  screen (the running app or a screenshot) and eyeball it: contrast on money figures, visible focus,
+  responsive breakpoints, and that numbers reconcile *as displayed*. This is exactly how a ~1.3:1
+  near-invisible link once shipped past green tests (W8 MINOR-1) — it is now a rule.
 
 ## Performance & Safety
 - **Fast first paint, light bundle.** It is opened mid-service; quick render beats feature density.

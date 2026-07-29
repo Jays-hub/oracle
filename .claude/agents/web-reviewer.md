@@ -95,8 +95,19 @@ number is wrong or untrustworthy:**
   client-side filtering instead of server-side scoping.
 - **Firewall leakage to the browser** — `_truth`, engine internals, other tenants' data, or secrets
   reaching markup, an API payload, or a bundle.
-- **Accessibility/legibility regressions** on money figures (contrast, semantic markup) and responsiveness
-  breaking on tablet/phone widths.
+- **Accessibility regressions (WCAG AA — `06`).** Don't eyeball contrast; **compute it** — you have Bash.
+  For each foreground/background pair on money figures and body text, calculate the ratio
+  (`(L_lighter + 0.05) / (L_darker + 0.05)` over sRGB relative luminance) and hold it to **4.5:1** for
+  normal text, **3:1** for large text (≥18px, or ≥14px bold) and non-text UI (component borders, focus
+  indicators, meaningful icons). A pair that "passes" only because a test asserts on the CSS *variable
+  name* rather than the resolved color is **not** verified — resolve the actual hex and check it. (A
+  ~1.3:1 near-invisible link once shipped exactly this way — `W8_review.md` MINOR-1.)
+- **Keyboard operability (`06`).** A visible focus indicator on every interactive element (grep for
+  `outline: none` / `outline: 0` with no replacement); a skip link that actually lands focus on main;
+  tab order following DOM/visual order with **no positive `tabindex`**; `prefers-reduced-motion` honored
+  wherever motion exists.
+- **Responsiveness** breaking on tablet/phone widths — check the real breakpoints, don't assume the demo
+  laptop is the only viewport.
 
 **Backend / API correctness (`07`) — silent killers:**
 - **Boundary validation bypassed.** Any inbound write reaching `data/raw/` without going through
