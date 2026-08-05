@@ -19,6 +19,24 @@
 # platform seam, owned by neither peer; the app DB never crosses it).
 /onramp/plate_cost/instance/
 
+# ── Discovery — real customer recordings & raw transcripts ───────────
+# This repo is PUBLIC. A real, identifiable operator's recorded voice and full
+# verbatim transcript must never be committed. The raw material lives here as a
+# private working file; only the pseudonymized decode + curated quotes get
+# committed (docs/discovery/<date>_<pseudonym>.md). See that folder's README.
+/docs/discovery/_raw/*
+!/docs/discovery/_raw/.gitkeep
+# Belt-and-suspenders: no audio anywhere in the repo, ever.
+*.m4a
+*.mp3
+*.wav
+*.aac
+*.flac
+*.ogg
+*.mp4
+*.mov
+*.m4v
+
 # ── Models & experiment tracking ─────────────────────────────────────
 # Regenerable and potentially large; the registry itself is Phase 8+ (rule 04).
 /models/
