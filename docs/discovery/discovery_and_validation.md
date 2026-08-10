@@ -72,6 +72,18 @@ wedge back to you before you've said a word. Talk to the **decision-maker for pr
 workaround, an emotional spike, money already spent, a tool they bought and *abandoned*. Worthless: "that
 sounds useful," "I'd try that," any compliment — compliments are the failure mode of discovery.
 
+**Before you book — the seat check (30 seconds, saves the whole call).** Ask whoever is making the
+intro, or the operator in the scheduling message: *"who decides how much of each thing gets prepped or
+made for tomorrow?"* Interview **that** person. Warm intros arrive attached to whoever is most sociable
+or most senior, which correlates with the wedge decision only by accident — a multi-unit owner may own
+front-of-house and bar while a partner owns everything perishable.
+
+**If you can't redirect** (the intro is a gift, the meeting is already set, or the seat is only apparent
+mid-call): run it, but **re-budget the call in real time** from discovery to *referral-generation*. Stop
+spending questions on assumptions this person can't answer, and spend them on getting a committed, dated
+intro to the person who can. A wrong-seat call that walks out with the right-seat referral is a success;
+one that walks out with rapport alone is not.
+
 The arc (anchor every question to a recent specific event):
 
 1. **Opening / context** — concept; covers busy vs. slow + how predictable; who makes the calls; the
@@ -87,8 +99,15 @@ The arc (anchor every question to a recent specific event):
 4. **Tool / workflow audit** — which tool they open daily vs. ignore; what the POS/inventory tool says
    about tomorrow; **THE saturation question (ask only after the above):** *"Does any tool you have tell
    you something like 'make this many portions of this dish tomorrow,' or does it stop at 'tomorrow will
-   be busy / do about $X'?"* — the single most important confirm-or-kill (capture exact words); where
-   tools let them down; whether a tool disappearing would change anything (the shelfware test).
+   be busy / do about $X'?"* — the single most important confirm-or-kill (capture exact words). Then,
+   immediately, the **belief half** — the answer to "does it exist" is worthless without it: *"If that
+   number showed up tomorrow morning, no work on your end — would you use it? What would have to be true
+   for you to believe it?"* Listen for which barrier they name: **absence** ("nothing does that"),
+   **belief** ("I wouldn't trust a computer to know my Saturday"), or **irrelevance** ("I already know").
+   Absence is a build problem, belief is a product-surface problem, irrelevance is a wedge problem — and
+   they are not interchangeable. The barrier they name is more informative than the yes/no that precedes
+   it. Then: where tools let them down; whether a tool disappearing would change anything (the shelfware
+   test).
 5. **Money & value** — what they pay for monthly and resent; a tool they abandoned and why; what they've
    tried for food cost / over-ordering; the last time they spent real money on an ops headache.
 6. **No-added-work** — did the last new system stick, and why/why not; what they should track but don't
@@ -108,7 +127,7 @@ catch yourself manufacturing confirmation:
 
 | # | Assumption | Confirms it (organic) | Kills / weakens it |
 |---|---|---|---|
-| A1 | Prep-item forecasting is **unsaturated** | Tools stop at covers/$; prep set by gut/spreadsheet | A tool already outputs per-item prep, or they don't care per-item |
+| A1 | Prep-item forecasting is **unsaturated** | Tools stop at covers/$; prep set by gut/spreadsheet — *and* the barrier they name is absence | A tool already outputs per-item prep, or they don't care per-item. **Third state:** no tool does it but the concept is familiar/DIY'd and the named barrier is **trust** — score *Mixed*, not Confirm; the gap is real but adoption moves from capability to credibility |
 | A2 | The **number is the decision** | "I'd just prep that" | "Depends on staffing / the walk-in" — hidden judgment layer |
 | A3 | Output is **dollar-legible** | Reaches for $ figures on waste/stockouts unprompted | Shrugged off as cost of doing business |
 | A4 | **Exogenous signals** matter & are gettable | Events/weather/reservations already swing prep, by gut | "Every day's basically the same" |
@@ -124,9 +143,15 @@ catch yourself manufacturing confirmation:
 
 ## The traps and the reusable template
 **Three traps to keep flagged:** *aggregated-data* ("I'll send my reports" → daily summaries; always
-specify line-item, timestamped); *gatekeeper* (the decision-maker's yes ≠ data access — always ask "who
-pulls it?"); *halo* (a warm, well-run, insider-sourced yes biases pain down and politeness up —
-deliberately interview strugglers).
+specify line-item, timestamped); *gatekeeper* (**two species — check both**, see below); *halo* (a warm,
+well-run, insider-sourced yes biases pain down and politeness up — deliberately interview strugglers).
+
+**The gatekeeper trap, both species.** (a) **Wrong seat:** the enthusiastic person may not own the
+decision you're modeling. An owner can be fluent, generous, and completely outside the prep/perishables
+call — that belongs to a partner, chef, or sous who wasn't in the room. Their enthusiasm is not access
+to the decision. (b) **Wrong hands:** even in the right seat, their yes ≠ the export — always ask "who
+physically pulls it?" Species (a) is the more expensive of the two: it costs you the entire
+conversation, and it is invisible unless you check *before* booking (the seat check, above).
 
 **To build any discovery question, work backward from the model:** (1) name the model input (e.g. `Co`
 for the short rib); (2) find the recent event that reveals it (the last over-prep); (3) phrase as past +
