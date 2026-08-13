@@ -78,11 +78,41 @@ made for tomorrow?"* Interview **that** person. Warm intros arrive attached to w
 or most senior, which correlates with the wedge decision only by accident — a multi-unit owner may own
 front-of-house and bar while a partner owns everything perishable.
 
+**Ask the seat check per *site*, not per operator — the seat moves as a location matures.** At a new
+restaurant the chef-owner usually sets prep himself; at his established one the same decision has almost
+always been **delegated to a kitchen manager** who is not in the room and whose counts the owner now
+simply receives. The same person can therefore be the right seat for one of his restaurants and the wrong
+seat for the other, *in the same conversation*. Two consequences: score the wedge assumptions per site
+(below), and note that the **delegated par-setter at the mature site is usually the higher-value
+interview** — that site is where the history lives.
+
 **If you can't redirect** (the intro is a gift, the meeting is already set, or the seat is only apparent
 mid-call): run it, but **re-budget the call in real time** from discovery to *referral-generation*. Stop
 spending questions on assumptions this person can't answer, and spend them on getting a committed, dated
 intro to the person who can. A wrong-seat call that walks out with the right-seat referral is a success;
 one that walks out with rapport alone is not.
+
+**The maturity check (same message, one more line).** *"How long has this location been open, and how
+long has the current menu been running?"* This is not small talk — it decides whether the operator is even
+addressable. **Pain and data are inversely distributed.** A new opening has acute, genuine demand anxiety
+and no history for anyone to learn from — including us. A mature site has years of history and an operator
+who has already mined it into pars he trusts. The wedge is strongest exactly where the pain is dullest.
+Record the answer per site and let it qualify every A1/A7 score: "unsaturated and painful" claimed at a
+two-week-old restaurant is a statement about a **cold-start** problem, not about our product's opening.
+
+**The money check.** The seat check finds who makes the *prep* decision; it says nothing about who makes
+the *purchase* decision. Ask: *"if you wanted a new tool for the kitchen, who signs off?"* In partnerships
+these are routinely different people — one partner owns every perishable decision and no money decision,
+the other holds leases, lawyers, and spend while never touching prep. **A10 can only be scored by the
+money seat**, and a product that needs the user's love *and* the partner's wallet has two independent
+failure points. Find out early whether you are talking to one seat or both.
+
+**Protect the gating pulls — a warm call is the dangerous one.** The seat check gets you the right person;
+it does not get you the answers. A conversation that is going *beautifully* — generous, philosophical,
+personally enjoyable — is the one where the two pulls (saturation, data access) feel rude and quietly get
+dropped, and you leave with rapport and no confirm-or-kill. **Budget the last ten minutes for them and
+spend them regardless of how the call is going.** Rapport is banked and reusable across visits; an
+unasked gating question costs you the entire interview.
 
 The arc (anchor every question to a recent specific event):
 
@@ -106,8 +136,16 @@ The arc (anchor every question to a recent specific event):
    **belief** ("I wouldn't trust a computer to know my Saturday"), or **irrelevance** ("I already know").
    Absence is a build problem, belief is a product-surface problem, irrelevance is a wedge problem — and
    they are not interchangeable. The barrier they name is more informative than the yes/no that precedes
-   it. Then: where tools let them down; whether a tool disappearing would change anything (the shelfware
-   test).
+   it. Then the **incumbent half**, which the other two still miss: *"So how do you land on that number
+   today — how do you know how many to make?"* **"No tool does that" is not the same as "that decision is
+   unsolved."** The usual incumbent is a **par**: a remembered or written per-item quantity the operator
+   derived by looking back over his own history ("I know we should have this many sandwiches prepped for a
+   Tuesday"). It is free, instant, zero-maintenance and completely trusted, and it does not appear in any
+   software audit — so a question that only asks about *tools* will report an open field that is in fact
+   occupied. Capture the par: which items have one, where it came from, **who owns it now** (see the seat
+   check — at mature sites it has often been delegated), and what it does on an abnormal day. That last
+   part is the crack worth widening: a par is a constant, and demand is not. Then: where tools let them
+   down; whether a tool disappearing would change anything (the shelfware test).
 5. **Money & value** — what they pay for monthly and resent; a tool they abandoned and why; what they've
    tried for food cost / over-ordering; the last time they spent real money on an ops headache.
 6. **No-added-work** — did the last new system stick, and why/why not; what they should track but don't
@@ -127,16 +165,16 @@ catch yourself manufacturing confirmation:
 
 | # | Assumption | Confirms it (organic) | Kills / weakens it |
 |---|---|---|---|
-| A1 | Prep-item forecasting is **unsaturated** | Tools stop at covers/$; prep set by gut/spreadsheet — *and* the barrier they name is absence | A tool already outputs per-item prep, or they don't care per-item. **Third state:** no tool does it but the concept is familiar/DIY'd and the named barrier is **trust** — score *Mixed*, not Confirm; the gap is real but adoption moves from capability to credibility |
-| A2 | The **number is the decision** | "I'd just prep that" | "Depends on staffing / the walk-in" — hidden judgment layer |
+| A1 | Prep-item forecasting is **unsaturated** | Tools stop at covers/$; prep is genuinely unsolved — *and* the named barrier is **absence** | A tool already outputs per-item prep, or they don't care per-item. **Score the barrier they name, not the yes/no** — two further non-confirming states: **trust** (no tool does it, but the concept is familiar/DIY'd and the barrier is credibility → *Mixed*; adoption moves from capability to credibility) and **par** (no tool does it, but a remembered/written par already answers it free, instantly and trusted → *Weaken*; the incumbent is the operator's memory, so **the par sheet, not a naive mean, is the baseline to beat in realized dollars**) |
+| A2 | The **number is the decision** | "I'd just prep that" | "Depends on staffing / the walk-in" — hidden judgment layer. **Also watch for an override that dominates the ratio:** a quality floor on signature items, or a reputation floor at a new opening ("I don't want to disappoint somebody in the early days and lose their business forever"). There the operator is deliberately running a service level near 1 for reasons `Cu/Co` does not contain — score *partial confirm*: the number is the unit of decision, but its target is set by brand risk, not by the cost ratio |
 | A3 | Output is **dollar-legible** | Reaches for $ figures on waste/stockouts unprompted | Shrugged off as cost of doing business |
 | A4 | **Exogenous signals** matter & are gettable | Events/weather/reservations already swing prep, by gut | "Every day's basically the same" |
 | A5 | **No added work** is satisfiable | Adopted tools rode on existing data/rituals | Even small new steps get abandoned |
 | A6 | One-time **recipe mapping** is tolerable | Willing to sit once for a setup that then runs | Zero patience, or recipes change constantly |
-| A7 | The **core pain** is real & acute | Spontaneous, emotional, specific stories | Calm, "we've got it handled" |
+| A7 | The **core pain** is real & acute | Spontaneous, emotional, specific stories | Calm, "we've got it handled." **Score per site, not per operator** (see the maturity check): the same person is often calm about a mature location and genuinely anxious about a new one. And check *which layer* the anxiety sits at — "are people going to come?" is acute demand pain at the **covers** level, which existing tools already serve. Acute-but-wrong-layer is not a confirm |
 | A8 | **Decision layer** underserved, not analytics | "Plenty of data, don't know what to *do* with it" | "I just need better reports" |
-| A9 | **1–10 location** zone is the buyer | Feels pain + has budget + no internal analyst | Tiny indie at capacity, or has an analyst |
-| A10 | They'd **pay** | History of paying to fix ops pain | Only free tools; cancels anything paid |
+| A9 | **1–10 location** zone is the buyer | Feels pain + has budget + no internal analyst | Tiny indie at capacity, or has an analyst. **In partnerships, check that the person who feels the pain is the person who spends** (the money check) — demographic fit means nothing if the user seat and the buying seat are two people |
+| A10 | They'd **pay** | History of paying to fix ops pain | Only free tools; cancels anything paid. **Only the money seat can move this row** — enthusiasm from a user-seat operator who doesn't sign is *no-signal*, not a confirm |
 | A11 | **Product vs. consulting** | Needs resemble other operators' (reusable) | Every need wildly bespoke (consulting) |
 | A12 | **Data access** is feasible | Willing to share sales/ordering data | Guarded, won't / can't export |
 | A13 | **POS access** path | Known-API POS (Toast/Square/…) | Locked-down or obscure POS |
@@ -151,12 +189,29 @@ decision you're modeling. An owner can be fluent, generous, and completely outsi
 call — that belongs to a partner, chef, or sous who wasn't in the room. Their enthusiasm is not access
 to the decision. (b) **Wrong hands:** even in the right seat, their yes ≠ the export — always ask "who
 physically pulls it?" Species (a) is the more expensive of the two: it costs you the entire
-conversation, and it is invisible unless you check *before* booking (the seat check, above).
+conversation, and it is invisible unless you check *before* booking (the seat check, above). Note that
+(a) recurs *within* a single operator as his sites mature — solving it once does not solve it for the
+next restaurant he owns.
+
+**The halo trap, two amplifiers to watch for.** (1) **Don't transact.** If you book an event, buy a
+meal at scale, or otherwise become a customer during a discovery call, every answer after that moment —
+and every answer in every later conversation — carries a commercial relationship behind it. If it
+happens, record it in the decode and discount accordingly; better, keep the transaction to a separate
+message on a separate day. (2) **Count businesses, not conversations.** Two interviews inside one
+ownership group are *one business sampled twice*, however different the two seats are, and they share
+one set of suppliers, one city, one balance sheet, and one opinion of you. The scoreboard must record
+them as such or n=1 will read as n=2 — which is precisely the arithmetic the folder's one statistical
+rule exists to prevent.
 
 **To build any discovery question, work backward from the model:** (1) name the model input (e.g. `Co`
 for the short rib); (2) find the recent event that reveals it (the last over-prep); (3) phrase as past +
 specific, never future + general; (4) go silent after; (5) decode against an assumption (A1–A13). Every
 onboarding must walk out with: the ~15 items + each one's decision unit (batch count vs. ingredient par)
-+ rough `Cu`/`Co`; the POS, history depth, *who exports it*, and whether 86s are logged; a bounded
-one-time recipe commitment; the real exogenous swings and which feeds are gettable; and a referral that
-extends *past* the insider's circle (especially toward strugglers).
+**+ its lead time and whether a buffer already absorbs the error** — a smoked brisket is committed 12–24h
+before service against a hard supplier cutoff, and an operator who holds spare raw and stays "seven or
+eight hours ahead" has already bought himself a cheap answer to run-outs that no forecast improves on;
+**+ the existing par for each item and who owns it now**; + rough `Cu`/`Co`; the POS, history depth,
+*who exports it*, and whether 86s are logged; a bounded one-time recipe commitment; the real exogenous
+swings and which feeds are gettable; **the age of each site** (the maturity check); **who signs off on
+spend** (the money check); and a referral that extends *past* the insider's circle — past the ownership
+group entirely, and especially toward strugglers.
