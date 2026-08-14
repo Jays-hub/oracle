@@ -49,6 +49,24 @@ It still lands in `data/raw/` for the engine to read; it just has a different ca
 A future on-ramp product that replaces plate-cost inherits this contract: whatever it is, it writes
 its captured legs to `data/raw/` in the agreed schema and touches nothing else.
 
+> ### ⚠ The seam is contracted but not connected (recorded 2026-08-13)
+>
+> The one-way flow above is the *contract*. It is not what the code does today, and two gaps must be
+> closed in **R1** (`../docs/real_data_readiness.md` §4) before real data can cross:
+>
+> 1. **The reader never reads what the writer writes.** The on-ramp writes `sales_export.parquet`,
+>    `bom.parquet`, `price_observations.parquet`, `food_cost.parquet`. The engine's loader opens
+>    `pos_sales.csv` — the **simulator's** file (`../forecasting/src/data/loader.py:82`). `grep -rn
+>    "sales_export\|price_observations\|food_cost" forecasting/` returns nothing. Two writers, two
+>    shapes, one reader that understands only the synthetic one.
+> 2. **The sales leg is at the wrong grain, and no wiring fixes that.** `SalesExportRow`
+>    (`../schemas/seam.py`) is one aggregate `count` over a `period_start`→`period_end` range. The
+>    engine needs demand **per item per day** (`build_observed_demand`). The BOM leg is genuinely
+>    shared between the two peers; the sales leg is not, and never has been.
+>
+> Until R1 lands, treat "the on-ramp captures the data the engine needs" as true of the **BOM leg
+> only**.
+
 ## Schemas
 
 The column-level schemas for these files are specified in `../forecasting/docs/simulated_data.md` (the

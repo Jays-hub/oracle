@@ -1,5 +1,32 @@
 # Strategic Context (why this wedge, what's closed, what's unvalidated)
 
+> ## ⚠ Partially superseded by the 2026-08-13 pivot — read this box first
+>
+> This document remains the record of *how the wedge was chosen* and why lanes A–E are closed. Four
+> of its claims have since been answered or overtaken by `consulting_framework.md` (verified August
+> 2026) and by two real operator interviews (`discovery/`). Where they conflict, the newer sources win.
+>
+> 1. **Gate #1 "is prep-item forecasting unsaturated?" — answered, and the answer is *less* than
+>    hoped.** `consulting_framework.md` §7.8.3 names **ClearCOGS** (founded 2021, $3.8M seed 2025)
+>    doing item-level prep forecasting directly, plus Praedixa, Tenzo, Crunchtime and Fourth in the
+>    lane. The surviving unclaimed ground is narrower and should be stated precisely: *item-level
+>    quantile forecasts at newsvendor-derived service levels, for sub-10-unit independents* (§7.8.2,
+>    "the open technical claim"). ClearCOGS' base skews to franchise brands and volume concepts.
+> 2. **The incumbent is not "no tool" — it's a free, trusted, zero-maintenance par level.** Both
+>    interviews say so (`discovery/2026-08-12_wes.md` §8). Beating it means beating an experienced
+>    operator's memory in realized dollars. That is the baseline, and it is harder than "nothing."
+> 3. **The product-vs-consulting fork (under Founder constraints) is resolved toward services.**
+>    §7.8.2: the substrate is purchasable; what stays defensible is grain decisions, unit algebra and
+>    yield modeling, adjudication quality, cross-unit pooling, and **adoption**. *"This is a services
+>    moat, not a software moat."* This repo still holds and models the data — see
+>    `real_data_readiness.md` §3 for why that does not collapse back into "buy everything."
+> 4. **The accuracy trap analysis below is intact and, if anything, strengthened** — but it was never
+>    the binding constraint. The binding constraint is **L1 identity and real data access**, which
+>    this document does not address at all. That gap is `real_data_readiness.md`.
+>
+> **What is unchanged and still governs:** the no-added-work gate, the buyer barbell (~1–10
+> locations), the closed lanes A–E, and cross-cutting principles 1–10.
+
 This is the strategic case the rest of the project assumes: why prep-demand forecasting is the chosen
 wedge, which alternatives are already closed (so they don't get reopened), the reusable test that
 selected it, and the constraints that govern the build. `docs/overview_and_method` (method) plus the

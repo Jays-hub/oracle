@@ -10,6 +10,74 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-08-13 — Pivot: entity resolution first, real data as the goal `[decided]` `[docs]`
+
+Jay's approach shifted from "ship a forecasting product behind an on-ramp product" to **"progress this
+codebase until it ingests real POS + invoice data and returns real-world feedback"** — beginning at
+entity resolution and crossing non-CS ground (merchant processing, contract audits) that buys the data
+access, with high-level forecasting downstream of that rather than first. Two source documents brought
+in verbatim and now canonical: `docs/consulting_framework.md` and `docs/learning_path.md`.
+
+This is a **re-charter, not a teardown.** No code moved, no code deleted, no tests changed — 622 pass,
+unchanged. What changed is what "next" means and which claims the repo is allowed to make about itself.
+
+- **New governing build document: `docs/real_data_readiness.md`.** Maps the framework's L0–L5
+  prerequisite stack onto this repo and finds the repo is **strongest at L3 and weakest at L1 — the
+  inversion of the dependency order.** Names five blockers between here and a real export, each with
+  file-level evidence, and sets an **R0–R6** build order that sits *before* engine P5 and on-ramp W10.
+- **The five blockers (§2), all verified against the code, not asserted:**
+  1. **No source-adapter layer.** Capture demands exact hand-shaped columns (`seam_upload.py:57`,
+     `invoice_upload.py:46`); no real POS export or vendor invoice has them. Today the *operator* is
+     the adapter — a new weekly ritual, which fails this project's own no-added-work gate.
+  2. **The sales leg is at the wrong grain to feed any forecast, and always was.** `SalesExportRow`
+     (`schemas/seam.py:40`) is one aggregate count over a date range; the engine needs demand per item
+     per day. The "one recipe act feeds two products" claim holds for the **BOM leg only**. This is the
+     most consequential finding — it was load-bearing for the on-ramp's entire strategic rationale.
+  3. **Identity is `name.strip().casefold()`** (`grid.py:5`) and `src/ingestion/` — the module whose own
+     docstring called ER "the engineering wall" — contains **no code**. Against a real invoice,
+     `TOMATO ROMA 25# CS` / `Roma tomato` / `4 oz diced` become three ingredients and every plate cost
+     touching them is wrong, confidently and with a clean render.
+  4. **No pack-notation unit algebra.** `units.py` handles weight/volume families correctly and knows
+     nothing of `25#`, `6/#10`, `4x5kg` — the step §4.2 says buys the most in this domain.
+  5. **The seam is contracted but not connected.** On-ramp writes `sales_export.parquet` et al.; the
+     engine reads `pos_sales.csv`, the *simulator's* file (`loader.py:82`). `grep` across
+     `forecasting/` for the on-ramp's leg names returns nothing. Recorded in `data/CONTRACT.md`.
+- **`CLAUDE.md` re-chartered.** New goal section + the L0–L5 table with each layer's state. Anti-Drift
+  (#2) extended: the sharpest current form of drift is *deepening L3 on simulated data while L1 stays
+  empty* — modeling as the place to hide from the data grind, exactly as the on-ramp was the place to
+  hide from the moat. Dollars-not-accuracy (#3) gains two corollaries: the baseline is the **operator's
+  par sheet**, and ingestion progress is **dollars of COGS resolved, not records**. Two new standing
+  orders: **#4 respect the forced prerequisite order**, **#5 never emit a number whose lineage you
+  haven't validated** (bias to splits; no person-level analysis without exposure adjustment + FDR).
+- **The plate-cost Phase-2 GATE is closed as ANSWERED, not pending.** It asked "is Toast/Square about
+  to bundle this for free?" §7.8.1/§7.8.3 answer with 2026 fact: Toast IQ shipped to all US Toast
+  customers late 2025; MarginEdge sells this substrate at ~$350/mo to 11,000+ operators with the
+  Fellegi–Sunter three-region architecture already in production; ClearCOGS does item-level prep
+  forecasting. `src/ingestion/__init__.py` rewritten from a stale stub docstring into the actual R2–R6
+  spec (canonicalization → blocking + recall audit → calibrated matching → constrained clustering +
+  adjudication → temporal item master), each phase carrying *why it cannot be moved*.
+- **The buy-vs-build fork is deliberately left open.** §7.8.1 says building the substrate for a 1–10
+  unit client is usually wrong — but that answers "what do I deploy at a client," not "how do I hold
+  data I can model on and learn adjudication from." R0–R1 are unconditionally ours; R2–R5 is the real
+  fork and gets decided **after R0**, on measured variance from a real export, not guessed now from
+  either direction. R6 (temporal validity) is required either way — build it or make it a vendor
+  disqualifier.
+- **`docs/strategic_context.md` carries a supersession box** rather than being rewritten: gate #1
+  ("is prep forecasting unsaturated?") is answered *less favorably* than hoped (ClearCOGS is in the
+  lane; the surviving claim is narrower), the incumbent is a trusted par sheet rather than nothing, and
+  the product-vs-consulting fork resolves toward a **services** moat. The accuracy-trap analysis, the
+  no-added-work gate, the buyer barbell, and closed lanes A–E stand unchanged.
+- **Independent convergence worth noting:** the framework (§2.1 pooling solves cold start; §7.3 always
+  benchmark the naive baseline) and the Wes interview (§8 cold start; the par sheet as incumbent)
+  reached the same two conclusions from unrelated directions. That is the strongest signal in the
+  pivot, and it points at hierarchical pooling as the engine's next *earned* step — after R0–R1.
+- **Open, flagged, not decided here:** what becomes of the W0–W9 web app (it is L4 serving L2 views
+  over an absent L1); whether `onramp/`'s "means vs. end" charter language survives alongside the stack
+  framing; and whose real data arrives first (`docs/discovery/2026-08-12_wes.md` §7 already names the
+  ask). `docs/real_data_readiness.md` §6.
+
+---
+
 ## 2026-07-16 — W9 hardening: fixed all `W9_review.md` findings `[built]`
 
 `/review-web W9`'s verdict was **"Yes, with one documented scope deferral to consciously accept"** —

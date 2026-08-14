@@ -59,8 +59,8 @@ authoritative in `docs/purpose_and_phases.md`. The standing summary:
 |------|--------|--------------------------|
 | 0 | Static margin map from seed prices (`src/bom/`, `src/pricing/`) — a complete, demo-able tool | BOM + POS sales export |
 | 1 | Yield + unit-conversion hardening (directional truth, never penny-accuracy) | refines BOM, no new leg |
-| **GATE** | **POS-absorption check before the invoice spend** — is Toast/Square about to bundle this for free? Reshape the on-ramp, don't abandon the function. | — |
-| 2 | Invoice ingestion + entity resolution (`src/ingestion/`) — the engineering wall | invoice / purchase history |
+| ~~GATE~~ | **ANSWERED 2026-08-13, not pending.** The POS-absorption check is closed: Toast IQ shipped to all US Toast customers late 2025; MarginEdge sells this substrate at ~$350/mo to 11,000+ operators; ClearCOGS does item-level prep forecasting. See `src/ingestion/__init__.py` and `../../docs/consulting_framework.md` §7.8.1/§7.8.3. The answer reshapes the on-ramp (as the gate intended) rather than abandoning it. | — |
+| 2 | Invoice ingestion + entity resolution (`src/ingestion/`) — the engineering wall. **Re-scoped as the platform's L1 layer, phases R2–R6** (`../../docs/real_data_readiness.md` §4); the spec lives in `src/ingestion/__init__.py`. Blocked on R0/R1, not on the old gate. | invoice / purchase history |
 | 3 | Price monitoring + alerts (`src/pricing/`, `src/report/`) | real-time updates, no new leg |
 | 4 | Handoff — engine switches on (not a build) | — |
 
@@ -83,8 +83,19 @@ deliberately tiny habit.
    features. This implementation already captures three of the four data legs (sales, BOM, invoices)
    in one act. The chef's-knife principle applies to the ramp too.
 
-4. **The gate before Phase 2 is real.** Do the POS-absorption check before spending the
-   engineering. It is the one piece of research that earns its keep here.
+4. ~~**The gate before Phase 2 is real.**~~ **Answered 2026-08-13 — see the phase table.** The
+   research was done and it earned its keep: the substrate *is* being bundled and productized, which
+   settles the question the gate asked. What replaces this callout: **identity (L1) is now the
+   platform's critical path, not a deferred phase**, and the live open question is buy-vs-build for
+   the matching stack — deferred to R0 on purpose, when real data makes the variance measurable
+   (`../../docs/real_data_readiness.md` §3).
+
+7. **The sales leg this module captures cannot feed the engine, and never could.** `SalesExportRow`
+   is one aggregate count over a date range (`../../schemas/seam.py`) — right for the popularity axis
+   of a margin grid, structurally unusable for a daily demand model. The "one recipe-confirmation act
+   feeds two products" claim above holds for the **BOM leg only**. Fixing the grain is R1
+   (`../../docs/real_data_readiness.md` §2, blocker B2). Do not repeat the two-products claim without
+   this qualifier.
 
 5. **The drift trap, in its nastiest form.** This tool is more buildable and more gratifying than
    the forecasting moat and the data-access grind — which makes it a comfortable place to hide.
