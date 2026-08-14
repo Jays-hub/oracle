@@ -1,5 +1,22 @@
 # onramp/ — The On-Ramp Service (a durable peer)
 
+> **⚠ Reframed by the 2026-08-13 pivot — two corrections to what follows.**
+>
+> 1. **The three-part contract below (§"What an on-ramp implementation must do") is only two-thirds
+>    satisfied today.** Requirement 3 — "captures ≥1 engine data leg as a side effect" — holds for the
+>    **BOM leg only.** The sales leg it captures (`SalesExportRow`: one aggregate count over a date
+>    range) is at the wrong grain to feed a daily demand model and cannot be wired up to one, and the
+>    engine's loader never reads the on-ramp's files at all. See `../docs/real_data_readiness.md` §2
+>    (blockers B2, B5) and `../data/CONTRACT.md`. Fixing the grain is **R1**.
+> 2. **In stack terms this peer is L0–L2 (access → identity → derived measures) plus the L4 surface**
+>    (`../CLAUDE.md`). Its critical path is no longer "which instant-value hook wins the operator" but
+>    **L1 identity — `plate_cost/src/ingestion/`, still an empty package.** The "means vs. end" framing
+>    below and the dependency-stack framing are compatible, but the charter should eventually say one
+>    thing; which one survives is an open decision (`../docs/real_data_readiness.md` §6).
+>
+> Everything else below stands: the durable-function/provisional-product distinction, the no-added-work
+> gate, and one-sharp-tool-at-a-time.
+
 ## Why this is its own peer, not a sub-folder of the engine
 
 The startup has **two durable parts**, and this is one of them:

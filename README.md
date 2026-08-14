@@ -1,5 +1,11 @@
 # Restaurant Loss-Forecasting Platform
 
+> **Current goal (2026-08-13 pivot):** get this codebase to where it **ingests a real POS export and
+> a real stack of vendor invoices** and returns output honest enough to hand back to the operator.
+> Everything is simulated or hand-shaped today. The approach starts at the **identity layer** (entity
+> resolution) and crosses non-CS ground that buys the data access, before deepening the forecasting
+> engine further. Read **`docs/real_data_readiness.md`** first — it maps the gap and orders the work.
+
 One company, **two durable parts**, feeding a **common data store**:
 
 - **`forecasting/`** — the core engine. Prep-demand forecasting under a waste framing (a daily prep
@@ -22,6 +28,9 @@ platform-level method/strategy in `docs/`, engine-specific theory in `forecastin
 
 | File | What it covers | When you need it |
 |---|---|---|
+| **`docs/real_data_readiness.md`** | **The current build document.** The L0–L5 layer stack mapped onto this repo, the five blockers between here and a real POS export (with file-level evidence), and the R0–R6 build order | **Before planning any phase.** This is what "next" means now. |
+| `docs/consulting_framework.md` | The method behind the 2026-08-13 pivot: the four buying triggers, techniques by trigger, the prerequisite stack, the entity-resolution roadmap, failure modes, and the short-term play book | The source document. Parts 3–5 are the load-bearing ones. |
+| `docs/learning_path.md` | The companion learning sequence — what to learn in what order, time-boxing CS and uncapping domain fluency | Planning your own study, and sanity-checking scope |
 | `docs/overview_and_method.md` | Project identity, strategic context, and **how comprehension works** (building and review are free; understanding is grown on a parallel `/learn` + `docs/mastery.md` spaced-repetition track that gates nothing) | First. Sets how the whole project is run. |
 | `docs/strategic_context.md` | Why this wedge: the accuracy trap + the 5-part test, the closed lanes (A–E), founder constraints, and the open gates | When questioning direction or scope — the strategic "why." |
 | `docs/discovery/discovery_and_validation.md` | Where the "Marco" data assumptions come from (the onboarding transcript), the cold-discovery question set, and the A1–A13 assumption decoder | Phase 1 data realism; and before any real customer interview. |

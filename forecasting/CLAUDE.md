@@ -157,10 +157,26 @@ authoritative history is always `docs/progress_log.md`, not this snapshot.
   the 7 batch items over folds now reaching the series' true end (2024-06-30). This is a materially
   thinner and less consistent win than the phase's original (mis-scoped) $15,585.09/11.7% headline —
   the newsvendor arm wins 2 of 4 folds and loses 2 — read honestly, not oversold going into Phase 5.
-- **Suite: 353 tests, 353 pass** (full repo via `make test`; lint clean, both import-linter contracts
-  kept). Up from 316 post-P4-review (+37, see `docs/phase_decisions/P4.md` "Remediation"). The former
+- **Suite at the close of P4: 353 tests, 353 pass** — a historical figure, not the live one. The repo
+  is at **622 pass** as of 2026-08-13 (the W0–W9 web phases added the rest); `make test` is the only
+  authority, and `docs/progress_log.md` carries the per-phase deltas. This line read "353" as though
+  current until 2026-08-13; counts are not memorized anywhere on purpose.
+  Up from 316 post-P4-review (+37, see `docs/phase_decisions/P4.md` "Remediation"). The former
   red test (`test_features.py::test_lag_7_equals_same_weekday_last_week`) was a test-arithmetic bug, not
   an implementation bug — fixed 2026-06-30, see `forecasting/docs/construction_roadmap.md` Phase 2
   callout.
-**P5 is next:** exogenous signal fusion (weather, events, forward reservation depth).
+**P5 is NOT next any more (2026-08-13 pivot).** Exogenous signal fusion (weather, events, forward
+reservation depth) is deferred behind **R0–R1** — obtaining a real POS export and getting it to daily
+grain through a real adapter (`../docs/real_data_readiness.md` §4). Fusing more signal into a model
+that has never seen a real row is the current sharpest form of the Anti-Drift Standing Order
+(`../CLAUDE.md` #2): modeling is where you hide from the data grind.
+
+What P0–P4 built **survives the pivot as the differentiated piece** — `docs/consulting_framework.md`
+§7.8.2 names item-level quantile forecasts at newsvendor-derived service levels as the one capability
+that stays defensible while the substrate around it commoditizes. It just cannot be *validated* on
+simulated data. Two things change once real data lands: the baseline to beat is the operator's **par
+sheet**, not a naive mean (`../docs/discovery/2026-08-12_wes.md` §8), and **hierarchical partial
+pooling** becomes the earned next model step — it is what answers the cold-start problem the same
+interview surfaced (§2.1: a new location inherits the group prior on day one).
+
 Simulation pending real customer discovery — treat all "Marco" numbers as plausible placeholders, not validated facts.
