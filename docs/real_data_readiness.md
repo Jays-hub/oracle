@@ -12,6 +12,11 @@ test count or model sophistication.
 Source of the method: `consulting_framework.md` (Parts 3–5 especially) and `learning_path.md`.
 This file is where that method meets *this* code.
 
+**Companion:** `repo_architecture.md` decides the *shape* this build lands in — tenant as a partition
+key rather than a folder, code organized by layer rather than technique, runs rather than overwritten
+result files. Read it before R1 (it constrains how the first adapter writes) and before any
+directory restructure.
+
 ---
 
 ## 1. The layer stack, mapped onto this repo

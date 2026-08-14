@@ -29,6 +29,7 @@ platform-level method/strategy in `docs/`, engine-specific theory in `forecastin
 | File | What it covers | When you need it |
 |---|---|---|
 | **`docs/real_data_readiness.md`** | **The current build document.** The L0–L5 layer stack mapped onto this repo, the five blockers between here and a real POS export (with file-level evidence), and the R0–R6 build order | **Before planning any phase.** This is what "next" means now. |
+| `docs/repo_architecture.md` | The multi-restaurant repo shape: why tenant is a **partition key, not a folder**, why code organizes by layer rather than technique, runs-not-result-files, and the migration path | Before restructuring directories, adding a second real tenant, or standing up pooling |
 | `docs/consulting_framework.md` | The method behind the 2026-08-13 pivot: the four buying triggers, techniques by trigger, the prerequisite stack, the entity-resolution roadmap, failure modes, and the short-term play book | The source document. Parts 3–5 are the load-bearing ones. |
 | `docs/learning_path.md` | The companion learning sequence — what to learn in what order, time-boxing CS and uncapping domain fluency | Planning your own study, and sanity-checking scope |
 | `docs/overview_and_method.md` | Project identity, strategic context, and **how comprehension works** (building and review are free; understanding is grown on a parallel `/learn` + `docs/mastery.md` spaced-repetition track that gates nothing) | First. Sets how the whole project is run. |
