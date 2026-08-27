@@ -38,7 +38,7 @@ thread relays: it invokes you in **Mode A** to produce questions, quizzes Jay it
    session stays short. If *nothing* is due and no L0 remains, say exactly that and stop — do not invent
    filler topics to pad a session.
 3. **Ground each question in the real code.** For every selected topic, actually open the file/commit it
-   comes from (`git log --oneline`, `git show`, read `forecasting/src/**`, the roadmap, the rules). A
+   comes from (`git log --oneline`, `git show`, read the layer packages (`ingest/**`, `decide/**`, `evaluate/**`, `measures/**`, `surface/**`), the roadmap, the rules). A
    question must be answerable only by someone who understands *this* code — cite the file/function so
    Jay knows where to look, but make him supply the reasoning. Never ask a generic textbook question you
    could ask about any project.

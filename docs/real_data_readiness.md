@@ -1,7 +1,7 @@
 # Real-Data Readiness — what stands between this codebase and a real restaurant's export
 
 **Status:** the governing build document as of 2026-08-13. Supersedes the phase ordering implied by
-`forecasting/docs/construction_roadmap.md` (P5+) and `onramp/plate_cost/docs/purpose_and_phases.md`
+`docs/engine/construction_roadmap.md` (P5+) and `docs/onramp/purpose_and_phases.md`
 (Phase 2+) — not the phases already built, which stand.
 
 **The goal this document serves, stated once:** get this codebase to the point where it ingests a
@@ -28,9 +28,9 @@ here:
 
 | Layer | What it means | State in this repo |
 |---|---|---|
-| **L0 — Access** | POS export/API, invoice capture, payroll, counts | **Simulated only.** `forecasting/src/simulate/generator.py` writes a synthetic export; the web app accepts a CSV *the operator has already reshaped by hand*. No real export has ever entered this codebase. |
+| **L0 — Access** | POS export/API, invoice capture, payroll, counts | **Simulated only.** `ingest/simulate/generator.py` writes a synthetic export; the web app accepts a CSV *the operator has already reshaped by hand*. No real export has ever entered this codebase. |
 | **L0.5 — Recipe capture** | Documented recipes with quantities and yields | **Built, and genuinely reusable.** The recipe sitdown → `bom.parquet` is the one leg that survives contact with reality unchanged. |
-| **L1 — Identity** | Canonicalization, entity resolution, unit algebra, yield factors, versioned item master | **Effectively absent.** Identity is `name.strip().casefold()` (`onramp/plate_cost/src/report/grid.py:5`). `onramp/plate_cost/src/ingestion/` — the module whose own docstring calls ER "the engineering wall" — contains **no code**. |
+| **L1 — Identity** | Canonicalization, entity resolution, unit algebra, yield factors, versioned item master | **Effectively absent.** Identity is `name.strip().casefold()` (`measures/grid.py:5`). `identity/` — the module whose own docstring calls ER "the engineering wall" — contains **no code**. |
 | **L2 — Derived measures** | Plate cost, contribution margin, theoretical vs. actual usage | **Built on top of an absent L1.** Plate cost, the margin grid, and price trends all compute correctly — *given* that names already match. That assumption holds for a chef's hand-typed sheet and dies on the first vendor invoice. |
 | **L3 — Decision models** | Quantile forecasting, newsvendor, optimization | **Built and dollar-gated (P0–P4), on simulated data.** This is the most advanced layer in the repo and it sits on the least real foundation. |
 | **L4 — Interface & habit** | Prep lists, flash P&L, alerts | **Built as a web surface (W0–W9)**, serving L2 output. No prep-list surface yet — L3's output has never reached a screen. |
@@ -50,8 +50,8 @@ Each is a specific, checkable claim about the code as it stands at commit `d4656
 
 The capture funnel demands exact columns:
 
-- Sales: `{dish_name, count, period_start, period_end}` — `onramp/plate_cost/src/capture/seam_upload.py:57`
-- Invoices: `{ingredient_name, unit_price, source_invoice, observed_date}` — `onramp/plate_cost/src/capture/invoice_upload.py:46`
+- Sales: `{dish_name, count, period_start, period_end}` — `ingest/capture/seam_upload.py:57`
+- Invoices: `{ingredient_name, unit_price, source_invoice, observed_date}` — `ingest/capture/invoice_upload.py:46`
 
 No Toast, Square, SpotOn, or Clover export has those columns, and no vendor invoice has them in any
 form. Today the *operator* is the adapter — they are expected to reshape their own export by hand
@@ -66,10 +66,10 @@ aggregate count over a date range.** "Braised Short Rib: 412, 2026-01-01 → 202
 
 That is exactly right for the popularity axis of a menu-engineering grid, which is what plate-cost
 needs. It is **structurally incapable of feeding a demand model**, which needs demand per item per
-day. The engine's own loader builds a daily series (`forecasting/src/data/loader.py:88`
+day. The engine's own loader builds a daily series (`ingest/demand/loader.py:88`
 `build_observed_demand`).
 
-So the on-ramp — chartered as "captures the data the engine needs" (`onramp/README.md`) — captures a
+So the on-ramp — chartered as "captures the data the engine needs" (`docs/onramp_service.md`) — captures a
 sales leg the engine could never use, at any level of wiring. The BOM leg is genuinely shared; the
 sales leg is not. This is the single most consequential finding in this document, because the whole
 "one act feeds two products" argument rests on it.
@@ -88,7 +88,7 @@ possible slice of the framework's Phase 1 (§4.2) — no abbreviation expansion,
 stripping, **no pack-notation parsing**, and nothing at all from Phases 2–6: no blocking, no
 probabilistic matching, no clustering, no adjudication queue, no temporal validity.
 
-`onramp/plate_cost/src/ingestion/__init__.py` has a docstring describing all of it and zero lines of
+`identity/__init__.py` has a docstring describing all of it and zero lines of
 implementation, gated behind a "POS-absorption check" that has never been run.
 
 Against a real invoice this fails immediately and silently: `TOMATO ROMA 25# CS`, `Tomatoes, Roma,
@@ -98,7 +98,7 @@ render.** That is the failure mode §3.3 names as the one that ends engagements.
 
 ### B4 — Unit algebra stops short of the part that matters for invoices.
 
-`onramp/plate_cost/src/bom/units.py` is a correct, well-built weight/volume conversion table with
+`identity/units.py` is a correct, well-built weight/volume conversion table with
 cross-family conversion properly refused. What it does not have is what invoices are actually written
 in: **pack notation** (`25#`, `6/#10`, `4x5kg`, `CS`, `EA`), and count↔weight bridging via piece
 weight or density. §4.2 is explicit that in restaurants this deterministic step buys more than
@@ -109,7 +109,7 @@ sophisticated matching does — and it is the step that is missing.
 `data/CONTRACT.md` specifies `onramp/` → `data/raw/` → `forecasting/`. In fact:
 
 - The on-ramp writes `sales_export.parquet`, `bom.parquet`, `price_observations.parquet`, `food_cost.parquet`
-- The engine reads `pos_sales.csv` (`forecasting/src/data/loader.py:82`) — the **simulator's** file
+- The engine reads `pos_sales.csv` (`ingest/demand/loader.py:82`) — the **simulator's** file
 
 `grep -rn "sales_export\|price_observations\|food_cost" forecasting/` returns nothing. The two
 writers into the shared store produce different shapes and the reader only understands the
@@ -125,7 +125,7 @@ per location to 11,000+ operators**, with the Fellegi–Sunter three-region revi
 shipped. Its conclusion: *"building the ER substrate from scratch for a 1–10 unit client is almost
 always the wrong call."*
 
-Read honestly, that lands on `onramp/plate_cost/`, which is a hand-built substrate slice (L0.5 → L1 →
+Read honestly, that lands on the on-ramp layers (`surface/` + `measures/` + `ingest/capture|bom/`), which are a hand-built substrate slice (L0.5 → L1 →
 L2) with nine phases of web app on top.
 
 **But the conclusion does not transfer unchanged, because the goal is different.** §7.8.1 answers
@@ -209,10 +209,14 @@ loses the operator in month four (§Part 5, Part 6 "patience exhaustion").
 1. **Buy vs. build for R2–R5.** Recommended: decide after R0, on measured variance. Not before.
 2. **What happens to the W0–W9 web app.** It currently serves L2 views over an absent L1. It is not
    wasted — it is the L4 habit surface and the capture funnel — but its plate-cost-specific views are
-   provisional (as `onramp/README.md` already says) and the prep-list surface L3 needs does not exist.
-3. **Whether `onramp/`'s charter language survives.** "The on-ramp service, the means; the engine, the
-   end" describes a product funnel. The stack framing describes a dependency chain. They are
-   compatible but not identical, and the charter should say one thing.
+   provisional (as `docs/onramp_service.md` already says) and the prep-list surface L3 needs does not exist.
+3. ~~**Whether `onramp/`'s charter language survives.**~~ **Settled 2026-08-14 by the layer
+   restructure** (`repo_architecture.md` §5.3, M5). The dependency chain won the *directory* argument:
+   code is now `ingest/ → identity/ → measures/ → decide/ → surface/`, with the arrows enforced by
+   `.importlinter`. The product-funnel language survives as *vocabulary*, because it still describes
+   something true about the business — the on-ramp is the means, the engine is the end — but it no
+   longer names a folder. `CLAUDE.md` says one thing; `decide/CLAUDE.md` and `surface/CLAUDE.md`
+   govern the two framings.
 4. **Whose real data comes first.** The discovery thread (`docs/discovery/`) has a warm, willing
    contact in the right seat. R0 is gated on an actual export, and §7 of the Wes decode already names
    the ask: POS name, history depth, who pulls the export, whether run-outs are recorded.

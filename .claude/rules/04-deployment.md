@@ -1,7 +1,7 @@
 ---
 paths:
-  - "forecasting/src/report/**/*.py"
-  - "forecasting/src/decision/**/*.py"
+  - "surface/prep_sheet/**/*.py"
+  - "decide/**/*.py"
 ---
 # Deployment & Serving Rules
 
@@ -11,7 +11,7 @@ paths:
 - Reservations: use the cover count available at decision time. Do not update features intra-day.
 
 ## Prep-Type Routing (batch vs. made-to-order)
-- **Route every item by its chef-set `prep_type` before computing a prep quantity.** `prep_type=batch` (braises, sauces, portioned proteins, par-baked, shelf-life mise) → dish-count newsvendor `Q*=F⁻¹(q*)`. `prep_type=made_to_order` (à-la-minute dishes assembled from shared mise) → **not** a dish-count item; route to ingredient par-level logic (Phase 7 ingredient demand). The newsvendor-on-dishes math applies to batch items only — do not flatten the fork (Hard Truth #8, `forecasting/docs/data_hard_truths`).
+- **Route every item by its chef-set `prep_type` before computing a prep quantity.** `prep_type=batch` (braises, sauces, portioned proteins, par-baked, shelf-life mise) → dish-count newsvendor `Q*=F⁻¹(q*)`. `prep_type=made_to_order` (à-la-minute dishes assembled from shared mise) → **not** a dish-count item; route to ingredient par-level logic (Phase 7 ingredient demand). The newsvendor-on-dishes math applies to batch items only — do not flatten the fork (Hard Truth #8, `docs/engine/data_hard_truths`).
 - **`prep_type` is chef-set, never inferred.** It is a culinary judgment that changes which decision object an item gets; an item with a missing or unknown `prep_type` is flagged for chef confirmation and excluded from the dish-count prep sheet, never silently defaulted to batch.
 - **The dish-count prep sheet lists batch items only.** Made-to-order items surface as ingredient par levels (Phase 7), not as a "make N portions" line — so the sheet never prints a quantity nobody would batch (e.g. "make 18 Caesars").
 

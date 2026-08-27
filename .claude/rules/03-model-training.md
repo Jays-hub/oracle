@@ -1,7 +1,7 @@
 ---
 paths:
-  - "forecasting/src/models/**/*.py"
-  - "forecasting/src/evaluate/**/*.py"
+  - "decide/models/**/*.py"
+  - "evaluate/**/*.py"
 ---
 # Model Training Rules
 
@@ -31,7 +31,7 @@ paths:
 
 ## Newsvendor Integration
 - The model's job is to produce a demand *distribution*, not just a point estimate. Minimum deliverable per item per day: mean + std (parametric) OR a set of quantile forecasts covering [0.10, 0.25, 0.50, 0.75, 0.90, q*].
-- Prep quantity = F⁻¹(q*) where q* = Cu/(Co+Cu) for each item. This is computed in `forecasting/src/decision/`, not inside the model.
+- Prep quantity = F⁻¹(q*) where q* = Cu/(Co+Cu) for each item. This is computed in `decide/`, not inside the model.
 - Validate prep levels against `data/_truth/` on the holdout set: the empirical underage rate should approximate (1 − q*) per item.
 
 ## Required Baselines (Must Be Beaten Before Adding Complexity)

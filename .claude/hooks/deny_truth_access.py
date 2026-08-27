@@ -3,7 +3,7 @@
 
 Denies any Bash command whose literal text references a data/_truth/ path unless the
 referencing segment is itself sanctioned (data/CONTRACT.md): it resolves into
-forecasting/src/simulate (writes the oracle) or forecasting/src/evaluate (reads it
+ingest/simulate (writes the oracle) or evaluate/ (reads it
 for scoring), or it IS a pytest / make test|check|lint invocation (the existing,
 already-reviewed firewall tests read _truth/ deliberately, e.g.
 test_simulator.py::test_truth_firewall).
@@ -16,7 +16,7 @@ anywhere else (a trailing comment, an echo, a chained afterthought) sanctions
 nothing: `cat data/_truth/x  # pytest` is denied. The failure mode is deny-leaning;
 the deny message names the sanctioned routes.
 
-Belt-and-suspenders alongside tests/test_module_boundaries.py and .importlinter --
+Belt-and-suspenders alongside tests/platform/test_module_boundaries.py and .importlinter --
 those catch a leak once it's in committed source; this blocks BEFORE execution, at
 the Bash-tool boundary itself, catching the ad-hoc one-off command that never touches
 a file at all (e.g. `python -c "pandas.read_csv('data/_truth/...')"`). It guards
@@ -33,8 +33,8 @@ import shell_lex
 _TRUTH_PATTERN = re.compile(r"data[/\\]_truth\b|(?<![\w.])_truth[/\\]")
 
 _SANCTIONED_MODULE_PATTERN = re.compile(
-    r"forecasting[/.]src[/.]simulate"
-    r"|forecasting[/.]src[/.]evaluate"
+    r"ingest[/.]simulate"
+    r"|(?<![\w.])evaluate[/.]"
 )
 
 # Matches only when the test invocation LEADS the segment: optional env-var
@@ -73,7 +73,7 @@ def main() -> None:
                 "permissionDecisionReason": (
                     "Blocked by .claude/hooks/deny_truth_access.py: this command "
                     "references data/_truth/ (the hidden oracle) without resolving into "
-                    "forecasting/src/simulate/ or forecasting/src/evaluate/ -- the only "
+                    "ingest/simulate/ or evaluate/ -- the only "
                     "two sanctioned modules (data/CONTRACT.md). Read data/_truth/ only "
                     "through those modules (or make test/pytest, which run the reviewed "
                     "firewall tests), or ask Jay to run this command himself."

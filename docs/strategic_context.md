@@ -30,7 +30,7 @@
 This is the strategic case the rest of the project assumes: why prep-demand forecasting is the chosen
 wedge, which alternatives are already closed (so they don't get reopened), the reusable test that
 selected it, and the constraints that govern the build. `docs/overview_and_method` (method) plus the
-engine chapters in `forecasting/docs/` are *how* the engine is built; this is *why* it's the thing
+engine chapters in `docs/engine/` are *how* the engine is built; this is *why* it's the thing
 worth building. **Everything here is a hypothesis filter, not validated fact** — only real customer
 discovery (`docs/discovery/discovery_and_validation`) settles it.
 
@@ -40,7 +40,7 @@ framing** — a daily prep sheet telling the kitchen how much of each high-volum
 Lead the *sales pitch* with the waste pain ("stop dumping money in the bin / stop running out at 8pm" —
 dollar-legible, opens wallets); build the *prep-demand engine* underneath (where the number IS the
 decision and where the model + exogenous data create the edge). Waste isn't a separate product — it's
-mathematically downstream of prep-demand (`forecasting/docs/conceptual_spine`). Nothing is built; the wedge rests on two
+mathematically downstream of prep-demand (`docs/engine/conceptual_spine`). Nothing is built; the wedge rests on two
 unvalidated assumptions: (1) is prep-item forecasting genuinely unsaturated, and (2) can the founder
 source the exogenous signal that creates the edge.
 

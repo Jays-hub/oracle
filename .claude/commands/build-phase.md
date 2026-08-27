@@ -19,10 +19,10 @@ You are in the repo. Read what you need directly; never request pasted docs, dif
 
 1. **The phase spec.** For an engine phase (`P0`-`P8`), the authoritative spec — Objective, *Why now*,
    Build, Practices invoked, Checkpoint, *Done when* — is the matching section of
-   `forecasting/docs/construction_roadmap.md`. For an on-ramp/web phase (`W0`, `W1`, ...), use
-   `onramp/plate_cost/docs/website_vision.md` section 8 and `onramp/README.md`.
-2. **The governance that already binds you.** `CLAUDE.md` (platform charter), `forecasting/CLAUDE.md`
-   (engine) or `onramp/plate_cost/CLAUDE.md` (on-ramp), `docs/overview_and_method.md` (how comprehension
+   `docs/engine/construction_roadmap.md`. For an on-ramp/web phase (`W0`, `W1`, ...), use
+   `docs/onramp/website_vision.md` section 8 and `docs/onramp_service.md`.
+2. **The governance that already binds you.** `CLAUDE.md` (platform charter), `decide/CLAUDE.md`
+   (engine) or `surface/CLAUDE.md` (on-ramp), `docs/overview_and_method.md` (how comprehension
    works — a parallel track, not a gate), and the always-on rules in `.claude/rules/` (auto-loaded for
    the paths you touch). **Do not restate these as prompt inputs — obey them.**
 3. **What already exists.** The current code under the phase's target dirs, `docs/progress_log.md`
@@ -54,7 +54,7 @@ convention; it's a nice-to-have when a branch already exists, never a gate.
 **Exploration pass (orient before building).** Once the branch is confirmed, spawn a subagent
 (`subagent_type: Explore`) with `search breadth: thorough` and these instructions:
 
-> Scan the phase `$ARGUMENTS` spec in `forecasting/docs/construction_roadmap.md` (or the on-ramp
+> Scan the phase `$ARGUMENTS` spec in `docs/engine/construction_roadmap.md` (or the on-ramp
 > equivalent for W-phases). List: (1) every file the build will create or touch with its current
 > state (exists / empty / populated), (2) the immediate upstream and downstream dependencies by
 > file path, (3) any naming, dtype, or schema facts the spec assumes that a reader could miss.
@@ -92,8 +92,8 @@ reinvent it:
 
 - **"Done" is dollars, never accuracy.** The verdict is realized cost
   `Sigma(Co*overage + Cu*underage)` (and pinball loss at `q* = Cu/(Co+Cu)`, calibration), via
-  `forecasting/src/evaluate/`. MAPE/RMSE are diagnostics only (`03-model-training.md`,
-  `forecasting/CLAUDE.md`).
+  `evaluate/`. MAPE/RMSE are diagnostics only (`03-model-training.md`,
+  `decide/CLAUDE.md`).
 - **Beat the required baselines first.** Before any model, the three baselines must exist and be scored
   in dollars: seasonal-naive (same-weekday lag-7), 28-day rolling mean, and gut-proxy (rolling mean
   rounded to nearest 5). A new layer ships only if it beats all three in dollars (`03`).
@@ -105,10 +105,10 @@ reinvent it:
 - **Split for the data:** time series -> rolling-origin / walk-forward CV, >=4 folds; grouped -> by
   group. Never random k-fold on time series (`03`).
 - **The `_truth/` firewall is sacred.** Models read **only** `data/raw/`. `data/_truth/` is
-  scoring-only, read solely by `forecasting/src/evaluate/`, written solely by
-  `forecasting/src/simulate/`. On-ramp code never touches `_truth/` and never imports `forecasting/`
+  scoring-only, read solely by `evaluate/`, written solely by
+  `ingest/simulate/`. On-ramp code never touches `_truth/` and never imports `forecasting/`
   (and vice versa) — the only coupling is the seam (`data/CONTRACT.md`, `01-data-ingestion.md`,
-  `tests/test_module_boundaries.py`).
+  `tests/platform/test_module_boundaries.py`).
 - **Reproducibility:** `random_state=42` everywhere stochastic; runs repeatable; no hardcoded absolute
   paths; handle NaN/inf explicitly; assert shapes/dtypes at boundaries.
 - **Build only this phase.** If something belongs to a later phase, note it and don't build it now.
@@ -118,7 +118,7 @@ reinvent it:
 
 ## Step 2 — Write tests that would actually catch bugs (not smoke tests)
 
-Put them beside the existing suite (`forecasting/tests/`, `onramp/plate_cost/tests/`, or repo-root
+Put them beside the existing suite (`tests/`, `tests/`, or repo-root
 `tests/`). At minimum, and saying in one line what each protects against:
 
 - A **correctness test** of the core logic against a known expected value (hand-computed where you can).

@@ -15,20 +15,20 @@ in `../data/CONTRACT.md`.
 ## What does NOT live here
 
 - Engine-internal feature/model types (those stay in `forecasting/`).
-- On-ramp-internal types (those stay in `onramp/plate_cost/`).
+- On-ramp-internal types (those stay in `surface/` or `measures/`).
 - Anything from `data/_truth/` — the truth schema is the simulator's private business
-  (`forecasting/src/simulate/`), never a shared contract.
+  (`ingest/simulate/`), never a shared contract.
 
 ## Status (Phase 0 + W3)
 
 `seam.py` now defines the **on-disk** shapes for the three files the on-ramp writes across the
 seam — `bom.csv` (`BomRow`), `sales_export.csv` (`SalesExportRow`), and `price_observations.csv`
-(`PriceObservationRow`, added in the website's W3 phase) — and `onramp/plate_cost` validates
-against them **on write** (`onramp/plate_cost/src/run.py`, `src/capture/seam_upload.py`,
-`src/capture/invoice_upload.py`). Each was added when its file actually first crossed the seam, per
+(`PriceObservationRow`, added in the website's W3 phase) — and the capture layer validates
+against them **on write** (`surface/run.py`, `ingest/capture/seam_upload.py`,
+`ingest/capture/invoice_upload.py`). Each was added when its file actually first crossed the seam, per
 the trigger below — built thin.
 
 Still deferred (Anti-Drift — added when it first crosses the seam, not before): `eightysix_log.csv`
 (the separate 86-tap habit). The column-level intent for all four is specified in
-`../forecasting/docs/simulated_data.md`; the engine will validate **on read** against these same
+`../docs/engine/simulated_data.md`; the engine will validate **on read** against these same
 definitions when its ingestion lands (Phase 1) — one definition, both peers.

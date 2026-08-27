@@ -2,10 +2,10 @@
 # .py scoped to web/api/server/routes subdirs only: pure-compute plate-cost Python is
 # not the service layer these rules govern (toolbox_audit_2026-07-01.md, MINOR-05/07).
 paths:
-  - "onramp/**/web/**"
-  - "onramp/**/api/**"
-  - "onramp/**/server/**"
-  - "onramp/**/routes/**"
+  - "surface/web/**"
+  - "surface/**/api/**"
+  - "surface/**/server/**"
+  - "surface/**/routes/**"
 ---
 # Backend & API Rules (the on-ramp service layer)
 
@@ -28,14 +28,14 @@ compute + store. Architecture law is `05-fullstack-architecture.md`; the seam co
   `_truth/`, never `interim/`/`processed/`, never another peer's paths. (`data/CONTRACT.md`,
   `01-data-ingestion.md`.)
 - **Never import `forecasting/`.** The backend is an `onramp/` peer; coupling to the engine is a build
-  failure (`tests/test_module_boundaries.py`). Data flows one way, through the seam.
+  failure (`tests/platform/test_module_boundaries.py`). Data flows one way, through the seam.
 - **Writes are atomic and idempotent where possible.** A re-submitted onboarding upload must not
   corrupt or duplicate the seam; prefer write-to-temp-then-rename or a versioned write over in-place
   mutation.
 
 ## API Design — Thin Over Pure Compute
 - **Controllers stay thin.** Route handlers parse/validate input, call the pure compute in
-  `onramp/plate_cost/src/`, and shape the response. Business math (plate cost, margins, the grid)
+  `measures/` and `ingest/`, and shape the response. Business math (plate cost, margins, the grid)
   lives in `src/`, never inlined in a handler — so it stays unit-testable and reusable by the engine
   handoff.
 - **Typed, explicit contracts.** Request/response models are explicit (pydantic or equivalent),
@@ -46,7 +46,7 @@ compute + store. Architecture law is `05-fullstack-architecture.md`; the seam co
 ## Error Handling
 - **Friendly, typed failures — never a bare crash.** A bad reference (e.g. a recipe line pointing at
   an unknown `ingredient_id`) raises a named `ValueError`-class error the API turns into a clear 4xx,
-  not a `KeyError` that 500s. (This is the exact hardening already applied in `src/pricing/compute.py`.)
+  not a `KeyError` that 500s. (This is the exact hardening already applied in `measures/pricing/compute.py`.)
 - **Never leak internals to the client.** Error responses carry an operator-legible message and a
   correlation id; stack traces, file paths, SQL, and secrets stay server-side in logs.
 - **Log the operationally meaningful events.** Seam writes, validation rejections, and fallbacks are
@@ -60,10 +60,10 @@ compute + store. Architecture law is `05-fullstack-architecture.md`; the seam co
   invoice images), and parse defensively. The capture funnel is the most-exposed surface.
 
 ## Testing
-- **API and integration tests live beside the existing unit tests** (`onramp/plate_cost/tests/`).
+- **API and integration tests live beside the existing unit tests** (`tests/`).
   Cover: the schema gate rejects malformed writes; a seam write produces a `schemas/`-valid
   `data/raw/` artifact; the dangling-reference path returns a clean 4xx; tenant isolation holds.
-- **The boundary test extends to backend code.** `tests/test_module_boundaries.py` must keep passing:
+- **The boundary test extends to backend code.** `tests/platform/test_module_boundaries.py` must keep passing:
   no `forecasting/` import, no `_truth` path anywhere in `onramp/`.
 - **Determinism.** Seed stochastic components (`random_state=42`); tests must not depend on wall-clock
-  or network. Fixtures use the sample data already in `onramp/plate_cost/data/`.
+  or network. Fixtures use the sample data already in `examples/`.

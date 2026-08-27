@@ -70,7 +70,7 @@ Milestones: **M1** = G1+G6+G2+G3 (leakproof + honest) · **M2** = G4+G5+G8 (trus
       the loop has run once end-to-end.
 - [x] **18. Rules 05/07 narrowed** (audit MINOR) to `onramp/**/web|api/server/routes/**` — pure-
       compute plate-cost Python no longer loads web rules (~1.8k tok/turn on those turns). Note:
-      the audit's claim that rule 06 "matches zero files" was stale — `onramp/plate_cost/web/static/
+      the audit's claim that rule 06 "matches zero files" was stale — `surface/web/static/
       style.css` exists — but 06 needs no change either way; it fires correctly on real front-end files.
 - [x] **19. Rule 99 canary: considered, KEPT** (audit kill list #3 — owner's call). ~143 tok/turn;
       it is Jay's live drift tripwire and fired in the very session that landed this audit. Not waste;

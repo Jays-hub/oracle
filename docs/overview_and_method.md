@@ -15,14 +15,14 @@ project is run and built*.
 Three tests from the strategy work decide whether a forecasting target is worth building, and
 prep-demand passes the two that matter most:
 - **The number is the decision.** "Prep 18" *is* the action; there's no human-judgment layer behind
-  it the way covers→staffing has. (See `forecasting/docs/conceptual_spine`.)
+  it the way covers→staffing has. (See `docs/engine/conceptual_spine`.)
 - **Dollar-legible.** Error maps to two things operators already feel: the 86'd dish (lost margin +
   angry table) and the end-of-night dumpster (spoiled prep).
 - The honest weak spot — **is it unsaturated?** — is the open empirical question. Incumbents forecast
   covers/$, not "braise 18 short ribs." Plausible, unverified, and the thing discovery confirms.
 
 ## This is a simulation — and what that does and doesn't prove
-The whole build runs on synthetic data (`forecasting/docs/simulated_data`). That buys you two real things: technical
+The whole build runs on synthetic data (`docs/engine/simulated_data`). That buys you two real things: technical
 fluency, and a *verifiable* sandbox where you secretly know the ground truth and can check that each
 model actually works. It buys you **zero** validation of the business. A model that performs
 beautifully on simulated data tells you nothing about whether a real operator has this pain, would
@@ -68,7 +68,7 @@ structure yet.
 Which files/modules did this touch, what does it produce, and what does it unlock downstream — and the
 software practice that keeps it correct (a reproducible backtest harness; no leakage across the
 train/test boundary; the leakage canary and `.shift(1)`; deterministic seeds; typed config). "This added
-`forecasting/src/decision/newsvendor.py`, which consumes the quantile model's output and produces the prep
+`decide/newsvendor.py`, which consumes the quantile model's output and produces the prep
 quantity the report layer renders" — that sentence means you see how the piece fits.
 
 **THE DATA-SCIENCE CONCEPT (`ds`).**
@@ -95,7 +95,7 @@ track exists so you actually build the bridge instead of leaning on one pillar.
 The hardest-won lesson from the strategy work was "validate problem value and market saturation
 before deepening a solution." The same shape applies *inside the model*: never add a layer until the
 simpler version beats the gut baseline **in dollars**. A deep model that doesn't reduce realized
-over/under cost over a seasonal-naive baseline has no reason to exist. Every phase in `forecasting/docs/construction_roadmap` has a
+over/under cost over a seasonal-naive baseline has no reason to exist. Every phase in `docs/engine/construction_roadmap` has a
 dollar-gated "done when." This is what keeps the build honest and keeps you from optimizing an
 invisible metric.
 

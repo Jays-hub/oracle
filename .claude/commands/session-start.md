@@ -11,7 +11,7 @@ Read the following sources directly (do not ask Jay to paste anything):
 5. **Drift self-check** (`efficiency_backlog.md` #9 — memory holds no free-floating counts, so this is
    what actually catches staleness): run `make test` for the real, current pass/fail count. Extract
    every test-count claim ("NNN tests", "NNN pass", "N fail") mentioned in the progress_log.md entries
-   you read, `forecasting/CLAUDE.md` "Current status", and any memory file surfaced in step 2. If the
+   you read, `decide/CLAUDE.md` "Current status", and any memory file surfaced in step 2. If the
    real count disagrees with a quoted one, that's drift — note it. If everything agrees (or nothing
    quotes a count), there's nothing to flag.
 
@@ -30,7 +30,7 @@ Memory:      <any memory item directly relevant to the current branch or phase; 
 Model:       <model value from settings.json>
 Effort:      <effortLevel value from settings.json>
 Ready:       Yes — /build-phase <Pn> to proceed, or ask a question.
-Drift:       <only if step 5 found one — e.g. "forecasting/CLAUDE.md says 164 pass; make test shows 181">
+Drift:       <only if step 5 found one — e.g. "decide/CLAUDE.md says 164 pass; make test shows 181">
 ```
 
 No narrative. No offers to help further. Just the brief.

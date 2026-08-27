@@ -170,9 +170,9 @@ parallel, ongoing spaced-repetition track that gates nothing. This resolves that
 - **`tests/test_phase_gate_artifacts.py` deleted** — it was the CI teeth enforcing the gate's
   `Pn.md` artifact; with no gate there is no artifact to enforce. Suite: **181 → 175 pass** (−6). All
   175 green, verified via `make test`.
-- Governance/doc references updated across `CLAUDE.md`, `forecasting/CLAUDE.md`, `README.md`,
+- Governance/doc references updated across `CLAUDE.md`, `decide/CLAUDE.md`, `README.md`,
   `docs/overview_and_method.md` (the "say it to a chef" / part-4 subsections rewritten out),
-  `docs/phase_build_review_workflow.md`, `forecasting/docs/{construction_roadmap,README,
+  `docs/phase_build_review_workflow.md`, `docs/engine/{construction_roadmap,README,
   mastery_and_customer_language}.md`, `docs/common_base_reconciliation.md`, the two on-ramp seam/vision
   docs, `schemas/__init__.py`, rule `05`, and `toolbox-auditor.md` (now audits whether the `/learn`
   track is real or an inert all-L0 ledger). `efficiency_backlog.md` #8 updated from "retired by
@@ -205,7 +205,7 @@ protection as a required status check ... haven't been exercised." Both now done
   PRs; it only makes the check binding for whatever PRs do get opened. Confirmed live via
   `gh api repos/Jays-hub/oracle/branches/main/protection`.
 - **Planted-failure PR, run end-to-end.** Branch `test/planted-ci-failure` added one file
-  (`forecasting/tests/test_planted_ci_failure.py`, a bare `assert False`) — no production code
+  (`tests/test_planted_ci_failure.py`, a bare `assert False`) — no production code
   touched. Pushed, opened as PR #1, watched `gh run view` go `completed failure` on the `guard-set`
   check.
 - **Merge block confirmed two ways, not just inferred.** `gh pr view --json mergeStateStatus` read
@@ -271,7 +271,7 @@ happened rather than remaining a proposal.
   branch protection as a required status check (the original done-when) haven't been exercised.
 - **#13, commit-at-phase-granularity.** Actually done, not just adopted as a going-forward practice:
   the accumulated items-1-12 diff was split into 10 scoped commits and pushed. One known scoping
-  imperfection: `forecasting/CLAUDE.md`'s full diff landed entirely in commit 1 (`2a7afc9`) instead of
+  imperfection: `decide/CLAUDE.md`'s full diff landed entirely in commit 1 (`2a7afc9`) instead of
   being split across commits 1/3/4/11 as intended — `git commit -m "..." <pathspec>` re-stages a
   pathspec's *entire* working-tree diff, silently overriding an earlier partial `git add -p` stage on
   the same file. Documented in commit 7's message rather than fixed via amend, per the standing
@@ -291,13 +291,13 @@ Worked the 13-item risk×leverage backlog from the second audit, in critical-pat
 
 - **#1 Makefile.** `Makefile` (`test`/`lint`/`import-lint`/`check`, all hard-coded to
   `conda run -n restaurant-dev`). Repointed `build-phase.md`, `review-phase.md`,
-  `phase-reviewer.md`/`web-reviewer.md`, `settings.local.json`, and one `forecasting/CLAUDE.md` line
+  `phase-reviewer.md`/`web-reviewer.md`, `settings.local.json`, and one `decide/CLAUDE.md` line
   at `make test`/`make lint`. Fixed 4 pre-existing ruff errors surfaced along the way (unused imports,
   one `== True` comparison) so `make lint` starts clean.
 - **#2 lag-7 test.** Traced `_add_lag_features` by hand: the pipeline was already correct
   (`dense.shift(7)` correctly pulls d-7); the test's own comment conflated 1-indexed "day 1" with
   array index 1 and asserted `1.0` instead of `0.0`. Fixed the assertion, not the implementation —
-  recorded in `forecasting/docs/construction_roadmap.md` Phase 2 and `forecasting/CLAUDE.md`.
+  recorded in `docs/engine/construction_roadmap.md` Phase 2 and `decide/CLAUDE.md`.
 - **#3 CI.** `.github/workflows/ci.yml` — builds a conda env literally named `restaurant-dev` (matches
   the Makefile hardcode), installs `requirements.lock.txt`, runs `make lint` / `make import-lint` /
   `make test`. **Not yet verified end-to-end**: that requires pushing and opening a PR (a shared-state
@@ -308,12 +308,12 @@ Worked the 13-item risk×leverage backlog from the second audit, in critical-pat
   plus an `independence` contract for the onramp/forecasting seam. Found one real, legitimate exception
   (`models/baselines.py` imports `evaluate/objective.py`'s pure Co/Cu math for self-scoring, zero I/O,
   never touches `_truth`) — carved out via `ignore_imports`, documented inline rather than loosened
-  wholesale. `tests/test_import_boundaries.py` proves the contract has teeth: plants a real
+  wholesale. `tests/platform/test_import_boundaries.py` proves the contract has teeth: plants a real
   `models/_planted_violation_tmp.py` importing `evaluate.backtest`, confirms `lint-imports` goes
   BROKEN, cleans up, confirms green again.
 - **#5 deny hook.** `.claude/hooks/deny_truth_access.py` (`PreToolUse`/`Bash`, wired in the new shared
   `.claude/settings.json`): denies any command whose text references `data/_truth/` unless it also
-  resolves into `forecasting/src/simulate`, `forecasting/src/evaluate`, `pytest`, or `make
+  resolves into `ingest/simulate`, `evaluate`, `pytest`, or `make
   test|check|lint`. Verified live against the real Bash tool (a direct `cat data/_truth/...` was
   blocked with the hook's message; `make test` ran unaffected). `tests/test_truth_access_hook.py`
   pipes synthetic stdin at the script for 7 accept/reject cases. `.claude/settings.local.json`
@@ -352,7 +352,7 @@ Worked the 13-item risk×leverage backlog from the second audit, in critical-pat
   also still open from before this pass and is the natural vehicle for this dry run.
 - **#9 memory demotion.** `project_status.md` (auto-memory) replaced wholesale — was carrying a full
   P0-P2 build narrative including stale counts ("149 tests" vs. real 164 at the time); now a 3-line
-  pointer to `progress_log.md` + `forecasting/CLAUDE.md` "Current status". `/session-start` gained a
+  pointer to `progress_log.md` + `decide/CLAUDE.md` "Current status". `/session-start` gained a
   step 5 drift self-check: run `make test`, extract any quoted test-count claims from the sources it
   already reads, flag a mismatch as an 11th `Drift:` line (present only when something's actually
   wrong, so the common healthy case stays the same 10 lines).
@@ -372,9 +372,9 @@ Worked the 13-item risk×leverage backlog from the second audit, in critical-pat
   pointers — likely improved in the 2026-06-30 gate-inversion pass, ahead of what this backlog item's
   original audit-#1-era file counts assumed. Fixed the genuine remainder: `build-phase.md`'s
   Anti-Drift paragraph nearly word-for-word duplicated `CLAUDE.md`'s without even citing it (now a
-  pointer); `forecasting/CLAUDE.md` restated both Anti-Drift and dollars-not-accuracy in its own words
+  pointer); `decide/CLAUDE.md` restated both Anti-Drift and dollars-not-accuracy in its own words
   (now points to `../CLAUDE.md`/rule `03`, keeping only genuinely engine-specific detail — the Phase
-  4/5-7 mapping); `forecasting/CLAUDE.md` also restated the raw/truth firewall twice **within itself**
+  4/5-7 mapping); `decide/CLAUDE.md` also restated the raw/truth firewall twice **within itself**
   (once under "This is a simulation", again under "Shared store & the on-ramp") — consolidated to one.
 - **#12 retired.** Its own text said "retire this item once #10 lands" — #10 landed.
 - **#13 practice adopted, not yet applied.** No code artifact for this one — it's a commit-granularity
@@ -490,8 +490,8 @@ verdict — P0–P8). New peer pair for the on-ramp web stack:
   format, severity tiers, and COMPREHENSION HANDOFF sign-off as `phase-reviewer`; verdict still
   doesn't self-close the phase.
 - `.claude/commands/review-web.md` (new) — `/review-web Wn`, scoped to
-  `onramp/plate_cost/docs/website_vision.md` §8 acceptance criteria instead of
-  `forecasting/docs/construction_roadmap.md`. Same diff-base + decision-log gathering, same
+  `docs/onramp/website_vision.md` §8 acceptance criteria instead of
+  `docs/engine/construction_roadmap.md`. Same diff-base + decision-log gathering, same
   comprehension-exit-gate section as `/review-phase`, copied verbatim where the gate logic doesn't
   differ by domain.
 
@@ -526,7 +526,7 @@ Files changed in this pass:
   Jay explains the finished work; dropped the stale "fixes re-enter the pre-code gate" framing.
 - `.claude/agents/phase-reviewer.md` — sign-off adds a COMPREHENSION HANDOFF and states the verdict
   does not close the phase (cold-context subagent can't elicit/certify it).
-- `CLAUDE.md` (standing order #1 + the DuckDB line), `forecasting/CLAUDE.md` (PRIME DIRECTIVE),
+- `CLAUDE.md` (standing order #1 + the DuckDB line), `decide/CLAUDE.md` (PRIME DIRECTIVE),
   `.claude/rules/05`, `README.md` — reframed from "gates every step / before code" to "review can't
   close until explained."
 - `docs/overview_and_method.md` — Comprehension Contract section rewritten (exit, not entrance; added

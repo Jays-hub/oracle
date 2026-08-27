@@ -57,7 +57,7 @@ Do not assume either. Prove one.
   `.claude/settings.local.json`.
 - **The apparatus's self-record:** `docs/agentic_workflow/{README,current_state,efficiency_backlog,
   lessons,reviewer_report_format,subagent_workflow_deliverables}.md`.
-- **The governance it enforces:** `CLAUDE.md`, `forecasting/CLAUDE.md`, `onramp/**/CLAUDE.md`,
+- **The governance it enforces:** `CLAUDE.md`, `decide/CLAUDE.md`, `surface/CLAUDE.md`,
   `data/CONTRACT.md`, and `docs/phase_decisions/` — list what is **actually** there vs. what the loop
   claims to produce.
 - **Git reality:** `git log --oneline`, `git status` — does the narrated process match the commit trail?
@@ -88,7 +88,7 @@ Do not assume either. Prove one.
 ## Step 2 — Axis B: token economics (measure, don't estimate)
 
 - Compute the **actual standing per-turn governance load** for each work mode: (i) an engine build turn
-  (`CLAUDE.md` chain + `forecasting/CLAUDE.md` + rules `00`,`99` always-on + path-scoped `01`–`04`),
+  (`CLAUDE.md` chain + `decide/CLAUDE.md` + rules `00`,`99` always-on + path-scoped `01`–`04`),
   (ii) an on-ramp turn (+ `05`–`07`), (iii) an idle/orientation turn. Report token counts per file and
   totals (word count × ~4/3 is an acceptable proxy; state your method).
 - Find waste with the repo's own lens: (a) rule `99` canary (~140 tok) auto-loads every turn forever for

@@ -3,7 +3,7 @@
 These describe the **on-disk shapes that cross the seam** between the two peers
 (``onramp/`` writes, ``forecasting/`` reads) — NOT the in-memory models. A denormalized
 ``bom.csv`` row is deliberately not the normalized ``RecipeLine`` in
-``onramp/plate_cost/src/bom/models.py``; the seam schema describes what is actually written
+``ingest/bom/models.py``; the seam schema describes what is actually written
 to disk and read back, per ``../data/CONTRACT.md``.
 
 Owned by neither peer; imported by both (the on-ramp validates on **write**, the engine will
@@ -58,7 +58,7 @@ class PriceObservationRow(BaseModel):
     """One row of ``data/raw/price_observations.csv`` — the invoice/price-history leg.
 
     Denormalized like ``BomRow``: ``ingredient_id`` is name-derived (``normalize_name()``), not a
-    UUID — the CLI-internal ``onramp/plate_cost/src/pricing/models.py::PriceObservation`` keys on
+    UUID — the CLI-internal ``measures/pricing/models.py::PriceObservation`` keys on
     a UUID, but that model never crosses the seam. This row is the on-disk shape; it deliberately
     joins to ``BomRow.ingredient_id`` on the same name-key convention rather than inventing a
     second ID scheme, so a price observation can be matched to a recipe ingredient without a
@@ -83,7 +83,7 @@ class FoodCostRow(BaseModel):
     (``normalize_name(dish_name)``) so the two legs join without a separate id scheme.
 
     Deliberately carries no ``menu_price``: menu price is user/operational catalog data (the
-    two-store laws, ``onramp/plate_cost/docs/website_production_overview.md`` §3) and never
+    two-store laws, ``docs/onramp/website_production_overview.md`` §3) and never
     crosses the seam — only this derived cost does. ``food_cost`` itself doesn't depend on
     ``menu_price`` either; recomputing it is triggered by the on-ramp's menu-price-save action
     (``src/costing/tenant_grid.py``), but the number itself is pure ingredient math.

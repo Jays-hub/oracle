@@ -1,25 +1,25 @@
 ---
 paths:
-  - "onramp/**/*.tsx"
-  - "onramp/**/*.jsx"
-  - "onramp/**/*.ts"
-  - "onramp/**/*.js"
-  - "onramp/**/*.css"
-  - "onramp/**/*.scss"
-  - "onramp/**/*.html"
-  - "onramp/**/*.svelte"
-  - "onramp/**/*.vue"
+  - "surface/**/*.tsx"
+  - "surface/**/*.jsx"
+  - "surface/**/*.ts"
+  - "surface/**/*.js"
+  - "surface/**/*.css"
+  - "surface/**/*.scss"
+  - "surface/**/*.html"
+  - "surface/**/*.svelte"
+  - "surface/**/*.vue"
 ---
 # Front-End & Client-UX Rules (the on-ramp website)
 
-**Scope.** The client-facing surfaces of the on-ramp (`onramp/**` front-end assets). These encode the
-on-ramp contract (`onramp/README.md`) and the precision discipline
-(`onramp/plate_cost/docs/seam_and_precision.md`) as UI law. Vision: `website_vision.md`.
+**Scope.** The client-facing surfaces of the on-ramp (`surface/**` front-end assets). These encode the
+on-ramp contract (`docs/onramp_service.md`) and the precision discipline
+(`docs/onramp/seam_and_precision.md`) as UI law. Vision: `website_vision.md`.
 
 ## Dollar-Legible Value First (the on-ramp's reason to exist)
 - **Every primary view surfaces a number the operator already tracks** — a plate cost, a margin in
   dollars, money-on-the-table — large and unambiguous, above the fold. This is on-ramp contract #1
-  (`onramp/README.md`): instant, dollar-legible value, no "input now, payoff later" valley.
+  (`docs/onramp_service.md`): instant, dollar-legible value, no "input now, payoff later" valley.
 - **Charts support the number; they never replace it.** A quadrant or trend line is context for a
   dollar figure, not a substitute. If a screen's most prominent element is not a number the operator
   cares about, the screen is wrong.
