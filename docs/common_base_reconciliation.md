@@ -5,7 +5,7 @@ common database. It is the record of *why* the shared store is shaped the way it
 plan for turning today's `data/` folder into a queryable common base **without** breaking the
 discipline the whole project depends on.
 
-**Companions:** `data/CONTRACT.md` (the store *as contracted today*), `forecasting/docs/simulated_data.md`
+**Companions:** `data/CONTRACT.md` (the store *as contracted today*), `docs/engine/simulated_data.md`
 (the schemas + generative process), `.claude/rules/01-data-ingestion.md` (the enforced law).
 
 ---
@@ -82,17 +82,17 @@ and scores against `_truth/` — which only `simulate/` writes and only `evaluat
 ## 6. Starting checklist — for the session that actually builds the DB
 
 Do **not** do these now (Phase 0, nothing built; Anti-Drift). When the time comes — i.e. once
-`forecasting/src/simulate/` emits real Parquet, or the first plate-cost BOM write happens — treat "stand
+`ingest/simulate/` emits real Parquet, or the first plate-cost BOM write happens — treat "stand
 up the shared query layer" as a normal phase (build freely, review closes on code merit;
 `.claude/rules/00-process.md`), then:
 
 1. **Land the store as Parquet, not CSV**, under the existing `data/{raw,interim,processed,_truth}/`
    layout. Parquet keeps types and is what DuckDB reads fastest. (CSV is fine for tiny seed tables.)
-2. **Write a single DB-access helper** (suggested: `forecasting/src/data/store.py`) that opens a
+2. **Write a single DB-access helper** (suggested: `ingest/demand/store.py`) that opens a
    DuckDB connection and exposes *read* views over `data/raw/**` only. Model/feature code imports
    this helper; it **refuses** to register any `_truth/**` or `interim/processed` glob. This is the
    path assertion, relocated into the query layer.
-3. **Keep the truth reader separate** — `forecasting/src/evaluate/` gets its *own* helper that may
+3. **Keep the truth reader separate** — `evaluate/` gets its *own* helper that may
    open `data/_truth/**`. Nothing else imports it. (Single funnel for the oracle — rule 01.)
 4. **Define the `schemas/` definitions** for the seam files (pydantic/pandera) and validate on the
    on-ramp's write **and** the engine's read. This is the moment `schemas/` stops being empty.
@@ -111,7 +111,7 @@ up the shared query layer" as a normal phase (build freely, review closes on cod
   with the hierarchy phase, not before.
 - **Real exports replacing the simulation:** when a live POS/invoice feed lands, the `schemas/`
   schemas become the ingestion gate; confirm the simulated schema and the real schema agree (they
-  should, by construction of `forecasting/docs/simulated_data`).
+  should, by construction of `docs/engine/simulated_data`).
 
 ---
 

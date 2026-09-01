@@ -1,0 +1,133 @@
+"""Popularity x margin classification (L2 derived measures).
+
+Quadrants (Star / Plowhorse / Puzzle / Dog), food-cost tiers, the $0.25 rounding convention, and
+the covers-join honesty check. Pure math over costed dishes — no I/O, no framework, no rendering.
+Terminal rendering lives in `surface/report/grid.py` (L4); canonicalization in
+`identity/canonicalize.py` (L1). Consumed by `measures/costing/tenant_grid.py`, the web views, and
+the CLI runner alike, so all three classify a dish identically.
+"""
+from dataclasses import dataclass
+from uuid import UUID
+
+from identity.canonicalize import normalize_name
+
+# Tiers based on food cost % (cost / menu_price) — the language chefs use.
+# Low food cost % = strong margin. <25% strong, 25-35% acceptable, >35% thin.
+_FOOD_COST_TIERS = [
+    (0.0,  0.25, "strong"),
+    (0.25, 0.35, "ok"),
+    (0.35, 1.0,  "thin"),
+]
+
+_QUADRANT_ORDER = ["Star", "Plowhorse", "Puzzle", "Dog"]
+
+QUADRANT_ACTIONS = {
+    "Star":      "Protect & promote",
+    "Plowhorse": "Reprice or renegotiate",
+    "Puzzle":    "Reposition or rename",
+    "Dog":       "Review — consider removing",
+}
+
+
+@dataclass
+class DishResult:
+    # UUID for the sample-data/CLI path (src/bom/models.py::Dish); a seam-derived string
+    # (normalize_name(dish_name), schemas/seam.py::BomRow's convention) for the real-tenant path
+    # (src/costing/tenant_grid.py) — two id universes share this dataclass (rule 05 reuse) since
+    # build_grid()'s quadrant/tiering math is identical either way.
+    dish_id: UUID | str
+    name: str
+    menu_price: float
+    cost: float
+    margin: float
+    food_cost_pct: float   # cost / menu_price — the chef-legible metric
+    covers: int
+    quadrant: str
+    food_cost_tier: str
+
+
+def food_cost_tier(food_cost_pct: float) -> str:
+    for lo, hi, label in _FOOD_COST_TIERS:
+        if lo <= food_cost_pct < hi:
+            return label
+    return "thin"
+
+
+def food_cost_pct_display(cost: float, menu_price: float) -> float:
+    """Food-cost % rounded to the nearest whole percent BEFORE it's used to pick a tier — the
+    web templates display this same rounded value (``"%.0f"|format(pct*100)``), so binning from
+    the unrounded fraction could show a number and a tier label that contradict each other at a
+    boundary (e.g. 24.80% displays "25%" but a raw-fraction bin would still call it "strong",
+    whose own rule is <25% — W6_review.md MINOR-4). Round once, then bin from that same number."""
+    return round(cost / menu_price * 100) / 100
+
+
+def round_to_quarter(value: float) -> float:
+    return round(value * 4) / 4
+
+
+def build_grid(
+    dish_costs: dict[UUID | str, tuple],  # {dish_id: (Dish, cost_float)}
+    covers: dict[str, int],         # {dish_name: total covers over period}
+) -> list[DishResult]:
+    # Match on a canonical key so a stray space / case difference doesn't silently score 0 covers.
+    covers = {normalize_name(k): v for k, v in covers.items()}
+    rows: list[DishResult] = []
+    for dish_id, (dish, cost) in dish_costs.items():
+        m = dish.menu_price - cost
+        fcp = cost / dish.menu_price
+        rows.append(DishResult(
+            dish_id=dish_id,
+            name=dish.name,
+            menu_price=dish.menu_price,
+            cost=cost,
+            margin=m,
+            food_cost_pct=fcp,
+            covers=covers.get(normalize_name(dish.name), 0),
+            quadrant="",
+            food_cost_tier=food_cost_tier(fcp),
+        ))
+
+    if not rows:
+        return rows
+
+    mean_covers = sum(r.covers for r in rows) / len(rows)
+    mean_margin = sum(r.margin for r in rows) / len(rows)
+
+    for r in rows:
+        pop_high = r.covers >= mean_covers
+        margin_high = r.margin >= mean_margin
+        if pop_high and margin_high:
+            r.quadrant = "Star"
+        elif pop_high and not margin_high:
+            r.quadrant = "Plowhorse"
+        elif not pop_high and margin_high:
+            r.quadrant = "Puzzle"
+        else:
+            r.quadrant = "Dog"
+
+    return sorted(
+        rows,
+        key=lambda r: (_QUADRANT_ORDER.index(r.quadrant), -r.margin),
+    )
+
+
+def covers_join_report(
+    dish_costs: dict,                                  # {dish_id: (Dish, cost_float)}
+    dishes: dict,                                       # {dish_id: Dish}
+    covers_by_key: dict[str, tuple[str, int]],          # {normalized_name: (display_name, count)}
+) -> tuple[list[str], list[str]]:
+    """Surface mislabels loudly: a costed dish that matched no sales row (scores 0 covers, so it
+    would land in 'Dog' by mislabel, not truth), and a sales row that matched no menu item (silently
+    excluded). Shared by the CLI (`run.py`) and the web reveal so both fail the same honest way.
+
+    Returns (unmatched_dishes, orphaned_sales), both sorted display names.
+    """
+    graded = {normalize_name(dish.name): dish.name for dish, _ in dish_costs.values()}
+    unmatched_dishes = sorted(name for key, name in graded.items() if key not in covers_by_key)
+
+    menu_keys = {normalize_name(d.name) for d in dishes.values()}
+    orphaned_sales = sorted(
+        display for key, (display, _) in covers_by_key.items() if key not in menu_keys
+    )
+    return unmatched_dishes, orphaned_sales

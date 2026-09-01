@@ -6,15 +6,25 @@
 > resolution) and crosses non-CS ground that buys the data access, before deepening the forecasting
 > engine further. Read **`docs/real_data_readiness.md`** first — it maps the gap and orders the work.
 
-One company, **two durable parts**, feeding a **common data store**:
+One company, **organized by capability layer**, over a **common data store**
+(restructured 2026-08-14 to `docs/repo_architecture.md` §6):
 
-- **`forecasting/`** — the core engine. Prep-demand forecasting under a waste framing (a daily prep
-  sheet). The moat. → `forecasting/CLAUDE.md`
-- **`onramp/`** — the on-ramp service: a durable bridge that delivers instant, dollar-legible value
-  and captures the engine's data in the same act. Current implementation: `onramp/plate_cost/`.
-  → `onramp/README.md`
-- **`data/`** — the common store, owned by neither peer. The on-ramp writes `data/raw/`; the engine
-  reads it. → `data/CONTRACT.md`
+| Dir | Layer | What lives there |
+|---|---|---|
+| `ingest/` | L0 | source adapters + capture: `capture/` `bom/` `demand/` `simulate/` |
+| `identity/` | L1 | canonicalization + unit algebra — **the gap the pivot is closing** |
+| `measures/` | L2 | plate cost, margin, the popularity×margin grid |
+| `decide/` | L3 | features, quantile models, newsvendor → `decide/CLAUDE.md` |
+| `surface/` | L4 | the operator web app, reports, the CLI → `surface/CLAUDE.md` |
+| `plays/` | ⊥ | one-off analyses; nothing may import them |
+| `evaluate/` | ⊥ | truth-scoring harness — the only reader of the hidden oracle |
+| `data/` | — | the common store, owned by no layer → `data/CONTRACT.md` |
+
+Two framings still matter and neither is a directory: the **engine** (the moat, the *end*) is
+`decide/` + `evaluate/` + `ingest/demand|simulate/`; the **on-ramp** (the durable capture bridge, the
+*means*) is `surface/` + `measures/` + `ingest/capture|bom/` → `docs/onramp_service.md`.
+
+The dependency direction is machine-checked: `.importlinter` + `make import-lint` in CI.
 
 Start with `CLAUDE.md` (the platform charter). The `docs/` encyclopedia is the deep "why" behind it.
 
@@ -22,7 +32,7 @@ Start with `CLAUDE.md` (the platform charter). The `docs/` encyclopedia is the d
 
 `CLAUDE.md` is the terse anchor; these are the human-readable deep dives. Read top-to-bottom in the
 order listed below the first time; thereafter use as reference. The chapters live in **two** places:
-platform-level method/strategy in `docs/`, engine-specific theory in `forecasting/docs/`.
+platform-level method/strategy in `docs/`, engine-specific theory in `docs/engine/`.
 
 **Platform — `docs/`** (cross-cutting; both peers depend on these)
 
@@ -37,15 +47,15 @@ platform-level method/strategy in `docs/`, engine-specific theory in `forecastin
 | `docs/discovery/discovery_and_validation.md` | Where the "Marco" data assumptions come from (the onboarding transcript), the cold-discovery question set, and the A1–A13 assumption decoder | Phase 1 data realism; and before any real customer interview. |
 | `docs/common_base_reconciliation.md` | The decision log for the shared data store: files vs. a real DB, DuckDB-over-Parquet, and how the raw/truth firewall survives the move | Before any session that builds out the common database. |
 
-**Engine — `forecasting/docs/`** (forecasting-specific theory)
+**Engine — `docs/engine/`** (forecasting-specific theory)
 
 | File | What it covers | When you need it |
 |---|---|---|
-| `forecasting/docs/conceptual_spine.md` | The **newsvendor** keystone — why the prep decision is a quantile, not a forecast; why waste falls out for free | Before any modeling. This is *the* idea. |
-| `forecasting/docs/simulated_data.md` | Full spec of the synthetic dataset: schemas, the generative process, the realism checklist, and the raw-vs-truth discipline | Phase 1, and any time you touch data. |
-| `forecasting/docs/construction_roadmap.md` | The phase-by-phase build plan (P0–P8): objective, why-now, code deliverables, practices invoked, done-when | Continuously. Your map start→finish. |
-| `forecasting/docs/data_hard_truths.md` | The 10 domain gotchas that separate "fits a model" from "understands restaurant data" | Drill these; they recur across phases. |
-| `forecasting/docs/mastery_and_customer_language.md` | Concepts to master + where to learn them, and the plain-language cheat sheet for talking to operators | Learning, and prepping customer conversations. |
+| `docs/engine/conceptual_spine.md` | The **newsvendor** keystone — why the prep decision is a quantile, not a forecast; why waste falls out for free | Before any modeling. This is *the* idea. |
+| `docs/engine/simulated_data.md` | Full spec of the synthetic dataset: schemas, the generative process, the realism checklist, and the raw-vs-truth discipline | Phase 1, and any time you touch data. |
+| `docs/engine/construction_roadmap.md` | The phase-by-phase build plan (P0–P8): objective, why-now, code deliverables, practices invoked, done-when | Continuously. Your map start→finish. |
+| `docs/engine/data_hard_truths.md` | The 10 domain gotchas that separate "fits a model" from "understands restaurant data" | Drill these; they recur across phases. |
+| `docs/engine/mastery_and_customer_language.md` | Concepts to master + where to learn them, and the plain-language cheat sheet for talking to operators | Learning, and prepping customer conversations. |
 
 **The one rule that governs everything:** code and the *why* advance together — but on parallel tracks.
 Code ships on its merits (build freely; review closes on code quality). Understanding is grown
@@ -57,10 +67,16 @@ software, data-science, and restaurant domains. It gates nothing. See `docs/over
 ```
 .
 ├── CLAUDE.md            # platform charter (start here)
-├── docs/               # platform encyclopedia: method, strategy, discovery + common-base record
-├── data/               # the common store (platform-owned): raw/ interim/ processed/ _truth/ + CONTRACT.md
-├── config/             # shared config (YAML)
-├── schemas/            # shared schemas both peers import
-├── forecasting/        # PEER 1 — the core engine (+ forecasting/docs/ = engine theory)
-└── onramp/             # PEER 2 — the on-ramp service → plate_cost/ (current implementation)
+├── .importlinter        # the layer arrows, machine-checked
+├── docs/                # platform encyclopedia (+ engine/ theory, onramp/ product docs)
+├── data/                # the common store, no code: raw/ canonical/ resolved/ marts/ runs/ _truth/ + CONTRACT.md
+├── config/  schemas/    # shared YAML config · the store's schemas
+├── ingest/              # L0  capture/ bom/ demand/ simulate/
+├── identity/            # L1  canonicalize.py units.py (+ the R2–R6 spec)
+├── measures/            # L2  grid.py pricing/ costing/ insights/
+├── decide/              # L3  features/ models/ newsvendor.py
+├── surface/             # L4  web/ report/ prep_sheet/ auth/ email/ run.py
+├── plays/  evaluate/    # ⊥   one-off analyses · truth-scoring harness
+├── store/  db/  econ/   # layer-neutral leaves
+└── tests/  scripts/  migrations/  examples/  notebooks/
 ```

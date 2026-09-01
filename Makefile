@@ -6,7 +6,7 @@
 CONDA_ENV := restaurant-dev
 RUN := conda run -n $(CONDA_ENV)
 
-.PHONY: test lint check import-lint migrate
+.PHONY: test lint check import-lint migrate serve serve
 
 test:
 	$(RUN) python -m pytest -q
@@ -19,9 +19,13 @@ import-lint:
 
 check: lint import-lint test
 
-# Applies the on-ramp app-DB migrations (W5) to whatever ONRAMP_DATABASE_URL points at (a
-# local gitignored SQLite file by default). cd'd into onramp/plate_cost/ because alembic.ini's
-# script_location is relative to that directory (matches how `python -m web` is also run from
-# there).
+# Applies the app-DB migrations (W5) to whatever ONRAMP_DATABASE_URL points at (a local
+# gitignored SQLite file by default). Runs from the repo root since the layer restructure:
+# alembic.ini sits there now, alongside every other entry point, so there is no cd to get wrong.
 migrate:
-	cd onramp/plate_cost && $(RUN) alembic upgrade head
+	$(RUN) alembic upgrade head
+
+# The operator-facing web app (L4). The repo root is the import root for every layer package,
+# so this is run from the root too — no sys.path bootstrap, no working-directory dependence.
+serve:
+	$(RUN) python -m surface.web

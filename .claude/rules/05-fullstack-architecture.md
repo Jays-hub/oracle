@@ -2,33 +2,33 @@
 # .py scoped to web/api/server/routes subdirs only: pure-compute plate-cost Python is
 # not the web stack these rules govern (toolbox_audit_2026-07-01.md, MINOR-05/07).
 paths:
-  - "onramp/**/web/**"
-  - "onramp/**/api/**"
-  - "onramp/**/server/**"
-  - "onramp/**/routes/**"
-  - "onramp/**/*.ts"
-  - "onramp/**/*.tsx"
-  - "onramp/**/*.js"
-  - "onramp/**/*.jsx"
-  - "onramp/**/*.sql"
+  - "surface/web/**"
+  - "surface/**/api/**"
+  - "surface/**/server/**"
+  - "surface/**/routes/**"
+  - "surface/**/*.ts"
+  - "surface/**/*.tsx"
+  - "surface/**/*.js"
+  - "surface/**/*.jsx"
+  - "surface/**/*.sql"
 ---
 # Full-Stack Architecture Rules (the on-ramp web stack)
 
-**Scope.** These rules govern the on-ramp's web stack (`onramp/**`) — the client-facing website and
+**Scope.** These rules govern the on-ramp's web stack (`surface/**`, `measures/**`) — the client-facing website and
 its backend. They are the full-stack peers of the engine rules (`02`–`04`, scoped to
-`forecasting/src/**`). The Comprehension Contract (`00-process.md`) governs them all; full vision in
-`onramp/plate_cost/docs/website_vision.md`.
+`ingest/**`, `decide/**`, `evaluate/**`). The Comprehension Contract (`00-process.md`) governs them all; full vision in
+`docs/onramp/website_vision.md`.
 
 ## The Seam Law for Web Code (Highest Priority — mirrors the engine's leakage canary)
 - **The web stack is an `onramp/` peer and obeys the one-way seam.** It **writes** captured data legs
   to `data/raw/` and reads its own working data from there. It **never** reads `data/_truth/`, never
-  reads the engine's `data/interim/` or `data/processed/`, and **never imports from `forecasting/`**.
+  reads the engine's `data/canonical/` or `data/marts/`, and **never imports from `forecasting/`**.
   The authority is `data/CONTRACT.md`; the law is `.claude/rules/01-data-ingestion.md`.
 - **All seam writes pass through `schemas/`.** Every row written to `data/raw/` is validated against
   the shared definitions in `schemas/seam.py` (`BomRow`, `SalesExportRow`, …) *before* it touches the
   store — the same head-chef gate the CLI export already uses. No hand-rolled CSV/Parquet writes that
   bypass the schema.
-- **Structural enforcement.** The cross-module boundary test (`tests/test_module_boundaries.py`)
+- **Structural enforcement.** The cross-module boundary test (`tests/platform/test_module_boundaries.py`)
   already asserts `onramp/` never imports `forecasting/` and never references a `_truth` path; it must
   keep passing as web code lands. When boundary rules proliferate, migrate it to import-linter (the
   switch-trigger note in `data/CONTRACT.md`).
@@ -40,7 +40,7 @@ its backend. They are the full-stack peers of the engine rules (`02`–`04`, sco
   artifact**, not two stores.
 - **The on-ramp owns its own store helper.** Because no peer may import the other, the on-ramp gets
   its own thin DuckDB access module (write Parquet to `data/raw/`, read its own files back). It does
-  **not** import the engine's future `forecasting/src/data/store.py`. The shared thing is the files +
+  **not** import the engine's future `store/__init__.py`. The shared thing is the files +
   `schemas/`, never the helper code. A little duplicated glue is the price the no-coupling rule charges.
 - **The store helper refuses non-`raw` globs.** The on-ramp's helper opens only `data/raw/**`. It
   must be structurally incapable of registering a `_truth/**`, `interim/**`, or `processed/**` path.
@@ -50,7 +50,7 @@ its backend. They are the full-stack peers of the engine rules (`02`–`04`, sco
   recorded, gated decision. Prefer Parquet over CSV for anything but tiny seed tables (types survive).
 
 ## Layering — Compute Stays Pure
-- **Three layers, one direction:** pure compute (`onramp/plate_cost/src/`) ← thin API/glue ←
+- **Three layers, one direction:** pure compute (`measures/`, `ingest/`) ← thin API/glue ←
   presentation (front end). Dependencies point inward; presentation never reaches past the API into
   the store, and the API never embeds business math the compute should own.
 - **The compute must remain runnable and unit-testable without the web layer.** No web framework

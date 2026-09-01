@@ -1,9 +1,18 @@
 # repo_architecture — Decision Record for the Multi-Restaurant Repo Shape
 
-**Status:** Shape **decided on paper, deliberately not yet built.** Read this before any session that
-restructures directories, adds a second real tenant, or stands up the pooling substrate. It records
-*why* the repo is shaped the way it is as real restaurants arrive, and — just as importantly — **how
-little of it to build now.**
+**Status:** Shape decided 2026-08-13; **§5 and §6 built 2026-08-14 (M5 + the `resolved/` layer).**
+The code tree now *is* the layer tree, and §5.3's arrows are enforced by `.importlinter` rather than
+remembered. **M4 (Hive-style partition directories) remains deliberately unbuilt** — its trigger is a
+second real tenant, and there is not yet a first. See §7 for the per-step status and §8 for why
+building more than this would be premature. Read this before any session that restructures
+directories, adds a second real tenant, or stands up the pooling substrate.
+
+> **What changed on 2026-08-14, and what did not.** Built: the layer directories (§5.3/§6), the
+> import contracts that express their arrows, the `resolved/` layer (M3), and the `runs/` directory
+> (M2's storage half — the manifest writer is still absent). Unchanged: the raw/truth firewall, the
+> tenant-isolation validator, and the `data/raw/<restaurant_id>/` on-disk layout. Not built: M1, M4,
+> and run manifests. §9.3's open question — whether the `forecasting/` + `onramp/` peer split
+> survives M5 — is now answered: it does not; the charter (`../CLAUDE.md`) says one thing.
 
 **Companions:** `real_data_readiness.md` (the L0–L5 gap analysis + R0–R6 order — read first),
 `common_base_reconciliation.md` (why the store is DuckDB-over-Parquet), `../data/CONTRACT.md` (the
@@ -196,17 +205,27 @@ sight — it is what makes every backtest in the project verifiable (`common_bas
 
 Ordered so that each step is independently useful and none is a big-bang rewrite.
 
-| Step | Change | Trigger |
-|---|---|---|
-| M1 | Add `source=` and `dt=` partition levels under the existing `data/raw/<restaurant_id>/` | R1, with the first real adapter |
-| M2 | Introduce `runs/` + manifests; have one technique write through it end-to-end | R1 |
-| M3 | Add the `resolved/` layer | R2, when ER produces its first output |
-| M4 | Rename `restaurant_id=<id>` to Hive-style partition dirs; point the DuckDB views at globs | when a **second real tenant** exists — not before |
-| M5 | Re-home code into the layer directories + import-linter contracts | when the layer boundaries are load-bearing, i.e. once `identity/` has real code |
+| Step | Change | Trigger | Status |
+|---|---|---|---|
+| M1 | Add `source=` and `dt=` partition levels under the existing `data/raw/<restaurant_id>/` | R1, with the first real adapter | **not built** — no adapter exists |
+| M2 | Introduce `runs/` + manifests; have one technique write through it end-to-end | R1 | **partial** — `data/runs/` exists; no manifest writer, no technique writing through it |
+| M3 | Add the `resolved/` layer | R2, when ER produces its first output | **built 2026-08-14** (directory + contract); nothing writes it until R2 |
+| M4 | Rename `restaurant_id=<id>` to Hive-style partition dirs; point the DuckDB views at globs | when a **second real tenant** exists — not before | **deliberately not built** |
+| M5 | Re-home code into the layer directories + import-linter contracts | when the layer boundaries are load-bearing, i.e. once `identity/` has real code | **built 2026-08-14** |
 
-**M4 and M5 are explicitly deferred.** At n=1 they are pure churn against 622 passing tests and buy
-nothing. The point of deciding the shape now is that M1–M3 can be built *compatible* with it, so M4/M5
-are renames rather than redesigns.
+**M5 was brought forward, at Jay's direction, ahead of its stated trigger.** The trigger said "once
+`identity/` has real code"; `identity/` today holds `canonicalize.py` and `units.py` — the
+casefold-and-convert primitives — and not the R2–R6 pipeline. The argument for waiting was that a
+re-home is churn against a green suite; the argument for going early is that every subsequent phase
+writes code into *some* directory, and R0–R6 are about to write a lot of it. Doing it now means R2's
+ER pipeline lands in `identity/` because that is where it belongs, rather than landing in whatever
+peer happened to own the file and being moved later. The cost was paid once, with the suite green
+either side (622 → 618 tests; the four dropped assertions were the peer-import checks, now subsumed
+by a strictly stronger `layer-direction` contract).
+
+**M4 stays deferred, and that is not an oversight.** Its trigger is a second real tenant; there is
+not yet a first. `tenant_raw_dir()` keeps writing `data/raw/<restaurant_id>/`, which carries the same
+information one rename away — exactly the compatibility this document was written to preserve.
 
 ## 8. What to build now — and the reason to build almost none of it
 
@@ -236,9 +255,13 @@ building anything.
    yours (§7.8.2), and `resolved/` is populated by import rather than by local matching.
 2. **Where the data root physically lives** — local disk, an object store, or a managed warehouse.
    Deliberately left open; the config indirection in §5.1 is what makes it a late, cheap decision.
-3. **Whether the existing `forecasting/` + `onramp/` peer split survives M5.** The layer directories
-   cut across it. Both framings can coexist (peers own layers) but the charter should eventually say
-   one thing — the same open item as `real_data_readiness.md` §6.
+3. ~~**Whether the existing `forecasting/` + `onramp/` peer split survives M5.**~~ **Answered
+   2026-08-14: it does not.** The layer directories replaced it, and `../CLAUDE.md` now says one
+   thing. The two *framings* survive as vocabulary because they carry real strategic meaning — the
+   engine is the moat and the *end* (`decide/` + `evaluate/` + `ingest/demand|simulate/`), the
+   on-ramp is the durable capture bridge and the *means* (`surface/` + `measures/` +
+   `ingest/capture|bom/`) — but neither is a directory, and `decide/CLAUDE.md` and
+   `surface/CLAUDE.md` are where each is governed.
 4. **Cross-tenant consent and contracts.** Pooling one operator's data to improve another's forecast
    is the moat *and* a commitment made to a real business. The technical shape here enables it; the
    agreement that permits it is not a repo decision and is not made here.

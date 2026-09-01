@@ -10,6 +10,55 @@ artifacts touched. Decisions link their record rather than restating it.
 
 ---
 
+## 2026-08-14 — Repo restructured to the layer shape (M5 + `resolved/`) `[built]` `[docs]`
+
+Executed `docs/repo_architecture.md` §5–§6: the `forecasting/` + `onramp/` peer split is gone, and
+code is organized by **capability layer** with the dependency direction machine-checked. This is M5
+(and M3, and M2's storage half) from that document's migration table.
+
+**Note on sequencing, since the decision record said otherwise.** §7 deferred M5 until `identity/`
+had real code, and §8 argued for building almost none of this yet. Jay directed it now. The reasoning
+recorded in `repo_architecture.md` §7: R0–R6 are about to write a lot of code, and doing the re-home
+first means R2's ER pipeline lands in `identity/` because that is where it belongs, instead of
+landing in whatever peer owned the file and being moved later. **M4 (Hive-style partition dirs) was
+*not* built** — its trigger is a second real tenant and there is not yet a first.
+
+- **The layer tree.** `ingest/` (L0: `capture/ bom/ demand/ simulate/`) · `identity/` (L1:
+  `canonicalize.py units.py` + the R2–R6 spec) · `measures/` (L2) · `decide/` (L3) · `surface/` (L4)
+  · `plays/` (⊥, new and empty) · `evaluate/` (⊥, the oracle reader) · `store/ db/ econ/ schemas/`
+  (layer-neutral leaves). Every move used `git mv`, so history follows the files.
+- **Three functions were re-homed, not just renamed.** `normalize_name()` moved out of the on-ramp's
+  report module into `identity/canonicalize.py` — `identity/__init__.py` already *called* it the
+  current whole of ER, and now the tree says so. `units.py` moved to `identity/` (the charter lists
+  unit algebra under L1). `grid.py` split: quadrant/tier math to `measures/grid.py` (L2), terminal
+  rendering to `surface/report/grid.py` (L4), which is what let the layer contract hold.
+- **`.importlinter` replaced two peer arrows with four contracts:** `layer-direction` (the whole
+  chain), `truth-firewall` (the `_truth` law, with the one sanctioned `baselines -> objective`
+  exception preserved), `plays-are-terminal`, `shared-modules-are-leaves`. Standing order #4's
+  code-level half is now a CI check rather than something an agent must remember. **The bottom of the
+  layer stack inverts L0/L1 deliberately** — `identity/` holds pure primitives today, so it is a leaf
+  everything may use; the contract file records that R2's *pipeline* belongs above `ingest/`, not
+  inside this leaf.
+- **Store gained `data/resolved/`** (M3 — where L1 output lands; nothing writes it until R2) and
+  `data/runs/` (M2 storage; the manifest writer is still absent). `interim/` → `canonical/`,
+  `processed/` → `marts/`. `data/CONTRACT.md` rewritten; the raw/truth firewall is unchanged.
+- **Tests: 622 → 618, and the four are accounted for.** The dropped assertions were the peer-import
+  checks (`onramp` never imports `forecasting` and its mirror) plus the local mirror suite that
+  existed only because `onramp/plate_cost/` had a second pytest root. Both are subsumed by
+  `layer-direction`, which covers strictly more. `tests/` is now one tree with per-layer directories;
+  the app-DB fixture is autouse only under `tests/surface/` so engine tests no longer drag in the
+  web/ORM stack.
+- **Entry points simplified.** Three `sys.path` bootstraps deleted (the repo root is now the single
+  import root), `alembic` and `python -m surface.web` both run from the root, `make serve` added.
+  Verified end-to-end: `make check` green (ruff + 4 contracts + 618 tests), the CLI prints its grid,
+  the app builds its 22 routes, `alembic upgrade head` runs, all three scripts import.
+- **Docs.** `CLAUDE.md`, `README.md`, `decide/CLAUDE.md` (was `forecasting/CLAUDE.md`),
+  `surface/CLAUDE.md` (was `onramp/plate_cost/CLAUDE.md`), the seven `.claude/rules/`, the agents and
+  commands, and `data/CONTRACT.md` all rewritten to the layer shape. **The historical record was left
+  alone on purpose** — `docs/phase_decisions/`, this log's earlier entries, and `docs_archive/` keep
+  the old paths, because they record what was true when written. `repo_architecture.md` §9.3 and
+  `real_data_readiness.md` §6.3 (both asking whether the peer split survives) are now answered.
+
 ## 2026-08-13 — Pivot: entity resolution first, real data as the goal `[decided]` `[docs]`
 
 Jay's approach shifted from "ship a forecasting product behind an on-ramp product" to **"progress this

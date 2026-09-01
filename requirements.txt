@@ -18,9 +18,9 @@ duckdb>=0.10         # shared query layer over data/raw/** (the on-ramp's store 
 pyarrow>=14.0        # pandas Parquet engine — required for to_parquet / read_parquet
 
 # ── Web layer: on-ramp website W0 (read-only plate-cost reveal, 2026-06-25) ──
-fastapi>=0.110       # ASGI framework for the on-ramp web layer (onramp/plate_cost/web/)
+fastapi>=0.110       # ASGI framework for the on-ramp web layer (surface/web/)
 jinja2>=3.1          # server-rendered HTML templates
-uvicorn[standard]>=0.28  # ASGI server (python -m web from onramp/plate_cost/)
+uvicorn[standard]>=0.28  # ASGI server (python -m surface.web from the repo root)
 httpx2>=2.5          # TestClient dependency (Starlette 1.x prefers httpx2 over httpx)
 
 # ── Web layer: on-ramp website W1 (self-serve capture funnel, 2026-07-02) ──
@@ -33,24 +33,24 @@ python-multipart>=0.0.9  # FastAPI UploadFile/Form parsing (POST /upload, POST /
 
 # ── Web layer: on-ramp website W5 (the designated app DB + real identity, 2026-07-13) ──
 SQLAlchemy>=2.0      # the on-ramp-private app DB ORM (users, restaurants, sessions, staged uploads)
-alembic>=1.13        # schema migrations for the app DB (onramp/plate_cost/migrations/)
+alembic>=1.13        # schema migrations for the app DB (migrations/)
 argon2-cffi>=23.1    # slow-KDF password hashing, replacing W2's single-credential SHA-256 placeholder
 
 # ── Forecasting engine P0: the decision frame (2026-06-29) ──
-numpy>=1.26          # the dollar objective math (forecasting/src/evaluate/objective.py)
-PyYAML>=6.0          # load + validate config/items.yaml (forecasting/src/config.py)
+numpy>=1.26          # the dollar objective math (evaluate/objective.py)
+PyYAML>=6.0          # load + validate config/items.yaml (econ/__init__.py)
 
 # ── Forecasting engine P2: the point model (2026-06-30) ──
 lightgbm>=4.0         # GlobalLGBMModel — Poisson objective, item_id as native categorical
-                      # (forecasting/src/models/point.py)
+                      # (decide/models/point.py)
 scipy>=1.11           # was already lightgbm's transitive dependency; now also used directly by
-                      # forecasting/src/models/unconstrain.py (P3) for the NegBin/Poisson
+                      # decide/models/unconstrain.py (P3) for the NegBin/Poisson
                       # method-of-moments fit + truncated tail expectation
 
 # ── Forecasting engine P4: distribution + the newsvendor turn (2026-07-04) ──
 scikit-learn>=1.4     # mapie's dependency; also the sklearn Estimator API
-                      # lightgbm.LGBMRegressor (forecasting/src/models/quantile.py) implements
-mapie>=1.4            # conformalized quantile regression (forecasting/src/evaluate/calibration.py)
+                      # lightgbm.LGBMRegressor (decide/models/quantile.py) implements
+mapie>=1.4            # conformalized quantile regression (evaluate/calibration.py)
 
 # ── Added later, when their phase arrives — NOT installed now (Anti-Drift) ──
 # pandera>=0.18       # alternative to pydantic for the seam schemas in schemas/

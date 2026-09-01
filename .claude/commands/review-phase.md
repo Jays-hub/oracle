@@ -26,7 +26,7 @@ Before launching, gather two things:
 
 Prompt to give the subagent:
 > Adversarially review phase **$ARGUMENTS** of this repo. Acceptance criteria = that phase's section in
-> `forecasting/docs/construction_roadmap.md` (engine) or `onramp/plate_cost/docs/website_vision.md`
+> `docs/engine/construction_roadmap.md` (engine) or `docs/onramp/website_vision.md`
 > section 8 (on-ramp), with the dollar-gated "done when" as the bar. Obey your full reviewer protocol:
 > ground yourself, **run `make test` and `make lint` and the phase's own metric yourself**, hunt the leakage /
 > seam-firewall / dollar-verdict / split / reproducibility list, check against `data/_truth/` where the

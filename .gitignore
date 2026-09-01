@@ -1,14 +1,18 @@
 # ── Data ─────────────────────────────────────────────────────────────
 # Synthetic data is regenerable from config/sim.yaml + a fixed seed
-# (forecasting/docs/simulated_data), so it isn't committed. data/_truth/ is the
+# (docs/engine/simulated_data.md), so it isn't committed. data/_truth/ is the
 # hidden oracle (scoring only) and must never be version-controlled. We ignore the
 # CONTENTS but keep each dir's .gitkeep so the skeleton is tracked on a fresh clone.
 /data/raw/*
 !/data/raw/.gitkeep
-/data/interim/*
-!/data/interim/.gitkeep
-/data/processed/*
-!/data/processed/.gitkeep
+/data/canonical/*
+!/data/canonical/.gitkeep
+/data/resolved/*
+!/data/resolved/.gitkeep
+/data/marts/*
+!/data/marts/.gitkeep
+/data/runs/*
+!/data/runs/.gitkeep
 /data/_truth/*
 !/data/_truth/.gitkeep
 *.duckdb
@@ -17,7 +21,7 @@
 # The designated application database (docs/website_production_overview.md §3) — SQLite by
 # default, on-ramp-private, and deliberately NOT under /data/ above (that directory is the
 # platform seam, owned by neither peer; the app DB never crosses it).
-/onramp/plate_cost/instance/
+/instance/
 
 # ── Discovery — real customer recordings & raw transcripts ───────────
 # This repo is PUBLIC. A real, identifiable operator's recorded voice and full

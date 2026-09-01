@@ -27,8 +27,8 @@ Before launching, gather two things:
 
 Prompt to give the subagent:
 > Adversarially review on-ramp web phase **$ARGUMENTS** of this repo. Acceptance criteria = that
-> phase's entry in `onramp/plate_cost/docs/website_vision.md` section 8, read alongside the on-ramp
-> contract in `onramp/README.md`. Obey your full reviewer protocol: ground yourself, **run the on-ramp
+> phase's entry in `docs/onramp/website_vision.md` section 8, read alongside the on-ramp
+> contract in `docs/onramp_service.md`. Obey your full reviewer protocol: ground yourself, **run the on-ramp
 > test suite and lint/type-check yourself**, hunt the seam-firewall / architecture-layering / UI-trust
 > (false precision, non-reconciling numbers, tenant isolation) / API-boundary / error-handling list, and
 > end with the structured findings + honest sign-off. Here is the diff base: {git output}. Before

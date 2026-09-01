@@ -1,30 +1,111 @@
+; Import-graph contracts for the layer-ordered repo (docs/repo_architecture.md §5.3).
+;
+; The point of the restructure: standing order #4 ("respect the prerequisite order") stops being a
+; thing an agent has to remember and becomes a thing CI checks. Every arrow below is one of the
+; document's arrows, expressed mechanically.
+
 [importlinter]
 root_packages =
-    forecasting
-    onramp
+    ingest
+    identity
+    measures
+    decide
+    surface
+    evaluate
+    plays
+    store
+    db
+    econ
     schemas
 
-[importlinter:contract:engine-truth-firewall]
-name = Engine model-path code (data/features/models/decision/report) must never import the truth-scoring module
+; ---------------------------------------------------------------------------------------------
+; The dependency chain. Higher layers may import lower ones; never the reverse.
+;
+; Read top-down this is L4 -> L3 -> L2 -> L0 -> L1, which inverts the charter's L0/L1 numbering at
+; the bottom, deliberately and only there. The L0-L5 order in CLAUDE.md is a *capability* order
+; (you cannot resolve entities before you can read a POS export). identity/ today holds only L1
+; *primitives* -- pure canonicalization and unit algebra, no I/O, no data dependency -- and a
+; primitive is a leaf: everything may use it, it uses nothing. Placing it at the bottom is what
+; enforces that it stays one, and the adapters that canonicalize as they land data (ingest/capture)
+; can then depend on the identity vocabulary rather than re-implementing casefold() locally, which
+; is how the four-tomato failure in identity/__init__.py gets fixed in one place.
+;
+; R2's ER *pipeline* (blocking -> matching -> clustering -> adjudication) is the opposite shape: it
+; consumes ingest output, so it belongs in a package layered ABOVE ingest, not inside this leaf.
+; Split it then; do not relax this contract to accommodate it.
+[importlinter:contract:layer-direction]
+name = Layers depend downward only (surface > decide > measures > ingest > identity)
+type = layers
+layers =
+    surface
+    decide
+    measures
+    ingest
+    identity
+
+; ---------------------------------------------------------------------------------------------
+; The raw/truth firewall (data/CONTRACT.md, .claude/rules/01-data-ingestion.md). evaluate/ is the
+; only reader of data/_truth/; if any module in the dependency chain can import it, the hidden
+; oracle is one indirection away from a model input. This is the contract that would have caught
+; the truth-tainted $159,435 floor.
+[importlinter:contract:truth-firewall]
+name = No layer in the dependency chain may import the truth-scoring package
 type = forbidden
 source_modules =
-    forecasting.src.data
-    forecasting.src.features
-    forecasting.src.models
-    forecasting.src.decision
-    forecasting.src.report
+    ingest
+    identity
+    measures
+    decide
+    surface
 forbidden_modules =
-    forecasting.src.evaluate
-# objective.py is pure Co/Cu math with zero I/O -- it never reads data/_truth/ and is the
-# sanctioned dollar-metric shared by baselines' self-scoring (rule 03, "dollars not accuracy").
-# Every OTHER path into evaluate/ (backtest, baseline_floor, and any future truth-loader) stays
-# forbidden; a new import there is exactly the leak class this contract exists to catch.
+    evaluate
+; objective.py is pure Co/Cu math with zero I/O -- it never reads data/_truth/ and is the
+; sanctioned dollar-metric shared by baselines' self-scoring (rule 03, "dollars not accuracy").
+; Every OTHER path into evaluate/ (backtest, baseline_floor, and any future truth-loader) stays
+; forbidden; a new import there is exactly the leak class this contract exists to catch.
 ignore_imports =
-    forecasting.src.models.baselines -> forecasting.src.evaluate.objective
+    decide.models.baselines -> evaluate.objective
 
-[importlinter:contract:seam-independence]
-name = onramp and forecasting couple only through the data/ seam, never through code imports
-type = independence
-modules =
-    forecasting
-    onramp
+; ---------------------------------------------------------------------------------------------
+; plays/ holds the §7.1 one-off analyses (merchant-processing audits, modifier-gap work). They are
+; stock, not flow: they read the store and emit a report. They fund the substrate but must never
+; become a dependency of it, or their commoditized, non-compounding nature infects the part that
+; does compound (docs/repo_architecture.md §5.3).
+[importlinter:contract:plays-are-terminal]
+name = Nothing may import plays/ -- one-off analyses are leaves, never dependencies
+type = forbidden
+source_modules =
+    ingest
+    identity
+    measures
+    decide
+    surface
+    evaluate
+    store
+    db
+    econ
+    schemas
+forbidden_modules =
+    plays
+
+; ---------------------------------------------------------------------------------------------
+; store/ (seam paths + tenant isolation), db/ (the app database), econ/ (newsvendor economics) and
+; schemas/ (the seam contract) sit outside the chain so any layer may use them. That privilege is
+; only safe while they stay leaves -- a layer-neutral module that imports a layer would smuggle
+; that layer into every other one.
+[importlinter:contract:shared-modules-are-leaves]
+name = Layer-neutral shared modules import no layer
+type = forbidden
+source_modules =
+    store
+    db
+    econ
+    schemas
+forbidden_modules =
+    ingest
+    identity
+    measures
+    decide
+    surface
+    evaluate
+    plays

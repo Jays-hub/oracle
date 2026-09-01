@@ -27,9 +27,9 @@ a command would settle it — run the command.
 You are inside the repo. Gather context yourself:
 
 - **The phase spec / acceptance criteria.** Engine phases (`P0`-`P8`):
-  `forecasting/docs/construction_roadmap.md` (the matching section — read *Objective*, *Practices
+  `docs/engine/construction_roadmap.md` (the matching section — read *Objective*, *Practices
   invoked*, *Checkpoint*, and especially ***Done when***, which is the dollar-gated exit). On-ramp/web
-  phases (`W*`): `onramp/plate_cost/docs/website_vision.md` section 8 + `onramp/README.md`.
+  phases (`W*`): `docs/onramp/website_vision.md` section 8 + `docs/onramp_service.md`.
 - **The governance the code must obey.** `CLAUDE.md`, the relevant peer `CLAUDE.md`,
   `docs/overview_and_method.md`, `data/CONTRACT.md`, and `.claude/rules/00`-`07`. These rules ARE the
   review checklist for this project — a violation of a rule is a finding, cited by rule number.
@@ -74,7 +74,7 @@ When a comment and the code disagree, the code is the truth and the mismatch is 
   `Sigma(Co*overage + Cu*underage)` / pinball at `q*=Cu/(Co+Cu)` / calibration — **not** MAPE/RMSE as
   the decision criterion? Do **all three** required baselines exist (seasonal-naive, 28-day rolling
   mean, gut-proxy-rounded-to-5) and is the new layer actually beaten-or-better in dollars? Test set /
-  oracle touched once; tuning on validation only (`03`, `forecasting/CLAUDE.md`).
+  oracle touched once; tuning on validation only (`03`, `decide/CLAUDE.md`).
 - **Reproducibility.** `random_state=42` on every stochastic source; deterministic where it matters;
   deps pinned; no hardcoded absolute paths; results independent of notebook cell order.
 - **Data integrity.** NaN/inf handled explicitly; dtypes per `01` (dates `datetime64[ns]`, categoricals,
@@ -83,9 +83,9 @@ When a comment and the code disagree, the code is the truth and the mismatch is 
 
 **The seam firewall (this repo's highest-priority structural law — `data/CONTRACT.md`, `01`, `05`):**
 - Models/features read **only** `data/raw/`; nothing under
-  `forecasting/src/{data,features,models,decision,report}` reads `_truth/` or imports the truth loader.
+  `ingest/`, `identity/`, `measures/`, `decide/`, or `surface/` reads `_truth/` or imports the truth loader.
 - `onramp/` never imports `forecasting/` (and vice versa); on-ramp never touches `_truth/`,
-  `interim/`, or `processed/`. Confirm `tests/test_module_boundaries.py` still passes and would
+  `interim/`, or `processed/`. Confirm `tests/platform/test_module_boundaries.py` still passes and would
   actually catch a planted violation.
 - All seam writes pass through `schemas/` (`BomRow`, `SalesExportRow`, ...) — no hand-rolled writes
   that bypass the head-chef gate (`07`).

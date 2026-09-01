@@ -1,7 +1,7 @@
 ---
 paths:
-  - "forecasting/src/features/**/*.py"
-  - "forecasting/notebooks/*.ipynb"
+  - "decide/features/**/*.py"
+  - "notebooks/*.ipynb"
 ---
 # Feature Engineering Rules
 

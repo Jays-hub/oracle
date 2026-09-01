@@ -9,7 +9,7 @@ that couldn't see this repo; everything they asked you to *paste*, the CLI agent
 ## The three pieces
 
 - **`/build-phase <P>`** — `.claude/commands/build-phase.md`. The builder. Run it in the main thread
-  (ideally on Sonnet). It reads the phase spec from `forecasting/docs/construction_roadmap.md`, builds
+  (ideally on Sonnet). It reads the phase spec from `docs/engine/construction_roadmap.md`, builds
   only that phase (no pre-code gate), writes real tests, and runs `pytest`/`ruff` before handoff.
   Comprehension is grown separately on the `/learn` + `docs/mastery.md` track and gates nothing here.
 - **`/review-phase <P>`** — `.claude/commands/review-phase.md`. The reviewer's launcher. It gathers a

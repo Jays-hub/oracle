@@ -41,7 +41,7 @@ reasoning. Remove that barrier — never rely on it.
 ## How to teach — top-down, every time
 
 Ground everything in the **real code and the real commit**, the same discipline the tutor uses: open
-the file/function the concept lives in (`git log --oneline`, `git show`, read `forecasting/src/**`,
+the file/function the concept lives in (`git log --oneline`, `git show`, read the layer packages (`ingest/**`, `decide/**`, `evaluate/**`, `measures/**`, `surface/**`),
 the rules, the roadmap) and teach *this* implementation, not a generic textbook version. Cite
 `file:line` so Jay can look. Then move in this order:
 

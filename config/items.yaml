@@ -2,14 +2,14 @@
 #
 # These values are the foundation of every evaluation in the forecasting engine.
 # "Done" is defined here — a model ships only if it reduces Σ(Co·overage + Cu·underage)
-# below the prior baseline. (forecasting/CLAUDE.md, .claude/rules/03-model-training.md)
+# below the prior baseline. (decide/CLAUDE.md, .claude/rules/03-model-training.md)
 #
 # PLACEHOLDER — these are "Marco" estimates for the simulation phase.
 # Real values come from a chef sitdown: food cost invoices + contribution margin math.
 #
 # Fields:
 #   id:               machine-stable slug (never rename after training data is written)
-#   name:             display name (matches sample_dishes.csv in onramp/plate_cost/data/)
+#   name:             display name (matches sample_dishes.csv in examples/)
 #   prep_type:        "batch" | "made_to_order"
 #                       batch       → dish-count newsvendor; appears on the prep sheet
 #                       made_to_order → ingredient par-level only; NOT on the prep sheet
@@ -23,7 +23,7 @@
 #
 # Derived at decision time (not stored here):
 #   q* = cu / (co + cu)   — the critical ratio; the quantile to prep at
-#   prep_qty = F^{-1}(q*) — computed in forecasting/src/decision/, not here
+#   prep_qty = F^{-1}(q*) — computed in decide/, not here
 
 items:
 

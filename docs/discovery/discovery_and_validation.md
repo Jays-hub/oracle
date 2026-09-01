@@ -1,7 +1,7 @@
 # Discovery & Validation (the "Marco" data source + the question set)
 
 Two things live here: (1) the **annotated onboarding conversation** that the simulated data's realism
-is modeled on (`forecasting/docs/simulated_data`) and that the strategic assumptions (`docs/strategic_context`) must be validated against, and
+is modeled on (`docs/engine/simulated_data`) and that the strategic assumptions (`docs/strategic_context`) must be validated against, and
 (2) the **cold-discovery question set** for real operator interviews. Everything strategic in this
 project is a hypothesis until real operators confirm it — this is how that confirmation gets done.
 
@@ -20,7 +20,7 @@ where the pain is.
 A worked onboarding with chef-owner "Marco" (70-seat full-service, 1 location, on Toast; 8 yrs;
 seasonal American; menu changes ~4×/yr; 180–190 covers Sat vs. ~50 slow Tue; sous "Dani" sets prep,
 owner overrides on weird weeks). **These are plausible placeholders, not validated facts** — but they
-are the spec the synthetic data (`forecasting/docs/simulated_data`) is built to mirror. What the conversation produced:
+are the spec the synthetic data (`docs/engine/simulated_data`) is built to mirror. What the conversation produced:
 
 **The two costs (two critical ratios, in his words).**
 - **Short rib → `Co` (overage).** Braised 30 for an expected-huge Saturday; it rained (120 covers, not
@@ -34,7 +34,7 @@ are the spec the synthetic data (`forecasting/docs/simulated_data`) is built to 
 **Censored demand (the silent killer).** "Does running out get recorded? Would Toast know you ran out
 at 8?" — "No. Toast shows 22 sold. Dani 86'd it on the board; by morning the board's wiped." True
 demand was 30+; train on 22 and you under-forecast your highest-margin dish forever, and the correction
-data evaporates each morning. So **capture 86 events from day one** (Hard Truth #1, `forecasting/docs/data_hard_truths`).
+data evaporates each morning. So **capture 86 events from day one** (Hard Truth #1, `docs/engine/data_hard_truths`).
 
 **Exogenous swings (all POS-blind, all gettable).** Amphitheater 8 blocks away (concert nights slam
 5:30, die 7:30 — currently caught only because "Dani's boyfriend works security"); the first warm
